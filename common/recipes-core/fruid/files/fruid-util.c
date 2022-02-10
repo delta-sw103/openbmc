@@ -47,16 +47,73 @@ static char pal_fru_list_rw_t[1024] = {0};
 static char pal_dev_list_print_t[1024] = {0};
 static char pal_dev_list_rw_t[1024] = {0};
 
-#ifdef CONFIG_FBY3_CWC
-#define EXP_FRU_FIRST 32
-#define EXP_FRU_LAST 33
-static char pal_exp_fru_list_print_t[1024] = {0};
-static char pal_exp_fru_list_rw_t[1024] = {0};
-static char pal_exp_dev_list_print_t[1024] = {0};
-static char pal_exp_dev_list_rw_t[1024] = {0};
-static uint8_t expFru = 0;
-static uint8_t cwcPlat = 0;
-#endif
+static char* rtrim(char* buf)
+{
+  if(strlen(buf) == 0) {
+    return buf;
+  }
+
+  char* pback = buf + strlen(buf);
+
+  while ((*(--pback) == ' ') && (pback >= buf));
+  pback++;
+  *pback = '\0';
+  return buf;
+}
+
+static void fruid_trim(fruid_info_t *fruid)
+{
+  if (fruid == NULL) {
+    return;
+  }
+
+  if (fruid->chassis.flag) {
+    rtrim(fruid->chassis.type_str);
+    if (FIELD_LEN(fruid->chassis.part_type_len) > 0) rtrim(fruid->chassis.part);
+    if (FIELD_LEN(fruid->chassis.serial_type_len) > 0) rtrim(fruid->chassis.serial);
+    if (fruid->chassis.custom1 != NULL) rtrim(fruid->chassis.custom1);
+    if (fruid->chassis.custom2 != NULL) rtrim(fruid->chassis.custom2);
+    if (fruid->chassis.custom3 != NULL) rtrim(fruid->chassis.custom3);
+    if (fruid->chassis.custom4 != NULL) rtrim(fruid->chassis.custom4);
+    if (fruid->chassis.custom5 != NULL) rtrim(fruid->chassis.custom5);
+    if (fruid->chassis.custom6 != NULL) rtrim(fruid->chassis.custom6);
+  }
+
+  if (fruid->board.flag) {
+    if (FIELD_LEN(fruid->board.mfg_type_len) > 0) rtrim(fruid->board.mfg);
+    if (FIELD_LEN(fruid->board.name_type_len)> 0) rtrim(fruid->board.name);
+    if (FIELD_LEN(fruid->board.serial_type_len) > 0) rtrim(fruid->board.serial);
+    if (FIELD_LEN(fruid->board.part_type_len) > 0) rtrim(fruid->board.part);
+    if (FIELD_LEN(fruid->board.fruid_type_len) > 0) rtrim(fruid->board.fruid);
+    if (fruid->board.custom1 != NULL) rtrim(fruid->board.custom1);
+    if (fruid->board.custom2 != NULL) rtrim(fruid->board.custom2);
+    if (fruid->board.custom3 != NULL) rtrim(fruid->board.custom3);
+    if (fruid->board.custom4 != NULL) rtrim(fruid->board.custom4);
+    if (fruid->board.custom5 != NULL) rtrim(fruid->board.custom5);
+    if (fruid->board.custom6 != NULL) rtrim(fruid->board.custom6);
+  }
+
+  if (fruid->product.flag) {
+    if (FIELD_LEN(fruid->product.mfg_type_len) > 0) rtrim(fruid->product.mfg);
+    if (FIELD_LEN(fruid->product.name_type_len) > 0) rtrim(fruid->product.name);
+    if (FIELD_LEN(fruid->product.part_type_len) > 0) rtrim(fruid->product.part);
+    if (FIELD_LEN(fruid->product.version_type_len) > 0) rtrim(fruid->product.version);
+    if (FIELD_LEN(fruid->product.serial_type_len) > 0) rtrim(fruid->product.serial);
+    if (FIELD_LEN(fruid->product.asset_tag_type_len) > 0) rtrim(fruid->product.asset_tag);
+    if (FIELD_LEN(fruid->product.fruid_type_len) > 0) rtrim(fruid->product.fruid);
+    if (fruid->product.custom1 != NULL) rtrim(fruid->product.custom1);
+    if (fruid->product.custom2 != NULL) rtrim(fruid->product.custom2);
+    if (fruid->product.custom3 != NULL) rtrim(fruid->product.custom3);
+    if (fruid->product.custom4 != NULL) rtrim(fruid->product.custom4);
+    if (fruid->product.custom5 != NULL) rtrim(fruid->product.custom5);
+    if (fruid->product.custom6 != NULL) rtrim(fruid->product.custom6);
+  }
+
+  if (fruid->multirecord_smart_fan.flag) {
+    if (fruid->multirecord_smart_fan.mfg_line != NULL) rtrim(fruid->multirecord_smart_fan.mfg_line);
+    if (fruid->multirecord_smart_fan.clei_code != NULL) rtrim(fruid->multirecord_smart_fan.clei_code);
+  }
+}
 
 static char* rtrim(char* buf)
 {
@@ -166,71 +223,6 @@ static bool is_in_list(const char *list, const char *name)
   return false;
 }
 
-#ifdef CONFIG_FBY3_CWC
-static void
-create_exp_dev_lists(const char *fru_name, uint8_t fru)
-{
-  uint8_t num_devs, dev;
-  unsigned int caps;
-
-  if (pal_get_num_devs(fru, &num_devs)) {
-    printf("%s: Cannot get number of devs\n", fru_name);
-    return;
-  }
-
-  for (dev = 5; dev <= num_devs; dev++) {
-    char name[128];
-    if (pal_get_dev_name(fru, dev, name)) {
-      printf("%s: Cannot get name for device: %u\n", fru_name, dev);
-      continue;
-    }
-    if (pal_get_dev_capability(fru, dev, &caps)) {
-      printf("%s:%s cannot get device capability\n", fru_name, name);
-      continue;
-    }
-    if ((caps & FRU_CAPABILITY_FRUID_READ) &&
-        !is_in_list(pal_exp_dev_list_print_t, name)) {
-      append_list(pal_exp_dev_list_print_t, name);
-    }
-    if ((caps & FRU_CAPABILITY_FRUID_WRITE) &&
-        !is_in_list(pal_exp_dev_list_rw_t, name)) {
-      append_list(pal_exp_dev_list_rw_t, name);
-    }
-  }
-}
-
-
-static void
-create_exp_fru_lists()
-{
-  uint8_t fru;
-  unsigned int caps;
-  for (fru = EXP_FRU_FIRST; fru <= EXP_FRU_LAST; fru ++) {
-    char name[64] = {0};
-    if(pal_get_fru_name(fru, name)) {
-      printf("Cannot get FRU Name for %d\n", fru);
-      continue;
-    }
-    if (pal_get_fru_capability(fru, &caps)) {
-      printf("%s: Cannot get FRU capability!\n", name);
-      continue;
-    }
-    if ((caps & FRU_CAPABILITY_HAS_DEVICE)) {
-      create_exp_dev_lists(name, fru);
-    }
-    if ((caps & FRU_CAPABILITY_FRUID_READ)) {
-      append_list(pal_exp_fru_list_print_t, name);
-    }
-    if ((caps & FRU_CAPABILITY_FRUID_WRITE)) {
-      append_list(pal_exp_fru_list_rw_t, name);
-    }
-  }
-  if (pal_exp_dev_list_print_t[0] != '\0') {
-    prepend_all(pal_exp_dev_list_print_t, 1024);
-  }
-}
-#endif
-
 static void
 create_dev_lists(const char *fru_name, uint8_t fru)
 {
@@ -262,6 +254,39 @@ create_dev_lists(const char *fru_name, uint8_t fru)
 }
 
 static void
+create_exp_fru_lists()
+{
+  uint8_t fru = 0, i = 0;
+  uint8_t list[MAX_NUM_FRUS] = {0}, len = 0;
+  unsigned int caps;
+
+  if (pal_get_exp_fru_list(list, &len) != PAL_EOK) {
+    return;
+  }
+  for (i = 0; i < len; i++) {
+    char arg[64] = {0};
+    fru = list[i];
+    if (pal_get_exp_arg_name(fru, arg) != PAL_EOK) {
+      printf("Cannot get FRU argument for %d\n", fru);
+      continue;
+    }
+    if (pal_get_fru_capability(fru, &caps)) {
+      printf("%s: Cannot get FRU capability!\n", arg);
+      continue;
+    }
+    if ((caps & FRU_CAPABILITY_HAS_DEVICE)) {
+      create_dev_lists(arg, fru);
+    }
+    if ((caps & FRU_CAPABILITY_FRUID_READ)) {
+      append_list(pal_fru_list_print_t, arg);
+    }
+    if ((caps & FRU_CAPABILITY_FRUID_WRITE)) {
+      append_list(pal_fru_list_rw_t, arg);
+    }
+  }
+}
+
+static void
 create_fru_lists(void)
 {
   uint8_t fru;
@@ -285,6 +310,9 @@ create_fru_lists(void)
     if ((caps & FRU_CAPABILITY_FRUID_WRITE)) {
       append_list(pal_fru_list_rw_t, name);
     }
+  }
+  if (pal_is_exp() == PAL_EOK) {
+    create_exp_fru_lists();
   }
   prepend_all(pal_fru_list_print_t, 1024);
   if (pal_dev_list_print_t[0] != '\0') {
@@ -541,15 +569,7 @@ print_usage() {
       pal_fru_list_print_t, pal_dev_list_print_t, pal_fru_list_rw_t, pal_dev_list_rw_t);
     printf("Usage: fruid-util [ %s ] [ %s ] --modify --<field> <data> <file>\n",
       pal_fru_list_rw_t, pal_dev_list_rw_t);
-#ifdef CONFIG_FBY3_CWC
-    if (cwcPlat) {
-      printf("Usage: fruid-util <slot1> [ %s ] [ %s ] [--json]\n"
-        "Usage: fruid-util <slot1> [ %s ] [ %s ] [--dump | --write ] <file>\n",
-        pal_exp_fru_list_print_t,  pal_exp_dev_list_print_t,  pal_exp_fru_list_rw_t,  pal_exp_dev_list_rw_t);
-      printf("Usage: fruid-util <slot1> [ %s ] [ %s ] --modify --<field> <data> <file>\n",
-        pal_exp_fru_list_rw_t, pal_exp_dev_list_rw_t);  
-    }
-#endif
+
     printf("       <field> : CPN  (Chassis Part Number)\n"
            "                       e.g., fruid-util fru1 --modify --CPN \"xxxxx\" xxx.bin\n"
            "                 CSN  (Chassis Serial Number)\n"
@@ -591,15 +611,7 @@ print_usage() {
       pal_fru_list_print_t, pal_fru_list_rw_t);
     printf("Usage: fruid-util [ %s ] --modify <field> <data> <file>\n",
       pal_fru_list_rw_t);
-#ifdef CONFIG_FBY3_CWC
-    if (cwcPlat) {
-      printf("Usage: fruid-util <slot1> [ %s ] [--json]\n"
-        "Usage: fruid-util <slot1> [ %s ] [--dump | --write ] <file>\n",
-        pal_exp_fru_list_print_t,   pal_exp_fru_list_rw_t);
-      printf("Usage: fruid-util <slot1> [ %s ] --modify --<field> <data> <file>\n",
-        pal_exp_fru_list_rw_t);  
-    }
-#endif
+
     printf("       [field] : CPN  (Chassis Part Number)\n"
            "                       e.g., fruid-util fru1 --modify --CPN \"xxxxx\" xxx.bin\n"
            "                 CSN  (Chassis Serial Number)\n"
@@ -760,6 +772,7 @@ int print_fru(int fru, char * device, bool allow_absent, unsigned char print_for
   uint8_t status;
   uint8_t num_devs = 0;
   uint8_t dev_id = DEV_NONE;
+  uint8_t exp = 0, slot = 0, list[MAX_NUM_FRUS] = {0}, len = 0, i = 0;
   json_t *fru_object = json_object();
 
   ret = pal_get_fruid_name(fru, name);
@@ -834,21 +847,21 @@ int print_fru(int fru, char * device, bool allow_absent, unsigned char print_for
         ret = get_fruid_info(fru, path, name, print_format,fru_array);
       }
     }
-  }
 
-#ifdef CONFIG_FBY3_CWC
-  if (cwcPlat > 0 && fru == FRU_SLOT1 && dev_id == DEV_ALL) {
-    int ret1 = 0, ret2 = 0;
-    ret1 = print_fru(FRU_2U_TOP, device, allow_absent, print_format, fru_array);
-    ret2 = print_fru(FRU_2U_BOT, device, allow_absent, print_format, fru_array);
-
-    if (ret1 < 0) {
-      ret = ret1;
-    } else if (ret2 < 0) {
-      ret = ret2;
+    if (pal_is_exp() == PAL_EOK && pal_get_exp_fru_list(list, &len) == PAL_EOK) {
+      for (i = 0; i < len; ++i) {
+        exp = list[i];
+        unsigned int caps = 0;
+        if (pal_get_fru_slot(exp, &slot) != PAL_EOK || fru != slot) {
+          continue; //exp not belongs to this fru
+        }
+        if (pal_get_fru_capability(exp, &caps) || !(caps & FRU_CAPABILITY_FRUID_READ)) {
+          continue;
+        }
+        ret |= print_fru(exp, device, true, print_format,fru_array);
+      }
     }
   }
-#endif
 
   return ret;
 
@@ -880,12 +893,6 @@ int do_print_fru(int argc, char * argv[], unsigned char print_format)
     print_usage();
     return ret;
   }
-
-#ifdef CONFIG_FBY3_CWC
-  if (cwcPlat > 0 && expFru > 0) {
-    fru = expFru;
-  }
-#endif
 
   if (fru != FRU_ALL) {
     ret = print_fru(fru, device, false, print_format,fru_array);
@@ -933,12 +940,6 @@ int do_action(int argc, char * argv[], unsigned char action_flag) {
   if (ret < 0) {
     print_usage();
   }
-
-#ifdef CONFIG_FBY3_CWC
-  if (cwcPlat > 0 && expFru > 0) {
-    fru = expFru;
-  }
-#endif
 
   if (fru == FRU_ALL) {
     print_usage();
@@ -1174,26 +1175,6 @@ int main(int argc, char * argv[]) {
   unsigned char action_flag = 0;
   int ret = 0;
 
-#ifdef CONFIG_FBY3_CWC
-  uint8_t expDev = 0;
-  if (pal_is_cwc() == PAL_EOK) {
-    cwcPlat = 1;
-    if (argc >= 4 && strcmp(argv[1], "slot1") == 0) {
-      if (pal_get_cwc_id(argv[2], &expFru) == 0 &&
-          pal_get_dev_id(argv[3], &expDev) == 0) {
-        for (int i = 2; i < argc-1; ++i) {
-          argv[i] = argv[i+1];
-        }
-
-        argc--;
-      } else {
-        expFru = 0;
-      }
-    }
-
-    create_exp_fru_lists();
-  }
-#endif
   create_fru_lists();
 
   struct option opts[] = {

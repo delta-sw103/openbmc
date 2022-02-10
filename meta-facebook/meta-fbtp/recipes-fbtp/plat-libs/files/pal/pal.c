@@ -112,6 +112,8 @@
 #define NUM_NIC_FRU     1
 #define NUM_BMC_FRU     1
 
+// If (Vin-Vout) is larger than this diff threshold, that means HSC has problems
+#define HSC_FAULT_DIFF_THRES (0.3)
 
 const char pal_fru_list[] = "all, mb, nic, riser_slot2, riser_slot3, riser_slot4";
 const char pal_server_list[] = "mb";
@@ -648,6 +650,7 @@ const uint8_t mb_discrete_sensor_list[] = {
   MB_SENSOR_MEMORY_LOOP_FAIL,
   MB_SENSOR_PROCESSOR_FAIL,
   MB_SENSOR_HSC_VDELTA,
+  MB_SENSOR_VR_STATUS,
 };
 
 const uint8_t riser_slot2_sensor_list[] = {
@@ -1025,9 +1028,11 @@ sensor_thresh_array_init() {
   init_done = true;
 }
 
-static void
-turn_off_p12v_stby() {
-
+void
+turn_off_p12v_stby(char* cause) {
+  syslog(LOG_CRIT, "Turn off P12V_STBY because of %s\n", cause);
+  sync();
+  sleep(1);
   if (system("i2cset -y 7 0x45 0x01 0 &> /dev/null") != 0) {
     syslog(LOG_CRIT, "turn off HSC output failed\n");
   }
@@ -1048,7 +1053,7 @@ read_outlet_temp(float *value) {
   // if we get the reading, check the reading is greater than or equal to its threshold
   if ( (*value >= mb_sensor_threshold[MB_SENSOR_OUTLET_TEMP][UCR_THRESH]) ) {
     syslog(LOG_CRIT, "MB_OUTLET_TEMP sensor is over the threshold, turn off P12V_STBY\n");
-    turn_off_p12v_stby();
+    turn_off_p12v_stby("MB_OUTLET_TEMP");
   }
 
   return ret;
@@ -1078,6 +1083,118 @@ read_fan_value(const char *fan, float *value)
     sleep(2);
     ret = sensors_read_fan(fan, value);
   }
+  return ret;
+}
+
+int
+check_vr_ov_ot_status(float *value) {
+  uint8_t vr_addr_list[] = {VR_CPU0_VCCIN, VR_CPU0_VSA, VR_CPU0_VCCIO, VR_CPU0_VDDQ_ABC, VR_CPU0_VDDQ_DEF, \
+                            VR_CPU1_VCCIN, VR_CPU1_VSA, VR_CPU1_VCCIO, VR_CPU1_VDDQ_GHJ, VR_CPU1_VDDQ_KLM, VR_PCH_PVNN};
+  char *vr_name_list[] = {"VR_CPU0_VCCIN", "VR_CPU0_VSA", "VR_CPU0_VCCIO", "VR_CPU0_VDDQ_ABC", "VR_CPU0_VDDQ_DEF", \
+                          "VR_CPU1_VCCIN", "VR_CPU1_VSA", "VR_CPU1_VCCIO", "VR_CPU1_VDDQ_GHJ", "VR_CPU1_VDDQ_KLM", "VR_PCH_PVNN"};
+  size_t vr_list_size = sizeof(vr_addr_list);
+  int ret = 0;
+  *value = 0;
+
+  for ( int i = 0; i < vr_list_size; i++ ) {
+    ret = vr_read_ov_ot_status(vr_addr_list[i]);
+    if ( ret == VR_GET_OV_OC_OT ) {
+      turn_off_p12v_stby(vr_name_list[i]);
+    } else if ( ret < 0 ) {
+      syslog(LOG_WARNING, "%s(): failed to access vr status\n", __func__);
+    }
+  }
+
+  return PAL_EOK;
+}
+
+static int
+read_hsc_vdelta_value(float *value) {
+  uint8_t bus_id = 0x4;
+  uint8_t rbuf[256] = {0x00};
+  uint8_t tlen = 0;
+  int rlen = 0;
+  float hsc_b = 0;
+  ipmb_req_t *req;
+  int ret = 0;
+  static int retry = 0;
+  uint8_t revision_id = 0;
+  uint8_t sku_id = 0;
+  uint8_t hsc_volt_reg[2] = {0x88, 0x8B}; //VIN, VOUT
+  float hsc_volt[2] = {0}; //VIN, VOUT
+
+  if (pal_get_platform_id(&sku_id) ||
+      pal_get_board_rev_id(&revision_id)) {
+    return -1;
+  }
+
+  req = ipmb_txb();
+  req->res_slave_addr = 0x2C; //ME's Slave Address
+  req->netfn_lun = NETFN_NM_REQ<<2;
+  req->cmd = CMD_NM_SEND_RAW_PMBUS;
+  req->data[0] = 0x57;
+  req->data[1] = 0x01;
+  req->data[2] = 0x00;
+  req->data[3] = 0x86;
+  if (revision_id < BOARD_REV_PVT) { //DVT
+    //HSC slave addr check for SS and DS
+    if ((sku_id & (1 << 4))) { // DS
+      req->data[4] = 0x8A;
+    }else{    //SS
+      req->data[4] = 0x22;
+    }
+  } else { //PVT and MP
+    //HSC slave addr is the same for SS and DS
+    req->data[4] = 0x8A;
+  }
+
+  req->data[5] = 0x00;
+  req->data[6] = 0x00;
+  req->data[7] = 0x01;
+  req->data[8] = 0x02;
+  tlen = 10 + MIN_IPMB_REQ_LEN; // Data Length + Others
+
+  ret = 0;
+  for ( int i = 0; i < 2; i++ ) {
+    req->data[9] = hsc_volt_reg[i];
+    rlen = ipmb_send_buf(bus_id, tlen);
+    if ( rlen > 0 ) {
+      memset(rbuf, 0, sizeof(rbuf));
+      memcpy(rbuf, ipmb_rxb(), rlen);
+    }
+
+    if ( rlen <= 0 || rbuf[6] != 0 ) {
+      syslog(LOG_WARNING, "something went wrong, rlen=%d, req->data[9]=%02X, comp_code=%02X\n", rlen, req->data[9], rbuf[6]);
+      ret = READING_NA;
+    } else if ( rbuf[6] == 0 ) {
+      hsc_volt[i] = ((float) (rbuf[11] << 8 | rbuf[10])*100-hsc_b )/(19599);
+    }
+  }
+
+  if ( ret != READING_NA ) {
+    *value = hsc_volt[0] - hsc_volt[1];
+    // Get HSC fault
+    if ( *value >= HSC_FAULT_DIFF_THRES ) {
+      if ( retry < 1 ) {
+        // Check HSC vdelta again
+        retry++;
+      } else {
+        // read ADC P12V for comparison
+        float p12v_adc = 0;
+        if ( sensors_read_adc("MB_P12V", &p12v_adc) < 0 ) {
+          syslog(LOG_CRIT, "Failed to get MB_P12V\n");
+        }
+        syslog(LOG_CRIT, "HSC vdelta(Vin(%0.2f)-Vout(%0.2f)) %0.2f >= %0.2f, MB_P12V: %0.2f, turn off P12V_STBY\n" \
+                       , hsc_volt[0], hsc_volt[1], *value, HSC_FAULT_DIFF_THRES, p12v_adc);
+        turn_off_p12v_stby("HSC vdelta");
+      }
+    } else {
+      retry = 0;
+    }
+  } else {
+    syslog(LOG_INFO, "Couldn't calculate hsc_vdelta, ret= %d, vin=%0.2f vout=%0.2f\n", ret, hsc_volt[0], hsc_volt[1]);
+  }
+
   return ret;
 }
 
@@ -3951,6 +4068,9 @@ pal_sensor_read_raw(uint8_t fru, uint8_t sensor_num, void *value) {
         break;
       case MB_SENSOR_HSC_VDELTA:
         ret = read_hsc_vdelta_value((float*) value);
+        break;
+      case MB_SENSOR_VR_STATUS:
+        ret = check_vr_ov_ot_status((float*) value);
         break;
       default:
         ret = READING_NA;

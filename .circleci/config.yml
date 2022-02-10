@@ -97,13 +97,22 @@ jobs:
         docker:
             - image: ubuntu:focal
               environment:
-                  QEMU_URI: https://fb-openbmc-qemu.s3.us-east-2.amazonaws.com
+                  QEMU_URI: https://github.com/facebook/openbmc-qemu/releases/latest/download
               user: root
         resource_class: 2xlarge
         working_directory: /tmp/job/project
         steps:
             - attach_workspace:
                 at: /tmp/job
+            - run:
+                name: Check if CIT required based on flash presence
+                command: |
+                    if ! [[ -f /tmp/job/project/build/tmp/deploy/images/<< parameters.machine >>/flash-<< parameters.machine >> ]]; then
+                        echo "flash-<< parameters.machine >> not found, skip CIT"
+                        circleci-agent step halt
+                    else
+                        echo "BMC flash found, continue to CIT test"
+                    fi
             - run:
                 name: Install Ubuntu dependencies.
                 command: |
@@ -130,6 +139,7 @@ jobs:
                     chmod +x qemu-system-arm
             - run:
                 name: execute CIT tests
+                no_output_timeout: 15m
                 command: |
                     python3 tools/circle-ci/cit_test_wrapper.py << parameters.machine >>
     build:
@@ -226,4 +236,6 @@ workflows:
                             minipack,
                             wedge400,
                             yamp,
+                            fbttn,
+                            fbtp,
                             ]
