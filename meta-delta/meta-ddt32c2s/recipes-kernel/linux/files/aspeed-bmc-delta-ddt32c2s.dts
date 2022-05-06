@@ -1,0 +1,360 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Delta Electronic, Inc.
+/dts-v1/;
+
+#include <dt-bindings/leds/common.h>
+#include "ast2600-facebook-netbmc-common.dtsi"
+
+/ {
+	model = "DELTA DDT32C2S BMC";
+	compatible = "delta,ddt32c2s-bmc", "aspeed,ast2600";
+
+	aliases {
+		/*
+		 * I2C switch 6-0072, pca9548, total 8 child channels
+		 * assigned bus number 16-23 connecting to FCM
+		 * (Fan Controller Module).
+		 */
+		i2c16 = &imux16;
+		i2c17 = &imux17;
+		i2c18 = &imux18;
+		i2c19 = &imux19;
+		i2c20 = &imux20;
+		i2c21 = &imux21;
+		i2c22 = &imux22;
+		i2c23 = &imux23;
+
+		spi1 = &spi1;
+		spi2 = &spi_gpio;
+
+		serial0 = &uart1;
+		serial4 = &uart5;
+	};
+
+	chosen {
+		stdout-path = &uart5;
+		bootargs = "console=ttyS4,115200n8 root=/dev/ram rw";
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x80000000 0x40000000>;
+	};
+
+	iio-hwmon {
+		compatible = "iio-hwmon";
+		io-channels = <&adc0 0>, <&adc0 1>, <&adc0 2>, <&adc0 3>,
+						<&adc0 4>, <&adc0 5>, <&adc0 6>, <&adc0 7>,
+						<&adc1 0>, <&adc1 1>, <&adc1 2>, <&adc1 3>,
+						<&adc1 4>, <&adc1 5>, <&adc1 6>, <&adc1 7>;
+	};
+
+	spi_gpio: spi-gpio {
+		status = "okay";
+
+		num-chipselects = <1>;
+		cs-gpios = <&gpio0 ASPEED_GPIO(X, 0) GPIO_ACTIVE_LOW>;
+	};
+};
+
+&fmc {
+	status = "okay";
+
+	flash@0 {
+		status = "okay";
+		m25p,fast-read;
+		label = "spi0.0";
+#include "facebook-bmc-flash-layout-128.dtsi"
+
+		partitions {
+			fit@100000 {
+				reg = <0x100000 0x3700000>;
+			};
+
+			data0@3800000 {
+				reg = <0x3800000 0x800000>;
+			};
+
+			flash0@0 {
+				reg = <0x0 0x4000000>;
+			};
+		};
+	};
+
+	flash@1 {
+		status = "okay";
+		m25p,fast-read;
+		label = "spi0.1";
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			flash1@0 {
+				reg = <0x0 0x4000000>;
+				label = "flash1";
+			};
+		};
+	};
+};
+
+&uart3 {
+	status = "okay";
+};
+
+&uart4 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_txd4_default
+		     &pinctrl_rxd4_default>;
+};
+
+&uart5 {
+	status = "okay";
+};
+
+&mac2 {
+	status = "okay";
+
+	phy-mode = "rmii";
+	use-ncsi;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_rmii3_default>;
+};
+
+&i2c0 {
+	status = "okay";
+	multi-master;
+	bus-frequency = <1000000>;
+	aspeed,hw-timeout-ms = <1000>;
+};
+
+&i2c1 {
+	status = "okay";
+};
+
+&i2c2 {
+	status = "okay";
+};
+
+&i2c3 {
+	status = "okay";
+	/*
+	lm75@4f {
+		compatible = "national,lm75";
+		reg = <0x4f>;
+	};*/
+};
+
+&i2c4 {
+	status = "okay";
+	/*
+	lm75@4b {
+		compatible = "national,lm75";
+		reg = <0x4b>;
+	};
+	lm75@49 {
+		compatible = "national,lm75";
+		reg = <0x49>;
+	};
+	lm75@4a {
+		compatible = "national,lm75";
+		reg = <0x4a>;
+	};
+	lm75@4e {
+		compatible = "national,lm75";
+		reg = <0x4e>;
+	};*/
+};
+
+&i2c5 {
+	status = "okay";
+	
+	i2c-switch@72 {
+		compatible = "nxp,pca9548";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x72>;
+
+		imux16: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		imux17: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+
+		imux18: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+
+		imux19: i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+		};
+
+		imux20: i2c@4 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <4>;
+		};
+
+		imux21: i2c@5 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <5>;
+		};
+
+		imux22: i2c@6 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <6>;
+		};
+
+		imux23: i2c@7 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <7>;
+		};
+	};
+};
+
+&i2c6 {
+	status = "okay";
+};
+
+&i2c7 {
+	status = "okay";
+};
+
+&i2c8 {
+	status = "okay";
+};
+
+&i2c9 {
+	status = "okay";
+};
+
+&i2c10 {
+	status = "okay";
+};
+
+&i2c11 {
+	status = "okay";
+};
+
+&i2c12 {
+	status = "disable";
+};
+
+&i2c13 {
+	status = "okay";
+};
+
+&i2c14 {
+	status = "okay";
+};
+
+&i2c15 {
+	status = "okay";
+};
+
+&adc0 {
+	ref_voltage = <2500>;
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_adc0_default &pinctrl_adc1_default
+		&pinctrl_adc2_default &pinctrl_adc3_default
+		&pinctrl_adc4_default &pinctrl_adc5_default
+		&pinctrl_adc6_default &pinctrl_adc7_default>;
+};
+
+&adc1 {
+	ref_voltage = <2500>;
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_adc8_default &pinctrl_adc9_default
+		&pinctrl_adc10_default &pinctrl_adc11_default
+		&pinctrl_adc12_default &pinctrl_adc13_default
+		&pinctrl_adc14_default &pinctrl_adc15_default>;
+};
+
+&ehci1 {
+	status = "okay";
+};
+
+&uhci {
+	status = "okay";
+};
+
+&sdhci1 {
+	status = "disable";
+	aspeed,sdhci-disable-dma;
+};
+
+&jtag0 {
+	status = "okay";
+};
+
+&jtag1 {
+	status = "okay";
+};
+
+&spi1 {
+	status = "disable";
+	compatible = "aspeed,ast2600-spi-master";
+
+	spidev@0 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <8250000>;
+		reg = <0>;
+	};
+};
+
+&lpc {
+    status = "okay";
+};
+
+&lpc_reset {
+    status = "okay";
+};
+
+&lpc_ctrl {
+	// Enable lpc clock
+	status = "okay";
+};
+
+&lpc_snoop {
+	status = "okay";
+	snoop-ports = <0x80>;
+};
+
+&kcs1 {
+    kcs_addr = <0xCA0>;
+    status = "okay";
+};
+
+&kcs2 {
+	// BMC KCS channel 2
+	status = "okay";
+	kcs_addr = <0xCA8>;
+	//aspeed,lpc-io-reg = <0xca8>;
+};
+
+&kcs3 {
+	// BMC KCS channel 3
+	status = "okay";
+	kcs_addr = <0xCA2>;
+	//aspeed,lpc-io-reg = <0xca2>;
+};
