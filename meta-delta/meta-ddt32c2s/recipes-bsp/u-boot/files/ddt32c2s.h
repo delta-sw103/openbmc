@@ -1,13 +1,14 @@
 #ifndef __DDT32C2S_CONFIG_H
 #define __DDT32C2S_CONFIG_H
 
+#include <configs/fbobmc-ast-g6.h>
+
 #define CONFIG_DDT32C2S 1
 
 #ifndef CONFIG_SYS_LONGHELP
 #define CONFIG_SYS_LONGHELP
 #endif
 
-#define CONFIG_BOOTARGS   "debug console=ttyS4,115200n8 root=/dev/ram rw"
 #define CONFIG_BOOTFILE   "flash-ddt32c2s"
 
 /*
@@ -49,12 +50,5 @@
  * #define CONFIG_2SPIFLASH
  */
 #define CONFIG_FLASH_SPIx2
-
-#include <configs/fbobmc-ast-g6.h>
-
-/*
- * #define flash driver
- */
-//#define CONFIG_SPI_FLASH_MTD
 
 #endif  /* __DDT32C2S_CONFIG_H */
