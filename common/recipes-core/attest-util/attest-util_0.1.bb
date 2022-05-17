@@ -4,10 +4,10 @@ SUMMARY = "MCTP Attestation Tool"
 DESCRIPTION = "An attestation tool for different message types over MCTP"
 SECTION = "base"
 PR = "r1"
-LICENSE = "GPLv2"
+LICENSE = "GPL-2.0-or-later"
 LIC_FILES_CHKSUM = "file://main.cpp;beginline=5;endline=17;md5=da35978751a9d71b73679307c4d296ec"
 
-inherit meson
+inherit meson pkgconfig
 inherit ptest-meson
 LOCAL_URI = " \
     file://main.cpp \

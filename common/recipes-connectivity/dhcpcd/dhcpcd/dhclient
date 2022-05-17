@@ -15,7 +15,7 @@ while [ $# -gt 0 ]; do
             shift; shift
             ;;
         -d)
-            final_args+=( "-b" )
+            final_args+=( "-B" )
             shift
             ;;
         -D)
@@ -52,6 +52,12 @@ fi
 if [ -n "$pid_file" ]; then
     mkdir -p "$(dirname "$pid_file")"
     ln -s $(dhcpcd --printpidfile "${final_args[@]}") "$pid_file"
+fi
+
+if [ -d /usr/libexec/dhclient/pre.d ]; then
+    for f in /usr/libexec/dhclient/pre.d/* ; do
+        "$f" "$interface"
+    done
 fi
 
 exec dhcpcd "${final_args[@]}"

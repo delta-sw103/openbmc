@@ -3,10 +3,10 @@ SUMMARY = "Sensor Utility"
 DESCRIPTION = "Util for reading various sensors"
 SECTION = "base"
 PR = "r1"
-LICENSE = "GPLv2"
+LICENSE = "GPL-2.0-or-later"
 LIC_FILES_CHKSUM = "file://sensor-util.cpp;beginline=4;endline=16;md5=b395943ba8a0717a83e62ca123a8d238"
 
-inherit meson
+inherit meson pkgconfig
 inherit ptest-meson
 
 LOCAL_URI = " \

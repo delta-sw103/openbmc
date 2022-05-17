@@ -18,7 +18,7 @@ SUMMARY = "Utilities"
 DESCRIPTION = "Various utilities"
 SECTION = "base"
 PR = "r1"
-LICENSE = "GPLv2"
+LICENSE = "GPL-2.0-or-later"
 LIC_FILES_CHKSUM = "file://COPYING;md5=eb723b61539feef013de476e68b5c50a"
 
 LOCAL_URI = " \
@@ -27,6 +27,7 @@ LOCAL_URI = " \
     file://setup-gpio.sh \
     file://sol-util \
     file://setup-i2c-dev.sh \
+    file://setup-por.sh \
     "
 
 pkgdir = "utils"
@@ -57,6 +58,8 @@ do_install() {
   # init
   install -d ${D}${sysconfdir}/init.d
   install -d ${D}${sysconfdir}/rcS.d
+  install -m 755 setup-por.sh ${D}${sysconfdir}/init.d/setup-por.sh
+  update-rc.d -r ${D} setup-por.sh start 62 5 .
 # setup-gpio.sh
   install -m 755 setup-gpio.sh ${D}${sysconfdir}/init.d/setup-gpio.sh
   update-rc.d -r ${D} setup-gpio.sh start 59 5 .

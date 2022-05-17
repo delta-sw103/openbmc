@@ -4,10 +4,10 @@ SUMMARY = "GPIO Monitoring Daemon"
 DESCRIPTION = "Daemon for monitoring the gpio signals"
 SECTION = "base"
 PR = "r1"
-LICENSE = "GPLv2"
+LICENSE = "GPL-2.0-or-later"
 LIC_FILES_CHKSUM = "file://gpiointrd.c;beginline=4;endline=16;md5=302e73da84735a7814365fd8ab355e2d"
 
-inherit meson
+inherit meson pkgconfig
 
 LOCAL_URI = " \
     file://meson.build \

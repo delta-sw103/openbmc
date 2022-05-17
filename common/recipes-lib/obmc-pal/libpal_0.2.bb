@@ -5,7 +5,7 @@ DESCRIPTION = "Platform Abstraction Layer for OpenBMC"
 SECTION = "libs"
 PR = "r1"
 
-LICENSE = "LGPLv2"
+LICENSE = "LGPL-2.1-only"
 
 # The license LGPL-2.1 was removed in Hardknott.
 # Use LGPL-2.1-only instead.
@@ -54,4 +54,4 @@ do_install:append() {
 
 FILES:${PN} += "${PYTHON_SITEPACKAGES_DIR}/pal.py"
 
-inherit meson
+inherit meson pkgconfig

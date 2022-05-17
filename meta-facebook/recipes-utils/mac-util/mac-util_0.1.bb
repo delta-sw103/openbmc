@@ -3,7 +3,7 @@ SUMMARY = "MAC Utility"
 DESCRIPTION = "Util to get/set MAC address from/to EEPROM"
 SECTION = "base"
 PR = "r1"
-LICENSE = "GPLv2"
+LICENSE = "GPL-2.0-or-later"
 LIC_FILES_CHKSUM = "file://mac-util.cpp;beginline=4;endline=16;md5=94a0865391a6425c9dcee589aa6888d5"
 
 LOCAL_URI += " \
@@ -11,7 +11,7 @@ LOCAL_URI += " \
     file://Makefile \
     file://${MACHINE}/eeprom.h \
     "
-CXXFLAGS:prepend:${MACHINE} += "-I${MACHINE}"
+CXXFLAGS:prepend:${MACHINE} = "-I${MACHINE} "
 LDFLAGS += "-lobmc-i2c"
 
 

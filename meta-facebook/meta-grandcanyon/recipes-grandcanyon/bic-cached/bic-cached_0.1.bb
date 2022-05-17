@@ -4,10 +4,10 @@ SUMMARY = "Bridge IC Cache Tool"
 DESCRIPTION = "Tool to provide Bridge IC Cache information."
 SECTION = "base"
 PR = "r1"
-LICENSE = "GPLv2"
+LICENSE = "GPL-2.0-or-later"
 LIC_FILES_CHKSUM = "file://bic-cached.c;beginline=5;endline=17;md5=da35978751a9d71b73679307c4d296ec"
 
-inherit meson
+inherit meson pkgconfig
 
 DEPENDS:append = " libbic libpal update-rc.d-native "
 RDEPENDS:${PN} += " libbic libpal "
