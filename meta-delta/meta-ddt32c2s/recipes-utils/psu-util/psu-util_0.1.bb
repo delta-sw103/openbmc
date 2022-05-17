@@ -28,10 +28,10 @@ SRC_URI = "file://utils \
 
 S = "${WORKDIR}/utils"
 
-LDFLAGS = "-lfruid -lpal -lagc032a-psu "
+LDFLAGS = "-lfruid -lpal -lddt32c2s-psu "
 
-DEPENDS += "libagc032a-psu libpal"
-RDEPENDS:${PN} += "libagc032a-psu libpal"
+DEPENDS += "libddt32c2s-psu libpal"
+RDEPENDS:${PN} += "libddt32c2s-psu libpal"
 
 do_install() {
   install -d ${D}${bindir}

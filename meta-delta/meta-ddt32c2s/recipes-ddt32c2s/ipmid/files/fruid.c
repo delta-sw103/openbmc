@@ -43,7 +43,7 @@
 #include "fruid.h"
 
 #define AGC032A_FRUID_SIZE 0x100
-#define AGC032A_FRU_NUM 9
+#define DDT32C2S_FRU_NUM 10
 
 struct fruid_dev
 {
@@ -58,22 +58,23 @@ struct fruid_dev
 enum { FRU_STD_FORMAT, FRU_FB_FORMAT, FRU_PSU_FORMAT};
 
 // Global structures
-static unsigned char g_fruid[AGC032A_FRU_NUM * AGC032A_FRUID_SIZE] = {0};
+static unsigned char g_fruid[DDT32C2S_FRU_NUM * AGC032A_FRUID_SIZE] = {0};
 
 static struct fruid_dev fruid_list[] = {
-    {FRU_SMB, 6, 0x50, &g_fruid[0 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_SMB, 7, 0x50, &g_fruid[0 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
     {FRU_PSU1, 0, 0x50, &g_fruid[1 * AGC032A_FRUID_SIZE], FRU_STD_FORMAT},
-    {FRU_PSU2, 1, 0x50, &g_fruid[2 * AGC032A_FRUID_SIZE], FRU_STD_FORMAT},
-    {FRU_FAN1, 14, 0x50, &g_fruid[3 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
-    {FRU_FAN2, 15, 0x50, &g_fruid[4 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
-    {FRU_FAN3, 16, 0x50, &g_fruid[5 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
-    {FRU_FAN4, 17, 0x50, &g_fruid[6 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
-    {FRU_FAN5, 18, 0x50, &g_fruid[7 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
-    {FRU_FAN6, 19, 0x50, &g_fruid[8 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT}};
+    {FRU_PSU2, 0, 0x51, &g_fruid[2 * AGC032A_FRUID_SIZE], FRU_STD_FORMAT},
+    {FRU_FAN1, 16, 0x50, &g_fruid[3 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_FAN2, 17, 0x50, &g_fruid[4 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_FAN3, 18, 0x50, &g_fruid[5 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_FAN4, 19, 0x50, &g_fruid[6 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_FAN5, 20, 0x50, &g_fruid[7 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_FAN6, 21, 0x50, &g_fruid[8 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_FAN7, 22, 0x50, &g_fruid[9 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT}};
 
 struct fruid_dev *get_frudev(int id)
 {
-  for (int i = 0; i < AGC032A_FRU_NUM; i++)
+  for (int i = 0; i < DDT32C2S_FRU_NUM; i++)
   {
     if (fruid_list[i].id == id)
     {
@@ -332,7 +333,7 @@ int copy_eeprom_to_bin(int fru_id) {
 int plat_fruid_init(void)
 {
   int ret = 0;
-  for (unsigned char id = 0; id < AGC032A_FRU_NUM; id++)
+  for (unsigned char id = 0; id < DDT32C2S_FRU_NUM; id++)
   {
     populate_fruid(fruid_list[id].id);
     ret = copy_eeprom_to_bin(fruid_list[id].id);

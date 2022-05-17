@@ -17,13 +17,13 @@
  */
 
 #include <signal.h>
-#include "agc032a-psu.h"
+#include "ddt32c2s-psu.h"
 
 static delta_hdr_t delta_hdr;
 
 i2c_info_t psu[] = {
   {-1, 0, 0x50, 0x58, PSU1_EEPROM},
-  {-1, 1, 0x50, 0x58, PSU2_EEPROM},
+  {-1, 0, 0x51, 0x59, PSU2_EEPROM},
 };
 
 pmbus_info_t pmbus[] = {

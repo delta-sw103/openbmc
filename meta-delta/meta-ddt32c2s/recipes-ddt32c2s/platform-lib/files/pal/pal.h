@@ -33,7 +33,7 @@ extern "C" {
 #include <stdbool.h>
 #include <math.h>
 
-#define PLATFORM_NAME "agc032a"
+#define PLATFORM_NAME "ddt32c2s"
 #define READ_UNIT_SENSOR_TIMEOUT 5
 
 #define SYS_PLATFROM_DIR(dev) "/sys/devices/platform/"#dev"/"
@@ -41,9 +41,12 @@ extern "C" {
 #define I2C_DEV_DIR(bus, addr) "/sys/bus/i2c/devices/i2c-"#bus"/"#bus"-00"#addr"/"
 #define HW_MON_DIR "hwmon/hwmon*"
 
+/* AGC032A */
 #define SWPLD1 "swpld1"
 #define SWPLD2 "swpld2"
 #define SWPLD3 "swpld3"
+/* DDT32C2S */
+#define SYSFPGA "sysfpga"
 
 #define SWBD_ID "board_id"
 
@@ -62,10 +65,12 @@ extern "C" {
 #define FCM_SYSFS        I2C_DEV_DIR(30, 3e)"%s"
 #define DOMFPGA1_SYSFS   I2C_DEV_DIR(13, 60)"%s"
 #define DOMFPGA2_SYSFS   I2C_DEV_DIR(5, 60)"%s"
-
+/* AGC032A */
 #define SWPLD1_SYSFS I2C_DEV_DIR(7, 32) "%s"
 #define SWPLD2_SYSFS I2C_DEV_DIR(7, 34) "%s"
 #define SWPLD3_SYSFS I2C_DEV_DIR(7, 35) "%s"
+/* DDT32C2S */
+#define SYSFPGA_SYSFS I2C_DEV_DIR(3, 36) "%s"
 
 #define SENSORD_FILE_SMB "/tmp/cache_store/smb_sensor%d"
 #define SENSORD_FILE_PSU "/tmp/cache_store/psu%d_sensor%d"
@@ -96,7 +101,7 @@ extern "C" {
 #define SCM_SUS_STAT_STATUS "iso_com_sus_stat_n"
 #define FAN_PRSNT_STATUS "FAN%d_PRESENT"
 #define PSU_PRSNT_STATUS "psu%d_present"
-#define FAN_PRSNT_GPIO_START_POS 776
+#define FAN_PRSNT_GPIO_START_POS 764  //i2c5-0027(pca9555)
 
 #define CRASHDUMP_BIN    "/usr/local/bin/autodump.sh"
 
@@ -129,13 +134,23 @@ extern "C" {
 #define SMB_FCM_LM75B_U1_DEVICE       I2C_DEV_DIR(32, 48)HW_MON_DIR
 #define SMB_FCM_LM75B_U2_DEVICE       I2C_DEV_DIR(32, 49)HW_MON_DIR
 #define SMB_FCM_HSC_DEVICE            I2C_DEV_DIR(33, 10)HW_MON_DIR
+/* AGC032A
 #define SMB_TMP75_LF_DEVICE           I2C_DEV_DIR(4, 4b)HW_MON_DIR
 #define SMB_TMP75_RF_DEVICE           I2C_DEV_DIR(4, 49)HW_MON_DIR
 #define SMB_TMP75_UPPER_MAC_DEVICE    I2C_DEV_DIR(4, 4a)HW_MON_DIR
 #define SMB_TMP75_LOWER_MAC_DEVICE    I2C_DEV_DIR(4, 4e)HW_MON_DIR
 #define SMB_FAN_CONTROLLER1_DEVICE    I2C_DEV_DIR(3, 2e)
 #define SMB_FAN_CONTROLLER2_DEVICE    I2C_DEV_DIR(3, 4c)
-#define SMB_FAN_CONTROLLER3_DEVICE    I2C_DEV_DIR(3, 2d)
+#define SMB_FAN_CONTROLLER3_DEVICE    I2C_DEV_DIR(3, 2d) */
+/* DDT32C2S */
+#define SMB_TMP75_LF_DEVICE           I2C_DEV_DIR(1, 49)HW_MON_DIR
+#define SMB_TMP75_RF_DEVICE           I2C_DEV_DIR(1, 4a)HW_MON_DIR
+#define SMB_TMP75_UPPER_MAC_DEVICE    I2C_DEV_DIR(1, 4b)HW_MON_DIR
+#define SMB_TMP75_LOWER_MAC_DEVICE    I2C_DEV_DIR(1, 4e)HW_MON_DIR
+#define SMB_FAN_CONTROLLER1_DEVICE    I2C_DEV_DIR(2, 2d)
+#define SMB_FAN_CONTROLLER2_DEVICE    I2C_DEV_DIR(2, 4c)
+#define SMB_FAN_CONTROLLER3_DEVICE    I2C_DEV_DIR(2, 4d)
+
 
 //BMC Sensor Devices
 #define AST_ADC_DEVICE         SYS_PLATFROM_DIR("ast-adc-hwmon")HW_MON_DIR
@@ -143,7 +158,7 @@ extern "C" {
 // PSU Sensor Devices
 #define PSU_DRIVER             "dps_driver"
 #define PSU1_DEVICE            I2C_DEV_DIR(0, 58)
-#define PSU2_DEVICE            I2C_DEV_DIR(1, 58)
+#define PSU2_DEVICE            I2C_DEV_DIR(0, 59)
 
 #define TEMP(x)                "temp"#x"_input"
 #define VOLT(x)                "in"#x"_input"
@@ -250,7 +265,8 @@ enum {
   FRU_FAN4 = 7,
   FRU_FAN5 = 8,
   FRU_FAN6 = 9,
-  MAX_NUM_FRUS = 9,
+  FRU_FAN7 = 10,
+  MAX_NUM_FRUS = 10,
   FRU_SCM,
   FRU_FCM,
   FRU_BMC,
@@ -331,6 +347,7 @@ enum {
   SMB_SENSOR_SW_DIE_TEMP2,
   SMB_DOM1_MAX_TEMP,
   SMB_DOM2_MAX_TEMP,
+  /* DDT32C2S */
   SMB_SENSOR_TMP75_LF_TEMP,
   SMB_SENSOR_TMP75_RF_TEMP,
   SMB_SENSOR_TMP75_UPPER_MAC_TEMP,
@@ -353,6 +370,8 @@ enum {
   SMB_SENSOR_FAN5_REAR_TACH,
   SMB_SENSOR_FAN6_FRONT_TACH,
   SMB_SENSOR_FAN6_REAR_TACH,
+  SMB_SENSOR_FAN7_FRONT_TACH,
+  SMB_SENSOR_FAN7_REAR_TACH,
   /* Sensors on BMC*/
   SMB_BMC_ADC0_VSEN,
   SMB_BMC_ADC1_VSEN,
@@ -506,7 +525,7 @@ int pal_light_scm_led(uint8_t led_color);
 int pal_get_fru_health(uint8_t fru, uint8_t *value);
 int pal_set_def_key_value(void);
 int pal_init_sensor_check(uint8_t fru, uint8_t snr_num, void *snr);
-int agc032a_sensor_name(uint8_t fru, uint8_t sensor_num, char *name);
+int ddt32c2s_sensor_name(uint8_t fru, uint8_t sensor_num, char *name);
 int pal_get_num_slots(uint8_t *num);
 int pal_get_boot_order(uint8_t slot, uint8_t *req_data, uint8_t *boot, uint8_t *res_len);
 int pal_set_boot_order(uint8_t slot, uint8_t *boot, uint8_t *res_data, uint8_t *res_len);

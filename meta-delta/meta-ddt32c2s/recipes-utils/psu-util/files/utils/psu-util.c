@@ -18,7 +18,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <facebook/agc032a-psu.h>
+#include <facebook/ddt32c2s-psu.h>
 
 static const char *option_list[] = {
   "  --get_psu_info",

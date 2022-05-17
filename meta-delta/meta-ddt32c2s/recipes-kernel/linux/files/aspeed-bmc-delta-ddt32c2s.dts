@@ -57,6 +57,23 @@
 	};
 };
 
+&mdio0 {
+	status = "disable";
+};
+
+&mdio1 {
+	status = "disable";
+};
+
+&mdio2 {
+	status = "disable";
+};
+
+&mdio3 {
+	status = "disable";
+};
+
+
 &fmc {
 	status = "okay";
 
@@ -71,7 +88,7 @@
 				reg = <0x100000 0x3700000>;
 			};
 
-			data0@3800000 {
+			data0@7800000 {
 				reg = <0x3800000 0x800000>;
 			};
 
@@ -91,8 +108,8 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			flash1@0 {
-				reg = <0x0 0x4000000>;
+			flash1@4000000 {
+				reg = <0x4000000 0x8000000>;
 				label = "flash1";
 			};
 		};
@@ -133,24 +150,6 @@
 
 &i2c1 {
 	status = "okay";
-};
-
-&i2c2 {
-	status = "okay";
-};
-
-&i2c3 {
-	status = "okay";
-	/*
-	lm75@4f {
-		compatible = "national,lm75";
-		reg = <0x4f>;
-	};*/
-};
-
-&i2c4 {
-	status = "okay";
-	/*
 	lm75@4b {
 		compatible = "national,lm75";
 		reg = <0x4b>;
@@ -166,7 +165,23 @@
 	lm75@4e {
 		compatible = "national,lm75";
 		reg = <0x4e>;
-	};*/
+	};
+};
+
+&i2c2 {
+	status = "okay";
+	lm75@4f {
+		compatible = "national,lm75";
+		reg = <0x4f>;
+	};
+};
+
+&i2c3 {
+	status = "okay";
+};
+
+&i2c4 {
+	status = "okay";
 };
 
 &i2c5 {
@@ -329,12 +344,12 @@
 &lpc_reset {
     status = "okay";
 };
-
+/*
 &lpc_ctrl {
 	// Enable lpc clock
 	status = "okay";
 };
-
+*/
 &lpc_snoop {
 	status = "okay";
 	snoop-ports = <0x80>;

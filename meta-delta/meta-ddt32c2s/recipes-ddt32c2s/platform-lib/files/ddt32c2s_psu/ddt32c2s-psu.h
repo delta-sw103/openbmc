@@ -16,8 +16,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __WEDGE400_PSU_H__
-#define __WEDGE400_PSU_H__
+/* COPY from wedge400 */
+
+#ifndef __DDT32C2S_PSU_H__
+#define __DDT32C2S_PSU_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,10 +47,10 @@ extern "C" {
 #define POW2(x) (1 << (x))
 
 #define PSU1_EEPROM  "/sys/bus/i2c/devices/0-0050/eeprom"
-#define PSU2_EEPROM  "/sys/bus/i2c/devices/1-0050/eeprom"
+#define PSU2_EEPROM  "/sys/bus/i2c/devices/0-0051/eeprom"
 
 /* define for DELTA PSU */
-#define DELTA_MODEL         "DPS-1600AB-29 B"
+#define DELTA_MODEL         "DPS-1600AB-29 D"
 #define DELTA_HDR_LENGTH    32
 #define UNLOCK_UPGRADE      0xf0
 #define BOOT_FLAG           0xf1
@@ -181,4 +183,4 @@ int get_blackbox_info(uint8_t num, const char *option);
 }
 #endif
 
-#endif
+#endif /* __DDT32C2S_PSU_H__ */

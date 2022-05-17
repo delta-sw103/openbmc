@@ -20,9 +20,9 @@ DESCRIPTION = "library for PSUs"
 SECTION = "base"
 PR = "r1"
 LICENSE = "GPLv2"
-LIC_FILES_CHKSUM = "file://agc032a-psu.c;beginline=4;endline=16;md5=da35978751a9d71b73679307c4d296ec"
+LIC_FILES_CHKSUM = "file://ddt32c2s-psu.c;beginline=4;endline=16;md5=da35978751a9d71b73679307c4d296ec"
 
-SRC_URI = "file://agc032a_psu \
+SRC_URI = "file://ddt32c2s_psu \
           "
 
 LDFLAGS = "-lfruid -lpal"
@@ -30,15 +30,15 @@ LDFLAGS = "-lfruid -lpal"
 DEPENDS += "libfruid libpal"
 RDEPENDS:${PN} += "libfruid libpal"
 
-S = "${WORKDIR}/agc032a_psu"
+S = "${WORKDIR}/ddt32c2s_psu"
 
 do_install() {
 	  install -d ${D}${libdir}
-    install -m 0644 libagc032a-psu.so ${D}${libdir}/libagc032a-psu.so
+    install -m 0644 libddt32c2s-psu.so ${D}${libdir}/libddt32c2s-psu.so
 
     install -d ${D}${includedir}/facebook
-    install -m 0644 agc032a-psu.h ${D}${includedir}/facebook/agc032a-psu.h
+    install -m 0644 ddt32c2s-psu.h ${D}${includedir}/facebook/ddt32c2s-psu.h
 }
 
-FILES:${PN} = "${libdir}/libagc032a-psu.so"
-FILES:${PN}-dev = "${includedir}/facebook/agc032a-psu.h"
+FILES:${PN} = "${libdir}/libddt32c2s-psu.so"
+FILES:${PN}-dev = "${includedir}/facebook/ddt32c2s-psu.h"

@@ -107,6 +107,8 @@ const uint8_t smb_sensor_list[] = {
   SMB_SENSOR_FAN5_REAR_TACH,
   SMB_SENSOR_FAN6_FRONT_TACH,
   SMB_SENSOR_FAN6_REAR_TACH,
+  SMB_SENSOR_FAN7_FRONT_TACH,
+  SMB_SENSOR_FAN7_REAR_TACH,
   /* BMC ADC Sensors  */
   SMB_BMC_ADC0_VSEN,
   SMB_BMC_ADC1_VSEN,
@@ -156,11 +158,11 @@ size_t scm_all_sensor_cnt = sizeof(scm_all_sensor_list)/sizeof(uint8_t);
 size_t smb_sensor_cnt = sizeof(smb_sensor_list)/sizeof(uint8_t);
 size_t psu1_sensor_cnt = sizeof(psu1_sensor_list)/sizeof(uint8_t);
 size_t psu2_sensor_cnt = sizeof(psu2_sensor_list)/sizeof(uint8_t);
-size_t pal_pwm_cnt = 12;
-size_t pal_tach_cnt = 12;
+size_t pal_pwm_cnt = 14;
+size_t pal_tach_cnt = 14;
 
 const char pal_fru_list[] = "all, smb, \
-psu1, psu2, fan1, fan2, fan3, fan4, fan5, fan6";
+psu1, psu2, fan1, fan2, fan3, fan4, fan5, fan6, fan7";
 
 char * key_list[] = {
   "pwr_server_last_state",
@@ -171,6 +173,7 @@ char * key_list[] = {
   "scm_sensor_health",
   "smb_sensor_health",
   "fcm_sensor_health",
+  "bmc_sensor_health",
   "psu1_sensor_health",
   "psu2_sensor_health",
   "fan1_sensor_health",
@@ -179,6 +182,7 @@ char * key_list[] = {
   "fan4_sensor_health",
   "fan5_sensor_health",
   "fan6_sensor_health",
+  "fan7_sensor_health",
   "slot1_boot_order",
   /* Add more Keys here */
   LAST_KEY /* This is the last key of the list */
@@ -193,6 +197,7 @@ char * def_val_list[] = {
   "1", /* scm_sensor_health */
   "1", /* smb_sensor_health */
   "1", /* fcm_sensor_health */
+  "1", /* bmc_sensor_health */
   "1", /* psu1_sensor_health */
   "1", /* psu2_sensor_health */
   "1", /* fan1_sensor_health */
@@ -201,6 +206,7 @@ char * def_val_list[] = {
   "1", /* fan4_sensor_health */
   "1", /* fan5_sensor_health */
   "1", /* fan6_sensor_health */
+  "1", /* fan7_sensor_health */
   /* Add more def values for the correspoding keys*/
   LAST_KEY /* Same as last entry of the key_list */
 };
@@ -468,6 +474,8 @@ pal_get_fru_id(char *str, uint8_t *fru) {
     *fru = FRU_FAN5;
   } else if (!strcmp(str, "fan6")) {
     *fru = FRU_FAN6;
+  } else if (!strcmp(str, "fan7")) {
+    *fru = FRU_FAN7;
   } else if (!strcmp(str, "bmc")) {
     *fru = FRU_BMC;
   } else if (!strcmp(str, "cpld")) {
@@ -496,6 +504,9 @@ pal_get_fru_name(uint8_t fru, char *name) {
     case FRU_FCM:
       strcpy(name, "fcm");
       break;
+    case FRU_BMC:
+      strcpy(name, "bmc");
+      break;
     case FRU_PSU1:
       strcpy(name, "psu1");
       break;
@@ -520,6 +531,9 @@ pal_get_fru_name(uint8_t fru, char *name) {
     case FRU_FAN6:
       strcpy(name, "fan6");
       break;
+    case FRU_FAN7:
+      strcpy(name, "fan7");
+      break;
     default:
       if (fru > MAX_NUM_FRUS)
         return -1;
@@ -537,6 +551,9 @@ pal_get_fruid_path(uint8_t fru, char *path) {
   switch(fru) {
   case FRU_SMB:
     strncpy(fname, "smb", strlen("smb") + 1);
+    break;
+  case FRU_BMC:
+    strncpy(fname, "bmc", strlen("bmc") + 1);
     break;
   case FRU_PSU1:
     strncpy(fname, "psu1", strlen("psu1") + 1);
@@ -561,6 +578,9 @@ pal_get_fruid_path(uint8_t fru, char *path) {
     break;
   case FRU_FAN6:
     strncpy(fname, "fan6", strlen("fan6") + 1);
+    break;
+  case FRU_FAN7:
+    strncpy(fname, "fan7", strlen("fan7") + 1);
     break;
   default:
     OBMC_ERROR(-1, "%s() unknown fruid %d", __func__, fru);
@@ -596,6 +616,7 @@ pal_is_fru_prsnt(uint8_t fru, uint8_t *status) {
 
   switch (fru) {
     case FRU_SMB:
+    case FRU_BMC:
       *status = 1;
       return 0;
     case FRU_PSU1:
@@ -612,6 +633,7 @@ pal_is_fru_prsnt(uint8_t fru, uint8_t *status) {
     case FRU_FAN4:
     case FRU_FAN5:
     case FRU_FAN6:
+    case FRU_FAN7:
       snprintf(path, LARGEST_DEVICE_NAME, GPIO_VAL, fru - FRU_FAN1 + FAN_PRSNT_GPIO_START_POS);
       break;
     default:
@@ -668,6 +690,7 @@ pal_get_sensor_util_timeout(uint8_t fru) {
   pal_get_board_type_rev(&brd_type_rev);
   switch(fru) {
     case FRU_SMB:
+    case FRU_BMC:
       cnt = smb_sensor_cnt;
       break;
     case FRU_PSU1:
@@ -692,6 +715,7 @@ pal_get_fru_sensor_list(uint8_t fru, uint8_t **sensor_list, int *cnt) {
   pal_get_board_type_rev(&brd_type_rev);
   switch(fru) {
   case FRU_SMB:
+  case FRU_BMC:
     *sensor_list = (uint8_t *) smb_sensor_list;
     *cnt = smb_sensor_cnt;
     break;
@@ -1593,14 +1617,14 @@ pal_get_fan_speed(uint8_t fan, int *rpm) {
     OBMC_INFO("get_fan_speed: invalid fan#:%d", fan);
     return -1;
   }
-
-  if (fan < 2) {
+  /* fan range 0-13 */
+  if (fan < 5) {
     return read_fan_rpm(SMB_FAN_CONTROLLER1_DEVICE, (fan + 1), rpm);
-  } else if ( fan < 7) {
-    return read_fan_rpm(SMB_FAN_CONTROLLER2_DEVICE, (fan - 1), rpm);
+  } else if ( fan < 10) {
+    return read_fan_rpm(SMB_FAN_CONTROLLER2_DEVICE, (fan - 4), rpm);
   }
 
-  return read_fan_rpm(SMB_FAN_CONTROLLER3_DEVICE, (fan - 6), rpm);
+  return read_fan_rpm(SMB_FAN_CONTROLLER3_DEVICE, (fan - 9), rpm);
 }
 
 int
@@ -1616,20 +1640,20 @@ pal_set_fan_speed(uint8_t fan, uint8_t pwm) {
     return -1;
   }
 
-  if (fan < 2) {
+  if (fan < 5) {
     ret = snprintf(device_name, sizeof(device_name), "pwm%d", fan + 1);
     if (ret < 0) {
       return -1;
     }
     snprintf(path, sizeof(path), "%s/%s", SMB_FAN_CONTROLLER1_DEVICE, device_name);
-  } else if ( fan < 7) {
-    ret = snprintf(device_name, sizeof(device_name), "pwm%d", fan - 1);
+  } else if ( fan < 10) {
+    ret = snprintf(device_name, sizeof(device_name), "pwm%d", fan - 4);
     if (ret < 0) {
       return -1;
     }
     snprintf(path, sizeof(path), "%s/%s", SMB_FAN_CONTROLLER2_DEVICE, device_name);
   } else {
-    ret = snprintf(device_name, sizeof(device_name), "pwm%d", fan - 6);
+    ret = snprintf(device_name, sizeof(device_name), "pwm%d", fan - 9);
     if (ret < 0) {
       return -1;
     }
@@ -1666,20 +1690,20 @@ int pal_get_pwm_value(uint8_t fan, uint8_t *pwm)
     return -1;
   }
 
-  if (fan < 2) {
+  if (fan < 5) {
     ret = snprintf(device_name, sizeof(device_name), "pwm%d", fan + 1);
     if (ret < 0) {
       return -1;
     }
     snprintf(path, sizeof(path), "%s/%s", SMB_FAN_CONTROLLER1_DEVICE, device_name);
-  } else if ( fan < 7) {
-    ret = snprintf(device_name, sizeof(device_name), "pwm%d", fan - 1);
+  } else if ( fan < 10) {
+    ret = snprintf(device_name, sizeof(device_name), "pwm%d", fan - 4);
     if (ret < 0) {
       return -1;
     }
     snprintf(path, sizeof(path), "%s/%s", SMB_FAN_CONTROLLER2_DEVICE, device_name);
   } else {
-    ret = snprintf(device_name, sizeof(device_name), "pwm%d", fan - 6);
+    ret = snprintf(device_name, sizeof(device_name), "pwm%d", fan - 9);
     if (ret < 0) {
       return -1;
     }
@@ -1719,34 +1743,40 @@ smb_sensor_read(uint8_t sensor_num, float *value) {
       ret = read_fan_rpm_f(SMB_FAN_CONTROLLER1_DEVICE, 2, value);
       break;
     case SMB_SENSOR_FAN2_FRONT_TACH:
-      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER2_DEVICE, 1, value);
+      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER1_DEVICE, 3, value);
       break;
     case SMB_SENSOR_FAN2_REAR_TACH:
-      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER2_DEVICE, 2, value);
+      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER1_DEVICE, 4, value);
       break;
     case SMB_SENSOR_FAN3_FRONT_TACH:
-      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER2_DEVICE, 3, value);
+      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER1_DEVICE, 5, value);
       break;
     case SMB_SENSOR_FAN3_REAR_TACH:
-      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER2_DEVICE, 4, value);
+      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER2_DEVICE, 1, value);
       break;
     case SMB_SENSOR_FAN4_FRONT_TACH:
-      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER2_DEVICE, 5, value);
+      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER2_DEVICE, 2, value);
       break;
     case SMB_SENSOR_FAN4_REAR_TACH:
-      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER3_DEVICE, 1, value);
+      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER2_DEVICE, 3, value);
       break;
     case SMB_SENSOR_FAN5_FRONT_TACH:
-      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER3_DEVICE, 2, value);
+      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER2_DEVICE, 4, value);
       break;
     case SMB_SENSOR_FAN5_REAR_TACH:
-      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER3_DEVICE, 3, value);
+      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER2_DEVICE, 5, value);
       break;
     case SMB_SENSOR_FAN6_FRONT_TACH:
-      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER3_DEVICE, 4, value);
+      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER3_DEVICE, 1, value);
       break;
     case SMB_SENSOR_FAN6_REAR_TACH:
-      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER3_DEVICE, 5, value);
+      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER3_DEVICE, 2, value);
+      break;
+    case SMB_SENSOR_FAN7_FRONT_TACH:
+      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER3_DEVICE, 3, value);
+      break;
+    case SMB_SENSOR_FAN7_REAR_TACH:
+      ret = read_fan_rpm_f(SMB_FAN_CONTROLLER3_DEVICE, 4, value);
       break;
     case SMB_BMC_ADC0_VSEN:
       ret = read_attr(AST_ADC_DEVICE, VOLT(1), value);
@@ -1894,9 +1924,10 @@ pal_sensor_read_raw(uint8_t fru, uint8_t sensor_num, void *value) {
   sprintf(key, "%s_sensor%d", fru_name, sensor_num);
   switch(fru) {
     case FRU_SMB:
+    case FRU_BMC:
       ret = smb_sensor_read(sensor_num, value);
       if (sensor_num >= SMB_SENSOR_FAN1_FRONT_TACH &&
-           sensor_num <= SMB_SENSOR_FAN6_REAR_TACH) {
+           sensor_num <= SMB_SENSOR_FAN7_REAR_TACH) {
         delay = 100;
       }
       break;
@@ -2015,6 +2046,12 @@ get_smb_sensor_name(uint8_t sensor_num, char *name) {
     case SMB_SENSOR_FAN6_REAR_TACH:
       sprintf(name, "FAN6_REAR_SPEED");
       break;
+    case SMB_SENSOR_FAN7_FRONT_TACH:
+      sprintf(name, "FAN7_FRONT_SPEED");
+      break;
+    case SMB_SENSOR_FAN7_REAR_TACH:
+      sprintf(name, "FAN7_REAR_SPEED");
+      break;
     case SMB_BMC_ADC0_VSEN:
       sprintf(name, "ADC_VCC_12V");
       break;
@@ -2128,6 +2165,7 @@ pal_get_sensor_name(uint8_t fru, uint8_t sensor_num, char *name) {
 
   switch(fru) {
     case FRU_SMB:
+    case FRU_BMC:
       ret = get_smb_sensor_name(sensor_num, name);
       break;
     case FRU_PSU1:
@@ -2176,6 +2214,8 @@ get_smb_sensor_units(uint8_t sensor_num, char *units) {
     case SMB_SENSOR_FAN5_REAR_TACH:
     case SMB_SENSOR_FAN6_FRONT_TACH:
     case SMB_SENSOR_FAN6_REAR_TACH:
+    case SMB_SENSOR_FAN7_FRONT_TACH:
+    case SMB_SENSOR_FAN7_REAR_TACH:
       sprintf(units, "RPM");
       break;
     default:
@@ -2228,6 +2268,7 @@ pal_get_sensor_units(uint8_t fru, uint8_t sensor_num, char *units) {
 
   switch(fru) {
     case FRU_SMB:
+    case FRU_BMC:
       ret = get_smb_sensor_units(sensor_num, units);
       break;
     case FRU_PSU1:
@@ -2277,34 +2318,105 @@ sensor_thresh_array_init(uint8_t fru) {
       smb_sensor_threshold[SMB_BMC_ADC15_VSEN][UCR_THRESH] = 1.377;
       smb_sensor_threshold[SMB_BMC_ADC15_VSEN][LCR_THRESH] = 1.323;
       /* SMB TEMP Sensors */
-      smb_sensor_threshold[SMB_SENSOR_TMP75_LF_TEMP][UCR_THRESH] = 80;
-      smb_sensor_threshold[SMB_SENSOR_TMP75_RF_TEMP][UCR_THRESH] = 80;
-      smb_sensor_threshold[SMB_SENSOR_TMP75_UPPER_MAC_TEMP][UCR_THRESH] = 80;
-      smb_sensor_threshold[SMB_SENSOR_TMP75_LOWER_MAC_TEMP][UCR_THRESH] = 80;
-      smb_sensor_threshold[SMB_SENSOR_FAN1_FRONT_TACH][UCR_THRESH] = 23000;
-      smb_sensor_threshold[SMB_SENSOR_FAN1_FRONT_TACH][LCR_THRESH] = 6600;
-      smb_sensor_threshold[SMB_SENSOR_FAN1_REAR_TACH][UCR_THRESH] = 20500;
-      smb_sensor_threshold[SMB_SENSOR_FAN1_REAR_TACH][LCR_THRESH] = 6600;
-      smb_sensor_threshold[SMB_SENSOR_FAN2_FRONT_TACH][UCR_THRESH] = 23000;
-      smb_sensor_threshold[SMB_SENSOR_FAN2_FRONT_TACH][LCR_THRESH] = 6600;
-      smb_sensor_threshold[SMB_SENSOR_FAN2_REAR_TACH][UCR_THRESH] = 20500;
-      smb_sensor_threshold[SMB_SENSOR_FAN2_REAR_TACH][LCR_THRESH] = 6600;
-      smb_sensor_threshold[SMB_SENSOR_FAN3_FRONT_TACH][UCR_THRESH] = 23000;
-      smb_sensor_threshold[SMB_SENSOR_FAN3_FRONT_TACH][LCR_THRESH] = 6600;
-      smb_sensor_threshold[SMB_SENSOR_FAN3_REAR_TACH][UCR_THRESH] = 20500;
-      smb_sensor_threshold[SMB_SENSOR_FAN3_REAR_TACH][LCR_THRESH] = 6600;
-      smb_sensor_threshold[SMB_SENSOR_FAN4_FRONT_TACH][UCR_THRESH] = 23000;
-      smb_sensor_threshold[SMB_SENSOR_FAN4_FRONT_TACH][LCR_THRESH] = 6600;
-      smb_sensor_threshold[SMB_SENSOR_FAN4_REAR_TACH][UCR_THRESH] = 20500;
-      smb_sensor_threshold[SMB_SENSOR_FAN4_REAR_TACH][LCR_THRESH] = 6600;
-      smb_sensor_threshold[SMB_SENSOR_FAN5_FRONT_TACH][UCR_THRESH] = 23000;
-      smb_sensor_threshold[SMB_SENSOR_FAN5_FRONT_TACH][LCR_THRESH] = 6600;
-      smb_sensor_threshold[SMB_SENSOR_FAN5_REAR_TACH][UCR_THRESH] = 20500;
-      smb_sensor_threshold[SMB_SENSOR_FAN5_REAR_TACH][LCR_THRESH] = 6600;
-      smb_sensor_threshold[SMB_SENSOR_FAN6_FRONT_TACH][UCR_THRESH] = 23000;
-      smb_sensor_threshold[SMB_SENSOR_FAN6_FRONT_TACH][LCR_THRESH] = 6600;
-      smb_sensor_threshold[SMB_SENSOR_FAN6_REAR_TACH][UCR_THRESH] = 20500;
-      smb_sensor_threshold[SMB_SENSOR_FAN6_REAR_TACH][LCR_THRESH] = 6600;
+      smb_sensor_threshold[SMB_SENSOR_TMP75_LF_TEMP][UNC_THRESH] = 55;
+      smb_sensor_threshold[SMB_SENSOR_TMP75_LF_TEMP][UCR_THRESH] = 60;
+      smb_sensor_threshold[SMB_SENSOR_TMP75_RF_TEMP][UNC_THRESH] = 64;
+      smb_sensor_threshold[SMB_SENSOR_TMP75_RF_TEMP][UCR_THRESH] = 69;
+      smb_sensor_threshold[SMB_SENSOR_TMP75_UPPER_MAC_TEMP][UNC_THRESH] = 57;
+      smb_sensor_threshold[SMB_SENSOR_TMP75_UPPER_MAC_TEMP][UCR_THRESH] = 62;
+      smb_sensor_threshold[SMB_SENSOR_TMP75_LOWER_MAC_TEMP][UNC_THRESH] = 66;
+      smb_sensor_threshold[SMB_SENSOR_TMP75_LOWER_MAC_TEMP][UCR_THRESH] = 71;
+      /* FAN Sensors */
+      smb_sensor_threshold[SMB_SENSOR_FAN1_FRONT_TACH][UCR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN1_FRONT_TACH][UNC_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN1_FRONT_TACH][UNR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN1_FRONT_TACH][LCR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN1_FRONT_TACH][LNC_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN1_FRONT_TACH][LNR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN1_REAR_TACH][UCR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN1_REAR_TACH][UNC_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN1_REAR_TACH][UNR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN1_REAR_TACH][LCR_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN1_REAR_TACH][LNC_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN1_REAR_TACH][LNR_THRESH] = 6832;
+      
+      smb_sensor_threshold[SMB_SENSOR_FAN2_FRONT_TACH][UCR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN2_FRONT_TACH][UNC_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN2_FRONT_TACH][UNR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN2_FRONT_TACH][LCR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN2_FRONT_TACH][LNC_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN2_FRONT_TACH][LNR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN2_REAR_TACH][UCR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN2_REAR_TACH][UNC_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN2_REAR_TACH][UNR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN2_REAR_TACH][LCR_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN2_REAR_TACH][LNC_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN2_REAR_TACH][LNR_THRESH] = 6832;
+      
+      smb_sensor_threshold[SMB_SENSOR_FAN3_FRONT_TACH][UCR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN3_FRONT_TACH][UNC_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN3_FRONT_TACH][UNR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN3_FRONT_TACH][LCR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN3_FRONT_TACH][LNC_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN3_FRONT_TACH][LNR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN3_REAR_TACH][UCR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN3_REAR_TACH][UNC_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN3_REAR_TACH][UNR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN3_REAR_TACH][LCR_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN3_REAR_TACH][LNC_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN3_REAR_TACH][LNR_THRESH] = 6832;
+      
+      smb_sensor_threshold[SMB_SENSOR_FAN4_FRONT_TACH][UCR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN4_FRONT_TACH][UNC_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN4_FRONT_TACH][UNR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN4_FRONT_TACH][LCR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN4_FRONT_TACH][LNC_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN4_FRONT_TACH][LNR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN4_REAR_TACH][UCR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN4_REAR_TACH][UNC_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN4_REAR_TACH][UNR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN4_REAR_TACH][LCR_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN4_REAR_TACH][LNC_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN4_REAR_TACH][LNR_THRESH] = 6832;
+      
+      smb_sensor_threshold[SMB_SENSOR_FAN5_FRONT_TACH][UCR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN5_FRONT_TACH][UNC_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN5_FRONT_TACH][UNR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN5_FRONT_TACH][LCR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN5_FRONT_TACH][LNC_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN5_FRONT_TACH][LNR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN5_REAR_TACH][UCR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN5_REAR_TACH][UNC_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN5_REAR_TACH][UNR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN5_REAR_TACH][LCR_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN5_REAR_TACH][LNC_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN5_REAR_TACH][LNR_THRESH] = 6832;
+      
+      smb_sensor_threshold[SMB_SENSOR_FAN6_FRONT_TACH][UCR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN6_FRONT_TACH][UNC_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN6_FRONT_TACH][UNR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN6_FRONT_TACH][LCR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN6_FRONT_TACH][LNC_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN6_FRONT_TACH][LNR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN6_REAR_TACH][UCR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN6_REAR_TACH][UNC_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN6_REAR_TACH][UNR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN6_REAR_TACH][LCR_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN6_REAR_TACH][LNC_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN6_REAR_TACH][LNR_THRESH] = 6832;
+      
+      smb_sensor_threshold[SMB_SENSOR_FAN7_FRONT_TACH][UCR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN7_FRONT_TACH][UNC_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN7_FRONT_TACH][UNR_THRESH] = 30988;
+      smb_sensor_threshold[SMB_SENSOR_FAN7_FRONT_TACH][LCR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN7_FRONT_TACH][LNC_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN7_FRONT_TACH][LNR_THRESH] = 8052;
+      smb_sensor_threshold[SMB_SENSOR_FAN7_REAR_TACH][UCR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN7_REAR_TACH][UNC_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN7_REAR_TACH][UNR_THRESH] = 26352;
+      smb_sensor_threshold[SMB_SENSOR_FAN7_REAR_TACH][LCR_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN7_REAR_TACH][LNC_THRESH] = 6832;
+      smb_sensor_threshold[SMB_SENSOR_FAN7_REAR_TACH][LNR_THRESH] = 6832;
 
       break;
     case FRU_PSU1:
@@ -2473,6 +2585,8 @@ smb_sensor_poll_interval(uint8_t sensor_num, uint32_t *value) {
     case SMB_SENSOR_FAN5_REAR_TACH:
     case SMB_SENSOR_FAN6_FRONT_TACH:
     case SMB_SENSOR_FAN6_REAR_TACH:
+    case SMB_SENSOR_FAN7_FRONT_TACH:
+    case SMB_SENSOR_FAN7_REAR_TACH:
       *value = 2;
       break;
     default:
@@ -2875,9 +2989,15 @@ void set_fan_led(int brd_rev)
                        SMB_SENSOR_FAN3_FRONT_TACH,
                        SMB_SENSOR_FAN3_REAR_TACH ,
                        SMB_SENSOR_FAN4_FRONT_TACH,
-                       SMB_SENSOR_FAN4_REAR_TACH };
+                       SMB_SENSOR_FAN4_REAR_TACH ,
+                       SMB_SENSOR_FAN5_FRONT_TACH,
+                       SMB_SENSOR_FAN5_REAR_TACH ,
+                       SMB_SENSOR_FAN6_FRONT_TACH,
+                       SMB_SENSOR_FAN6_REAR_TACH ,
+                       SMB_SENSOR_FAN7_FRONT_TACH,
+                       SMB_SENSOR_FAN7_REAR_TACH };
 
-  for(i = FRU_FAN1; i <= FRU_FAN6; i++) {
+  for(i = FRU_FAN1; i <= FRU_FAN7; i++) {
     pal_is_fru_prsnt(i, &prsnt);
 #ifdef DEBUG
     OBMC_INFO("fan %d : %d\n",i,prsnt);
@@ -3149,14 +3269,15 @@ pal_get_fru_health(uint8_t fru, uint8_t *value) {
     case FRU_FCM:
       sprintf(key, "fcm_sensor_health");
       break;
-
+    case FRU_BMC:
+      sprintf(key, "bmc_sensor_health");
+      break;
     case FRU_PSU1:
         sprintf(key, "psu1_sensor_health");
         break;
     case FRU_PSU2:
         sprintf(key, "psu2_sensor_health");
         break;
-
     case FRU_FAN1:
         sprintf(key, "fan1_sensor_health");
         break;
@@ -3174,6 +3295,9 @@ pal_get_fru_health(uint8_t fru, uint8_t *value) {
         break;
     case FRU_FAN6:
         sprintf(key, "fan6_sensor_health");
+        break;
+    case FRU_FAN7:
+        sprintf(key, "fan7_sensor_health");
         break;
 
     default:
@@ -3200,6 +3324,9 @@ pal_set_sensor_health(uint8_t fru, uint8_t value) {
     case FRU_SMB:
       sprintf(key, "smb_sensor_health");
       break;
+    case FRU_BMC:
+      sprintf(key, "bmc_sensor_health");
+      break;
     case FRU_PSU1:
       sprintf(key, "psu1_sensor_health");
       break;
@@ -3223,6 +3350,9 @@ pal_set_sensor_health(uint8_t fru, uint8_t value) {
       break;
     case FRU_FAN6:
       sprintf(key, "fan6_sensor_health");
+      break;
+    case FRU_FAN7:
+      sprintf(key, "fan7_sensor_health");
       break;
     default:
       return -1;
@@ -3331,7 +3461,7 @@ pal_parse_sel(uint8_t fru, uint8_t *sel, char *error_log)
 }
 
 int
-agc032a_sensor_name(uint8_t fru, uint8_t sensor_num, char *name) {
+ddt32c2s_sensor_name(uint8_t fru, uint8_t sensor_num, char *name) {
   return 0;
 }
 
@@ -3347,7 +3477,7 @@ pal_get_event_sensor_name(uint8_t fru, uint8_t *sel, char *name) {
       sprintf(name, "OS");
       return 0;
     default:
-      if (agc032a_sensor_name(fru, snr_num, name) != 0) {
+      if (ddt32c2s_sensor_name(fru, snr_num, name) != 0) {
         break;
       }
       return 0;

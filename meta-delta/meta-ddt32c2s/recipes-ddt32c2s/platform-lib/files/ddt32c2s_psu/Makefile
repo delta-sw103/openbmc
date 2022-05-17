@@ -15,13 +15,13 @@
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
-lib: libagc032a-psu.so
+lib: libddt32c2s-psu.so
 
-libagc032a-psu.so: agc032a-psu.c
-	$(CC) $(CFLAGS) -fPIC -c -o agc032a-psu.o agc032a-psu.c
-	$(CC) -shared -o libagc032a-psu.so agc032a-psu.o -lc $(LDFLAGS)
+libddt32c2s-psu.so: ddt32c2s-psu.c
+	$(CC) $(CFLAGS) -fPIC -c -o ddt32c2s-psu.o ddt32c2s-psu.c
+	$(CC) -shared -o libddt32c2s-psu.so ddt32c2s-psu.o -lc $(LDFLAGS)
 
 .PHONY: clean
 
 clean:
-	rm -rf *.o libagc032a-psu.so
+	rm -rf *.o libddt32c2s-psu.so
