@@ -21,19 +21,21 @@
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 
-MAX_FAN_NUM=6
-FAN1_DEV="$(i2c_device_sysfs_abspath 14-0050)"
-FAN2_DEV="$(i2c_device_sysfs_abspath 15-0050)"
-FAN3_DEV="$(i2c_device_sysfs_abspath 16-0050)"
-FAN4_DEV="$(i2c_device_sysfs_abspath 17-0050)"
-FAN5_DEV="$(i2c_device_sysfs_abspath 18-0050)"
-FAN6_DEV="$(i2c_device_sysfs_abspath 19-0050)"
+MAX_FAN_NUM=7
+FAN1_DEV="$(i2c_device_sysfs_abspath 16-0050)"
+FAN2_DEV="$(i2c_device_sysfs_abspath 17-0050)"
+FAN3_DEV="$(i2c_device_sysfs_abspath 18-0050)"
+FAN4_DEV="$(i2c_device_sysfs_abspath 19-0050)"
+FAN5_DEV="$(i2c_device_sysfs_abspath 20-0050)"
+FAN6_DEV="$(i2c_device_sysfs_abspath 21-0050)"
+FAN7_DEV="$(i2c_device_sysfs_abspath 22-0050)"
 FAN1_EEPROM_PATH="${FAN1_DEV}/eeprom"
 FAN2_EEPROM_PATH="${FAN2_DEV}/eeprom"
 FAN3_EEPROM_PATH="${FAN3_DEV}/eeprom"
 FAN4_EEPROM_PATH="${FAN4_DEV}/eeprom"
 FAN5_EEPROM_PATH="${FAN5_DEV}/eeprom"
 FAN6_EEPROM_PATH="${FAN6_DEV}/eeprom"
+FAN7_EEPROM_PATH="${FAN7_DEV}/eeprom"
 #FCM_EEPROM_PATH="$(i2c_device_sysfs_abspath 31-0051)/eeprom"
 
 usage() {
@@ -106,7 +108,7 @@ case $1 in
         ;;
     fcm)
         ;;
-    '1'|'2'|'3'|'4'|'5'|'6')
+    '1'|'2'|'3'|'4'|'5'|'6'|'7')
         dump_fan_eeprom "$1"
         ;;
     *)

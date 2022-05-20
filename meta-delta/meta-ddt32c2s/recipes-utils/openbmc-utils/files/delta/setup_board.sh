@@ -38,13 +38,14 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 # echo 0 > "$SWPLD1_SYSFS_DIR/console_sel"
 
 # select lmsensor configuration
-cp /etc/sensors.d/custom/agc032a.conf /etc/sensors.d/agc032a.conf
+cp /etc/sensors.d/custom/ddt32c2s.conf /etc/sensors.d/ddt32c2s.conf
 
 
-# export_gpio_pin for PCA9555 20-0027
-gpiocli export -c 20-0027 -o 0 --shadow FAN1_PRESENT
-gpiocli export -c 20-0027 -o 1 --shadow FAN2_PRESENT
-gpiocli export -c 20-0027 -o 2 --shadow FAN3_PRESENT
-gpiocli export -c 20-0027 -o 3 --shadow FAN4_PRESENT
-gpiocli export -c 20-0027 -o 4 --shadow FAN5_PRESENT
-gpiocli export -c 20-0027 -o 5 --shadow FAN6_PRESENT
+# export_gpio_pin for PCA9555 5-0027
+gpiocli export -c 5-0027 -o 0 --shadow FAN1_PRESENT
+gpiocli export -c 5-0027 -o 1 --shadow FAN2_PRESENT
+gpiocli export -c 5-0027 -o 2 --shadow FAN3_PRESENT
+gpiocli export -c 5-0027 -o 3 --shadow FAN4_PRESENT
+gpiocli export -c 5-0027 -o 4 --shadow FAN5_PRESENT
+gpiocli export -c 5-0027 -o 5 --shadow FAN6_PRESENT
+gpiocli export -c 5-0027 -o 6 --shadow FAN7_PRESENT

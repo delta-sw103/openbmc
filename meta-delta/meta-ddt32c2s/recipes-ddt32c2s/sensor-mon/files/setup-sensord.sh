@@ -27,7 +27,7 @@
 # Short-Description: Setup sensor monitoring
 ### END INIT INFO
 
-echo -n "Setup sensor monitoring for AGC032A... "
+echo -n "Setup sensor monitoring for DD-T32C2S... "
 
 runsv /etc/sv/sensord > /dev/null 2>&1 &
 

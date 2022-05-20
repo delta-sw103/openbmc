@@ -52,7 +52,7 @@ function get_presence
 function get_fan_presence
 {
   local num=1
-  while [ $num -le 6 ]; do
+  while [ $num -le 7 ]; do
       key="fan${num}"
       file="/tmp/gpionames/FAN${num}_PRESENT/value"
       get_presence "$file" "$key"

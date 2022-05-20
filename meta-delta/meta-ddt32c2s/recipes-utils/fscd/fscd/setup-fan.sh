@@ -37,8 +37,8 @@ default_fsc_config="/etc/fsc-config.json"
 
 echo -n "Setup fan speed... "
 
-echo "Run FSC AGC032A Config"
-cp /etc/FSC-AGC032A-config.json ${default_fsc_config}
+echo "Run FSC DDT32C2S Config"
+cp /etc/FSC-DDT32C2S-config.json ${default_fsc_config}
 
 echo "Setting fan speed to 50%..."
 /usr/local/bin/set_fan_speed.sh 50 all both

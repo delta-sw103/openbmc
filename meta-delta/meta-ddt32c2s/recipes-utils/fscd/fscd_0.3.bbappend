@@ -25,17 +25,17 @@ LOCAL_URI += " \
     file://set_fan_speed.sh \
     file://fsc_board.py \
     file://fsc_sensor.py \
-    file://FSC-AGC032A-config.json \
-    file://zone-agc032a.fsc \
+    file://FSC-DDT32C2S-config.json \
+    file://zone-ddt32c2s.fsc \
     "
 
 FSC_BIN_FILES += "get_fan_speed.sh \
                   set_fan_speed.sh "
 
-FSC_CONFIG += "FSC-AGC032A-config.json \
+FSC_CONFIG += "FSC-DDT32C2S-config.json \
               "
 
-FSC_ZONE_CONFIG +="zone-agc032a.fsc \
+FSC_ZONE_CONFIG +="zone-ddt32c2s.fsc \
                   "
 
 FSC_INIT_FILE += "setup-fan.sh"

@@ -22,7 +22,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 . /usr/local/bin/openbmc-utils.sh
 
 KERNEL_VERSION=$(uname -r)
-start_of_mux_bus=14
+start_of_mux_bus=16
 
 # get from swpld1
 get_board_type() {
@@ -63,55 +63,54 @@ brd_rev=$(get_board_rev)
 # Bus 0
 i2c_device_add 0 0x50 24c02                 # PSU1 EEPROM
 i2c_device_add 0 0x58 dps_driver            # PSU1 PSU_DRIVER
+i2c_device_add 0 0x51 24c02                 # PSU2 EEPROM
+i2c_device_add 0 0x59 dps_driver            # PSU2 PSU_DRIVER
 
 # Bus 1
-i2c_device_add 1 0x50 24c02                 # PSU2 EEPROM
-i2c_device_add 1 0x58 dps_driver            # PSU2 PSU_DRIVER
+# i2c_device_add 1 0x49 tmp75            #Thermal RF
+# i2c_device_add 1 0x4a tmp75            #Thermal LF
+# i2c_device_add 1 0x4b tmp75            #Thermal Upper
+# i2c_device_add 1 0x4e tmp75            #Thermal Lower
 
 # Bus 2
+i2c_device_add 2 0x2d emc2305          #Fan Controller
+i2c_device_add 2 0x4c emc2305          #Fan Controller
+i2c_device_add 2 0x4d emc2305          #Fan Controller
 # i2c_device_add 2 0x75 pca9548          # PCA9548
 
 # Bus 3
-i2c_device_add 3 0x4c emc2305          #Fan Controller
-i2c_device_add 3 0x2d emc2305          #Fan Controller
-i2c_device_add 3 0x2e emc2305          #Fan Controller
+i2c_device_add 3 0x36 sysfpga          #Fan Controller
 # i2c_device_add 3 0x4f tmp75            #Fan BD
 
 # Bus 4
-# i2c_device_add 4 0x4b tmp75            #Thermal RF
-# i2c_device_add 4 0x49 tmp75            #Thermal LF
-# i2c_device_add 4 0x4a tmp75            #Thermal Upper
-# i2c_device_add 4 0x4e tmp75            #Thermal Lower
 
 # Bus 5
+i2c_device_add 5 0x27 pca9555          #PCA9555
 # i2c_device_add 5 0x65 tps53647                   #VCC_VDD_0V8
 # i2c_device_add 5 0x10 ir35223                    #VCC_AVDD_0V9
 # i2c_device_add 5 0x64 tps53667                   #VCC_3V3
 
 # Bus 6
-i2c_device_add 6 0x50 24c08                        #SMB EEPROM
 
 # Bus 7
-i2c_device_add 7 0x32 swpld_1           #swpld1
-i2c_device_add 7 0x34 swpld_2           #swpld2
-i2c_device_add 7 0x35 swpld_3           #swpld3
+i2c_device_add 7 0x50 24c08                        #BMC EEPROM
 
-# i2c-mux 2-0075: child bus 14-21
+# i2c-mux 5-0072: child bus 16-23
 
-# i2c-mux 2, channel 1
-i2c_device_add 14 0x50 24c64     #FAN1 Tray
-# i2c-mux 2, channel 2
-i2c_device_add 15 0x50 24c64     #FAN2 Tray
-# i2c-mux 2, channel 3
-i2c_device_add 16 0x50 24c64     #FAN3 Tray
-# i2c-mux 2, channel 4
-i2c_device_add 17 0x50 24c64     #FAN4 Tray
-# i2c-mux 2, channel 5
-i2c_device_add 18 0x50 24c64     #FAN5 Tray
-# i2c-mux 2, channel 6
-i2c_device_add 19 0x50 24c64     #FAN6 Tray
-# i2c-mux 2, channel 7
-i2c_device_add 20 0x27 pca9555   #PCA9555
+# i2c-mux 5, channel 1
+i2c_device_add 16 0x50 24c64     #FAN1 Tray
+# i2c-mux 5, channel 2
+i2c_device_add 17 0x50 24c64     #FAN2 Tray
+# i2c-mux 5, channel 3
+i2c_device_add 18 0x50 24c64     #FAN3 Tray
+# i2c-mux 5, channel 4
+i2c_device_add 19 0x50 24c64     #FAN4 Tray
+# i2c-mux 5, channel 5
+i2c_device_add 20 0x50 24c64     #FAN5 Tray
+# i2c-mux 5, channel 6
+i2c_device_add 21 0x50 24c64     #FAN6 Tray
+# i2c-mux 5, channel 7
+i2c_device_add 22 0x50 24c64     #FAN7 Tray
 
 
 #

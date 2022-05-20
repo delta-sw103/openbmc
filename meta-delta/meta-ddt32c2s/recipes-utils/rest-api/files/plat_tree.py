@@ -85,7 +85,7 @@ def setup_board_routes(app: Application, write_enabled: bool):
     r_network = tree("NetworkProtocol", data=get_manager_network())
     # /redfish/v1/Managers/1/LogService end point
     agc032a = ['all', 'sys', 'smb', 'psu1', 'psu2', 
-               'fan1', 'fan2', 'fan3', 'fan4', 'fan5', 'fan6']
+               'fan1', 'fan2', 'fan3', 'fan4', 'fan5', 'fan6', 'fan7']
     r_log = tree("LogServices", data=get_manager_logservice(agc032a))
     r_managers_mem.addChildren([r_ethernet, r_network, r_log])
 
