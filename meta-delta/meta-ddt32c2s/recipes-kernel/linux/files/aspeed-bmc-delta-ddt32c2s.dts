@@ -109,7 +109,7 @@
 			#size-cells = <1>;
 
 			flash1@0 {
-				reg = <0x4000000 0x8000000>;
+				reg = <0x0 0x4000000>;
 				label = "flash1";
 			};
 		};

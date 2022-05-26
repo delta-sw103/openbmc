@@ -24,8 +24,7 @@ SRC_URI += "file://ddt32c2s.conf \
 
 DEPENDS:append = " update-rc.d-native"
 
-do_install_:append() {
-
+do_install:append() {
     install -d ${D}${sysconfdir}/sensors.d
     install -d ${D}${sysconfdir}/sensors.d/custom
     install -m 644 ${WORKDIR}/ddt32c2s.conf ${D}${sysconfdir}/sensors.d/custom/ddt32c2s.conf

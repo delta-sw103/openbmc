@@ -5,7 +5,7 @@ def fbobmc_get_image_part_table(d):
     # the order in the partition in the list does not matter
     # sanity check will make sure the partitions not overlap, no gaps
     # align with erase_block_size and fits in the space defined as image_max_size
-    image_max_size = 0x4000000
+    image_max_size = 0x8000000
     erase_block_size = 64 * 1024
 
     image_part_table_simple = (
