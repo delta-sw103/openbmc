@@ -81,6 +81,7 @@
                     "type": "some_file_matches_some_regexp",
                     "value": [
                         "^openbmc-init-build-env",
+                        "^classes/.*",
                         "^common/.*",
                         "^facebook/.*",
                         "^tests2/.*",
@@ -719,6 +720,7 @@
                 {
                     "type": "some_file_matches_some_regexp",
                     "value": [
+                        "^proprietary/amd/yaap/.*",
                         "^meta-facebook/meta-fby2/meta-fby2-nd/.*",
                         "^meta-facebook/meta-fby2/recipes-.*"
                     ]
@@ -952,6 +954,7 @@
                     "type": "some_file_matches_some_regexp",
                     "value": [
                         "^openbmc-init-build-env",
+                        "^classes/.*",
                         "^common/.*",
                         "^facebook/.*",
                         "^tests2/.*",
@@ -1589,6 +1592,7 @@
                 {
                     "type": "some_file_matches_some_regexp",
                     "value": [
+                        "^proprietary/amd/yaap/.*",
                         "^meta-facebook/meta-fby2/meta-fby2-nd/.*",
                         "^meta-facebook/meta-fby2/recipes-.*"
                     ]
