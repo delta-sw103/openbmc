@@ -1,4 +1,6 @@
-# Copyright 2018-present Facebook. All Rights Reserved.
+#!/bin/sh
+#
+# Copyright 2015-present Facebook. All Rights Reserved.
 #
 # This program file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -14,24 +16,22 @@
 # Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
+#
 
-FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
+### BEGIN INIT INFO
+# Provides:          setup-sensord
+# Required-Start:
+# Required-Stop:
+# Default-Start:     S
+# Default-Stop:
+# Short-Description: Setup sensor monitoring
+### END INIT INFO
 
-LOCAL_URI += " \
-    file://usbdbg.h \
-    file://usbdbg.cpp \
-    file://mcu_fw.h \
-    file://mcu_fw.cpp \
-    file://bios.h \
-    file://bios.cpp \
-    file://platform.cpp \
-    file://cpld.cpp \
-    file://me.cpp \
-    file://nic_ext.h \
-    file://nic_ext.cpp \
-    file://vr_fw.h \
-    file://vr_fw.cpp \ 
-    "
-DEPENDS += "libmcu libpal libfpga libvr libncsi libnl-wrapper libkv libobmc-i2c libnm"
-RDEPENDS:${PN} += "libmcu libpal libfpga libvr libncsi libnl-wrapper libkv libobmc-i2c libnm"
-LDFLAGS += "-lmcu -lpal -lfpga -lvr -lnl-wrapper -lkv -lobmc-i2c -lnm"
+# shellcheck disable=SC1091
+. /usr/local/fbpackages/utils/ast-functions
+
+# shellcheck disable=2039
+echo -n "Setup sensor monitoring for GrandTeton... "
+runsv /etc/sv/sensord > /dev/null 2>&1 &
+
+echo "done."
