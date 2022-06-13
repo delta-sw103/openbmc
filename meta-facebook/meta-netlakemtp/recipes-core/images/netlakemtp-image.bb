@@ -23,4 +23,15 @@ IMAGE_INSTALL += " \
   fw-util \
   jbi \
   log-util \
+  guid-util \
+  ipmi-util \
+  power-util \
+  libncsi \
+  ncsid-v2 \
+  ncsi-util \
+  me-util \
+  kcsd \
+  fan-util \
+  fscd \
+  ipmbd \
   "

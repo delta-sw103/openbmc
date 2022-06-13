@@ -35,8 +35,8 @@ extern "C" {
 #define FRUID_SIZE      512
 #define CUSTOM_FRU_LIST 1
 #define FRU_DEVICE_LIST 1
-#define FAN_CTL_BUS     16
-#define FAN_CTL_ADDR    40
+#define FAN_CTL_BUS     21
+#define FAN_CTL_ADDR    21
 
 #define MAX_FRU_CMD_STR   16
 
@@ -52,6 +52,9 @@ extern "C" {
 #define ERR_CODE_DISABLE                 0
 
 #define PATH_POWER_ON_RESET "/tmp/ast_power_on_reset"
+
+// Define SENSOR_NA to distinguish whether sensor reading fail or not
+#define SENSOR_NA    (-4)
 
 // System Control Unit (ADC Register
 #define ADC_BASE         0x1E6E9000
@@ -79,6 +82,7 @@ int pal_check_gpio_prsnt(uint8_t gpio, int presnt_expect);
 int pal_copy_eeprom_to_bin(const char *eeprom_file, const char *bin_file);
 int pal_check_fru_is_valid(const char* fruid_path);
 int pal_get_cpld_ver(uint8_t fru, char *rbuf);
+int pal_post_display(uint8_t status);
 
 int pal_set_id_led(uint8_t fru, enum LED_HIGH_ACTIVE value);
 int pal_set_fault_led(uint8_t fru, enum LED_HIGH_ACTIVE value);

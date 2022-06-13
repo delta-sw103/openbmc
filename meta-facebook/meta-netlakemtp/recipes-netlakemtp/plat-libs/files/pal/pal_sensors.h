@@ -34,11 +34,17 @@ typedef struct {
   char* snr_name;
   uint8_t id;
   int (*read_sensor) (uint8_t id, float *value);
-  uint8_t stby_read;
+  uint8_t reading_available;
   PAL_SENSOR_THRESHOLD snr_thresh;
   uint8_t units;
   uint32_t poll_invernal;
 } PAL_SENSOR_MAP;
+
+enum {
+  STBY_READING = 0,
+  POWER_ON_READING,
+  POST_COMPLT_READING,
+};
 
 enum {
   UNSET_UNIT = 0,
@@ -106,14 +112,10 @@ enum {
 
 // Sensors under Power Distribution Board (PDB)
 enum {
-  FAN0_TACH = 0x34,
-  FAN1_TACH,
-  FAN2_TACH,
-  FAN3_TACH,
-  FAN4_TACH,
-  FAN5_TACH,
-  FAN6_TACH,
-  FAN7_TACH,
+  FAN0_TACH = 0x50,
+  FAN1_TACH = 0x51,
+  FAN2_TACH = 0x52,
+  FAN3_TACH = 0x53,
 };
 
 // Sensors under Front IO Board (FIO)
@@ -198,10 +200,6 @@ enum {
   FAN1,
   FAN2,
   FAN3,
-  FAN4,
-  FAN5,
-  FAN6,
-  FAN7,
 };
 
 enum pmbus_dev_type{
