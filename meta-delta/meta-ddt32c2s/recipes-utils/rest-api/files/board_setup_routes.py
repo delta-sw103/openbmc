@@ -17,17 +17,11 @@
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 #
-
-import os
-
 from aiohttp.web import Application
-from compute_rest_shim import RestShim
-from node_fruid import get_node_fruid
-from rest_pal_legacy import pal_is_fru_prsnt, pal_get_num_slots
 
-# Initialize Platform specific Resource Tree
+
+""" This file will be replaced by board specific file."""
+
+
 def setup_board_routes(app: Application, write_enabled: bool):
-
-    # Add /api/fruid end point
-    fruid_shim = RestShim(get_node_fruid("all"), "/api/fruid")
-    app.router.add_get(fruid_shim.path, fruid_shim.get_handler)
+    pass

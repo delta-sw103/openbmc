@@ -94,6 +94,7 @@ const uint8_t smb_sensor_list[] = {
   SMB_SENSOR_TMP75_RF_TEMP,
   SMB_SENSOR_TMP75_UPPER_MAC_TEMP,
   SMB_SENSOR_TMP75_LOWER_MAC_TEMP,
+  SMB_SENSOR_TMP75_FAN_TEMP,
   /* Sensors FAN Speed */
   SMB_SENSOR_FAN1_FRONT_TACH,
   SMB_SENSOR_FAN1_REAR_TACH,
@@ -110,7 +111,7 @@ const uint8_t smb_sensor_list[] = {
   SMB_SENSOR_FAN7_FRONT_TACH,
   SMB_SENSOR_FAN7_REAR_TACH,
   /* BMC ADC Sensors  */
-  SMB_BMC_ADC0_VSEN,
+/*  SMB_BMC_ADC0_VSEN,
   SMB_BMC_ADC1_VSEN,
   SMB_BMC_ADC2_VSEN,
   SMB_BMC_ADC3_VSEN,
@@ -121,7 +122,7 @@ const uint8_t smb_sensor_list[] = {
   SMB_BMC_ADC9_VSEN,
   SMB_BMC_ADC13_VSEN,
   SMB_BMC_ADC14_VSEN,
-  SMB_BMC_ADC15_VSEN,
+  SMB_BMC_ADC15_VSEN,*/
 };
 
 const uint8_t psu1_sensor_list[] = {
@@ -1736,6 +1737,9 @@ smb_sensor_read(uint8_t sensor_num, float *value) {
     case SMB_SENSOR_TMP75_LOWER_MAC_TEMP:
       ret = read_attr(SMB_TMP75_LOWER_MAC_DEVICE, TEMP(1), value);
       break;
+    case SMB_SENSOR_TMP75_FAN_TEMP:
+      ret = read_attr(SMB_TMP75_FAN_DEVICE, TEMP(1), value);
+      break;
     case SMB_SENSOR_FAN1_FRONT_TACH:
       ret = read_fan_rpm_f(SMB_FAN_CONTROLLER1_DEVICE, 1, value);
       break;
@@ -1778,7 +1782,7 @@ smb_sensor_read(uint8_t sensor_num, float *value) {
     case SMB_SENSOR_FAN7_REAR_TACH:
       ret = read_fan_rpm_f(SMB_FAN_CONTROLLER3_DEVICE, 4, value);
       break;
-    case SMB_BMC_ADC0_VSEN:
+/*    case SMB_BMC_ADC0_VSEN:
       ret = read_attr(AST_ADC_DEVICE, VOLT(1), value);
       break;
     case SMB_BMC_ADC1_VSEN:
@@ -1813,7 +1817,7 @@ smb_sensor_read(uint8_t sensor_num, float *value) {
       break;
     case SMB_BMC_ADC15_VSEN:
       ret = read_attr(AST_ADC_DEVICE, VOLT(16), value);
-      break;
+      break;*/
     default:
       ret = READING_NA;
       break;
@@ -2010,6 +2014,9 @@ get_smb_sensor_name(uint8_t sensor_num, char *name) {
     case SMB_SENSOR_TMP75_LOWER_MAC_TEMP:
       sprintf(name, "SMB_SENSOR_TMP75_LOWER_MAC_TEMP");
       break;
+    case SMB_SENSOR_TMP75_FAN_TEMP:
+      sprintf(name, "SMB_SENSOR_TMP75_FAN_TEMP");
+      break;
     case SMB_SENSOR_FAN1_FRONT_TACH:
       sprintf(name, "FAN1_FRONT_SPEED");
       break;
@@ -2052,7 +2059,7 @@ get_smb_sensor_name(uint8_t sensor_num, char *name) {
     case SMB_SENSOR_FAN7_REAR_TACH:
       sprintf(name, "FAN7_REAR_SPEED");
       break;
-    case SMB_BMC_ADC0_VSEN:
+/*    case SMB_BMC_ADC0_VSEN:
       sprintf(name, "ADC_VCC_12V");
       break;
     case SMB_BMC_ADC1_VSEN:
@@ -2087,7 +2094,7 @@ get_smb_sensor_name(uint8_t sensor_num, char *name) {
       break;
     case SMB_BMC_ADC15_VSEN:
       sprintf(name, "ADC_DDR_2V5");
-      break;
+      break;*/
     default:
       return -1;
   }
@@ -2186,9 +2193,10 @@ get_smb_sensor_units(uint8_t sensor_num, char *units) {
     case SMB_SENSOR_TMP75_RF_TEMP:
     case SMB_SENSOR_TMP75_UPPER_MAC_TEMP:
     case SMB_SENSOR_TMP75_LOWER_MAC_TEMP:
+    case SMB_SENSOR_TMP75_FAN_TEMP:
       sprintf(units, "C");
       break;
-    case SMB_BMC_ADC0_VSEN:
+/*    case SMB_BMC_ADC0_VSEN:
     case SMB_BMC_ADC1_VSEN:
     case SMB_BMC_ADC2_VSEN:
     case SMB_BMC_ADC3_VSEN:
@@ -2201,7 +2209,7 @@ get_smb_sensor_units(uint8_t sensor_num, char *units) {
     case SMB_BMC_ADC14_VSEN:
     case SMB_BMC_ADC15_VSEN:
       sprintf(units, "Volts");
-      break;
+      break;*/
     case SMB_SENSOR_FAN1_FRONT_TACH:
     case SMB_SENSOR_FAN1_REAR_TACH:
     case SMB_SENSOR_FAN2_FRONT_TACH:
@@ -2293,7 +2301,7 @@ sensor_thresh_array_init(uint8_t fru) {
   switch (fru) {
     case FRU_SMB:
       /* BMC ADC Sensors */
-      smb_sensor_threshold[SMB_BMC_ADC0_VSEN][UCR_THRESH] = 1.428;
+/*      smb_sensor_threshold[SMB_BMC_ADC0_VSEN][UCR_THRESH] = 1.428;
       smb_sensor_threshold[SMB_BMC_ADC0_VSEN][LCR_THRESH] = 1.169;
       smb_sensor_threshold[SMB_BMC_ADC1_VSEN][UCR_THRESH] = 1.446;
       smb_sensor_threshold[SMB_BMC_ADC1_VSEN][LCR_THRESH] = 1.183;
@@ -2316,7 +2324,7 @@ sensor_thresh_array_init(uint8_t fru) {
       smb_sensor_threshold[SMB_BMC_ADC14_VSEN][UCR_THRESH] = 1.366;
       smb_sensor_threshold[SMB_BMC_ADC14_VSEN][LCR_THRESH] = 1.313;
       smb_sensor_threshold[SMB_BMC_ADC15_VSEN][UCR_THRESH] = 1.377;
-      smb_sensor_threshold[SMB_BMC_ADC15_VSEN][LCR_THRESH] = 1.323;
+      smb_sensor_threshold[SMB_BMC_ADC15_VSEN][LCR_THRESH] = 1.323;*/
       /* SMB TEMP Sensors */
       smb_sensor_threshold[SMB_SENSOR_TMP75_LF_TEMP][UNC_THRESH] = 55;
       smb_sensor_threshold[SMB_SENSOR_TMP75_LF_TEMP][UCR_THRESH] = 60;
@@ -2326,6 +2334,8 @@ sensor_thresh_array_init(uint8_t fru) {
       smb_sensor_threshold[SMB_SENSOR_TMP75_UPPER_MAC_TEMP][UCR_THRESH] = 62;
       smb_sensor_threshold[SMB_SENSOR_TMP75_LOWER_MAC_TEMP][UNC_THRESH] = 66;
       smb_sensor_threshold[SMB_SENSOR_TMP75_LOWER_MAC_TEMP][UCR_THRESH] = 71;
+      smb_sensor_threshold[SMB_SENSOR_TMP75_FAN_TEMP][UNC_THRESH] = 56;
+      smb_sensor_threshold[SMB_SENSOR_TMP75_FAN_TEMP][UCR_THRESH] = 61;
       /* FAN Sensors */
       smb_sensor_threshold[SMB_SENSOR_FAN1_FRONT_TACH][UCR_THRESH] = 30988;
       smb_sensor_threshold[SMB_SENSOR_FAN1_FRONT_TACH][UNC_THRESH] = 30988;
@@ -2557,9 +2567,10 @@ smb_sensor_poll_interval(uint8_t sensor_num, uint32_t *value) {
     case SMB_SENSOR_TMP75_RF_TEMP:
     case SMB_SENSOR_TMP75_UPPER_MAC_TEMP:
     case SMB_SENSOR_TMP75_LOWER_MAC_TEMP:
+    case SMB_SENSOR_TMP75_FAN_TEMP:
       *value = 2;
       break;
-    case SMB_BMC_ADC0_VSEN:
+/*    case SMB_BMC_ADC0_VSEN:
     case SMB_BMC_ADC1_VSEN:
     case SMB_BMC_ADC2_VSEN:
     case SMB_BMC_ADC3_VSEN:
@@ -2572,7 +2583,7 @@ smb_sensor_poll_interval(uint8_t sensor_num, uint32_t *value) {
     case SMB_BMC_ADC14_VSEN:
     case SMB_BMC_ADC15_VSEN:
       *value = 30;
-      break;
+      break;*/
     case SMB_SENSOR_FAN1_FRONT_TACH:
     case SMB_SENSOR_FAN1_REAR_TACH:
     case SMB_SENSOR_FAN2_FRONT_TACH:
@@ -3971,5 +3982,13 @@ pal_switch_uart_mux() {
   if (write_device(path, val)) {
     return -1;
   }
+  return 0;
+}
+
+/* Samantha Chu */
+int
+pal_get_fru_capability(uint8_t fru, unsigned int *caps)
+{
+  *caps = ( FRU_CAPABILITY_ALL & (~FRU_CAPABILITY_HAS_DEVICE) & (~FRU_CAPABILITY_SENSOR_SLAVE));
   return 0;
 }
