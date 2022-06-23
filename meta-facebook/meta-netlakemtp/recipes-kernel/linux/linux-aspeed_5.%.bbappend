@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-#
-# Copyright 2014-present Facebook. All Rights Reserved.
+# Copyright 2020-present Facebook. All Rights Reserved.
 #
 # This program file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -16,22 +14,8 @@
 # Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
-#
 
-import asyncio
-import subprocess
+FILESEXTRAPATHS:prepend := "${THISDIR}/plat_conf:"
 
-
-# Handler for sensors resource endpoint
-async def get_modbus_registers():
-    p = await asyncio.create_subprocess_exec(
-        "/usr/local/bin/rackmondata", stdout=subprocess.PIPE
-    )
-    out, err = await p.communicate()
-    out = out.decode()
-    if p.returncode != 0:
-        raise subprocess.CalledProcessError(
-            p.returncode, cmd="/usr/local/bin/rackmondata", output=out, stderr=err
-        )
-    else:
-        return out
+SRC_URI += "file://netlakemtp.cfg \
+	"

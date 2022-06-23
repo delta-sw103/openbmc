@@ -131,6 +131,14 @@ enum {
 };
 
 enum {
+  UART_SELECT_BMC = 0x0,
+  UART_SELECT_SLOT1,
+  UART_SELECT_SLOT2,
+  UART_SELECT_SLOT3,
+  UART_SELECT_SLOT4,
+};
+
+enum {
   DEV_ID0_1OU = 0x1,
   DEV_ID1_1OU = 0x2,
   DEV_ID2_1OU = 0x3,
@@ -203,7 +211,7 @@ enum {
 // 1OU Board ID
 enum {
   EDSFF_1U = 0x07,
-  CXL_1U   = 0x0A,
+  RF_1U   = 0x0A,
   M2_1U    = 0x0B,
   WF_1U    = 0x0C,
   VF_1U    = 0x0E,
@@ -306,6 +314,8 @@ enum brd_rev {
   SB_REV_PVT2 = 8,
   SB_REV_MP   = 9,
   SB_REV_MP2  = 10,
+
+  UNKNOWN_REV = 0xFF,
 };
 
 enum board_id {

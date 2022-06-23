@@ -27,7 +27,6 @@ LOCAL_URI += " \
     file://rest_sensors.py \
     file://rest_switch_reset.py \
     file://rest_vddcore.py \
-    file://rest_modbus.py \
     file://acl_providers/wedge400_acl_provider.py \
     file://acl_config.py \
     file://run_rest \
@@ -46,5 +45,4 @@ binfiles1 += " \
     rest_seutil.py \
     rest_switch_reset.py \
     rest_vddcore.py \
-    rest_modbus.py \
 "
