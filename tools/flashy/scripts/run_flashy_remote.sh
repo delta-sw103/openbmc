@@ -18,15 +18,17 @@
 
 # Run this script to upgrade a remote OpenBMC.
 set -eo pipefail
-# make sure we're in flashy's project root
-cd "$(dirname "$0")" && cd ..
 
 # Path to image on OpenBMC
 openbmc_image_path="/opt/upgrade/image"
 # Path to Flashy on OpenBMC
 openbmc_flashy_path="/opt/flashy/flashy"
-# Path to run_flashy upgrade script from project root
+# Path to run_flashy upgrade script from project root/release folder
 run_flashy_script_path="scripts/run_flashy.sh"
+# Path to flashy, empty means build from project root
+path_to_flashy=""
+# Dry run, skips running flashy
+dry_run="false"
 
 options=(-o "LogLevel=error" -o "StrictHostKeyChecking=no")
 options+=(-o "UserKnownHostsFile=/dev/null")
@@ -34,11 +36,21 @@ sshpassCmd=(sshpass -p0penBmc)
 sshcmd=("${sshpassCmd[@]}" ssh "${options[@]}")
 
 usage="Usage:
-$(basename "$0") --device DEVICE_ID --imagepath IMAGE_PATH --host OPENBMC_HOSTNAME
+$(basename "$0") \
+--device DEVICE_ID --imagepath IMAGE_PATH --host OPENBMC_HOSTNAME --path-to-flashy PATH_TO_FLASHY (--dry_run)
 
 Run this script to upgrade a remote OpenBMC.
 
 Example DEVICE_ID: \"mtd:flash0\"
+
+Supply --dry_run to only run the initialize step (does not actually run flashy on the device,
+but copies over required files.)
+
+If --path-to-flashy is supplied, it is assumed that flashy is already built--this is true if you
+are using the prebuilt released flashy.
+
+Otherwise, please run this script in the repository checkout and let the script build
+flashy. Go >= 1.14 must be available on your system.
 "
 
 scpfile() {
@@ -56,14 +68,20 @@ scpfile() {
 }
 
 initialize() {
-    echo "Building flashy..." >&2
-    ./build.sh
+    if [[ -z "$path_to_flashy" ]]
+    then
+        echo "path-to-flashy not provided, building flashy..." >&2
+        ./build.sh
+        path_to_flashy="$(realpath "./build/flashy")"
+    else
+        printf "path-to-flashy provided: %s\n" "$path_to_flashy" >&2
+    fi
 
     echo "Making installation directories on OpenBMC..." >&2
     "${sshcmd[@]}" "mkdir -p /opt/flashy /opt/upgrade"
 
     echo "Copying flashy..." >&2
-    scpfile ./build/flashy "$openbmc_flashy_path"
+    scpfile "$path_to_flashy" "$openbmc_flashy_path"
 
     echo "Copying image..." >&2
     scpfile "$imagepath" "$openbmc_image_path"
@@ -107,6 +125,10 @@ exit_file_required() {
     exit_with_usage
 }
 
+check_second_argument_supplied() {
+    [ -n "$2" ] || exit_argument_required "$1"
+}
+
 # Flash device ID to flash (e.g. mtd:flash0)
 device_id=""
 # Path to OpenBMC image on local system
@@ -117,25 +139,37 @@ host=""
 while [[ $# -gt 0 ]]
 do
 key="$1"
-[ -n "$2" ] || exit_argument_required "$1"
 case $key in
     -h|-help|--help)
     echo -e "$usage"
     exit 0
     ;;
     --device)
+    check_second_argument_supplied "$@"
     device_id="$2"
     shift
     shift
     ;;
     --imagepath)
-    imagepath="$2"
+    check_second_argument_supplied "$@"
+    imagepath="$(realpath "$2")"
     shift
     shift
     ;;
     --host)
+    check_second_argument_supplied "$@"
     host="$2"
     shift
+    shift
+    ;;
+    --path-to-flashy)
+    check_second_argument_supplied "$@"
+    path_to_flashy="$(realpath "$2")"
+    shift
+    shift
+    ;;
+    --dry-run)
+    dry_run="true"
     shift
     ;;
     *)
@@ -157,6 +191,14 @@ confirm_continue() {
     esac
 }
 
+# make sure we're in flashy's project/release root
+cd "$(dirname "$0")" && cd ..
+
+if [[ "$dry_run" == "true" ]]
+then
+    echo "Running in dry-run mode" >&2
+fi
+
 [ -n "$device_id" ] || exit_argument_required "device"
 [ -n "$host" ] || exit_argument_required "host"
 [ -n "$imagepath" ] || exit_argument_required "imagepath"
@@ -171,5 +213,10 @@ then
 fi
 
 initialize
-run_upgrade
-reboot_and_check_upgrade
+if [[ "$dry_run" == "true" ]]
+then
+    echo "Finished dry run" >&2
+else
+    run_upgrade
+    reboot_and_check_upgrade
+fi
