@@ -621,11 +621,11 @@ pal_is_fru_prsnt(uint8_t fru, uint8_t *status) {
       *status = 1;
       return 0;
     case FRU_PSU1:
-      snprintf(tmp, LARGEST_DEVICE_NAME, SWPLD1_SYSFS, PSU_PRSNT_STATUS);
+      snprintf(tmp, LARGEST_DEVICE_NAME, SYSFPGA_SYSFS, PSU_PRSNT_STATUS);
       snprintf(path, LARGEST_DEVICE_NAME, tmp, 1);
       break;
     case FRU_PSU2:
-      snprintf(tmp, LARGEST_DEVICE_NAME, SWPLD1_SYSFS, PSU_PRSNT_STATUS);
+      snprintf(tmp, LARGEST_DEVICE_NAME, SYSFPGA_SYSFS, PSU_PRSNT_STATUS);
       snprintf(path, LARGEST_DEVICE_NAME, tmp, 2);
       break;
     case FRU_FAN1:
