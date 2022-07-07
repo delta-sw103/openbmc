@@ -49,3 +49,5 @@ gpiocli export -c 5-0027 -o 3 --shadow FAN4_PRESENT
 gpiocli export -c 5-0027 -o 4 --shadow FAN5_PRESENT
 gpiocli export -c 5-0027 -o 5 --shadow FAN6_PRESENT
 gpiocli export -c 5-0027 -o 6 --shadow FAN7_PRESENT
+
+ifconfig eth0 192.168.1.110
