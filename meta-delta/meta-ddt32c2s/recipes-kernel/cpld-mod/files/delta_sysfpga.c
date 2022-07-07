@@ -22,11 +22,23 @@
 
 #endif
 
+#define SHOW I2C_DEV_ATTR_SHOW_DEFAULT
+#define STORE I2C_DEV_ATTR_STORE_DEFAULT
+
 #define present_help_str                          \
   "0: Present\n"                                  \
   "1: Not Present\n"
 
 static const i2c_dev_attr_st sysfpga_attr_table[] = {
+    {
+        "sysfpga_ver",
+        "Code revision controlled by code editor\n",
+        I2C_DEV_ATTR_SHOW_DEFAULT,
+        NULL,
+        0x04,
+        0,
+        8,
+    },
     {
         "psu1_present",
         "PSU1: \n" present_help_str,
