@@ -23,3 +23,4 @@
 echo "SWPLD1: $((SWPLD1_VER))"
 echo "SWPLD2: $((SWPLD2_VER))"
 echo "SWPLD3: $((SWPLD3_VER))"
+echo "SYSFPGA: $((SYSFPGA_VER))"

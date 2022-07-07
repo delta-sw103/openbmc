@@ -24,6 +24,7 @@
 SWPLD1_SYSFS_DIR=$(i2c_device_sysfs_abspath 7-0032)
 SWPLD2_SYSFS_DIR=$(i2c_device_sysfs_abspath 7-0034)
 SWPLD3_SYSFS_DIR=$(i2c_device_sysfs_abspath 7-0035)
+SYSFPGA_SYSFS_DIR=$(i2c_device_sysfs_abspath 3-0036)
 
 # RESET
 VR_3V3_RST_SYSFS="${SWPLD1_SYSFS_DIR}/vr_3v3_rst"
@@ -43,10 +44,11 @@ SWPLD2_VER_TYPE=$(head -n 1 "$SWPLD2_SYSFS_DIR/swpld2_ver_type" 2> /dev/null)
 SWPLD2_VER=$(head -n 1 "$SWPLD2_SYSFS_DIR/swpld2_ver" 2> /dev/null)
 SWPLD3_VER_TYPE=$(head -n 1 "$SWPLD3_SYSFS_DIR/swpld3_ver_type" 2> /dev/null)
 SWPLD3_VER=$(head -n 1 "$SWPLD3_SYSFS_DIR/swpld3_ver" 2> /dev/null)
+SYSFPGA_VER=$(head -n 1 "$SYSFPGA_SYSFS_DIR/sysfpga_ver" 2> /dev/null)
 
 # PSU
-PSU1_PRESENT=$(head -n 1 "$SWPLD1_SYSFS_DIR/psu1_present" 2> /dev/null)
-PSU2_PRESENT=$(head -n 1 "$SWPLD1_SYSFS_DIR/psu2_present" 2> /dev/null)
+PSU1_PRESENT=$(head -n 1 "$SYSFPGA_SYSFS_DIR/psu1_present" 2> /dev/null)
+PSU2_PRESENT=$(head -n 1 "$SYSFPGA_SYSFS_DIR/psu2_present" 2> /dev/null)
 PSU1_ENABLE=$(head -n 1 "$SWPLD1_SYSFS_DIR/psu1_en" 2> /dev/null)
 PSU2_ENABLE=$(head -n 1 "$SWPLD1_SYSFS_DIR/psu2_en" 2> /dev/null)
 PSU1_EEPROM_WP=$(head -n 1 "$SWPLD1_SYSFS_DIR/psu1_eeprom_wp" 2> /dev/null)
@@ -63,7 +65,7 @@ wedge_is_us_on() {
 }
 
 wedge_board_type_rev(){
-    echo "AGC032A"
+    echo "DD-T32C2S"
 }
 
 delta_board_rev() {
