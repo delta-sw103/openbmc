@@ -19,10 +19,10 @@ paths:
                 additionalProperties: false
                 properties: 
                   Slotid: 
-                    type: integer
+                    type: number
                     format: int32
                   Monitored Slotid: 
-                    type: integer
+                    type: number
                     format: int32
                   Status: 
                     type: string
