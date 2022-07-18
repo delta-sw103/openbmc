@@ -177,9 +177,12 @@ gpio_set FM_HDD_LED_N_OUT 0
 gpio_export FM_P12V_HSC_ENABLE_R1 GPIOQ5
 gpio_set FM_P12V_HSC_ENABLE_R1 1
 
+# FM_PCH_BEEP_LED
+gpio_export FM_PCH_BEEP_LED_OUT GPIOQ6
+gpio_set FM_PCH_BEEP_LED_OUT 0
+
 # FM_SOL_UART_CH_SEL
 gpio_export FM_SOL_UART_CH_SEL GPIOQ7
-
 
 # ==GPIOR==
 
@@ -350,6 +353,16 @@ sgpio_export FM_BOARD_BMC_SKU_ID0 220
 sgpio_export FAB_BMC_REV_ID2 222
 sgpio_export FAB_BMC_REV_ID1 224
 sgpio_export FAB_BMC_REV_ID0 226
+
+kv set mb_rev $(($(gpio_get FAB_BMC_REV_ID2)<<2 |
+        $(gpio_get FAB_BMC_REV_ID1)<<1 |
+        $(gpio_get FAB_BMC_REV_ID0)))
+
+kv set mb_sku $(($(gpio_get FM_BOARD_BMC_SKU_ID4)<<4 |
+        $(gpio_get FM_BOARD_BMC_SKU_ID3)<<3 |
+        $(gpio_get FM_BOARD_BMC_SKU_ID2)<<2 |
+        $(gpio_get FM_BOARD_BMC_SKU_ID1)<<1 |
+        $(gpio_get FM_BOARD_BMC_SKU_ID0)))
 
 
 # == SGPIO OUT ==

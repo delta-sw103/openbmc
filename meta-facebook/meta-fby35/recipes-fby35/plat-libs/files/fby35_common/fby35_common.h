@@ -202,6 +202,8 @@ enum {
   IPMB_SLOT2_I2C_BUS = 1,
   IPMB_SLOT3_I2C_BUS = 2,
   IPMB_SLOT4_I2C_BUS = 3,
+
+  OCP_DBG_I2C_BUS    = 9,
 };
 
 enum {
@@ -306,17 +308,17 @@ enum brd_rev {
   BB_REV_PVT  = 6,
   BB_REV_MP   = 7,
 
-  SB_REV_POC  = 0,
-  SB_REV_EVT  = 1,
-  SB_REV_EVT2 = 2,
-  SB_REV_EVT3 = 3,
-  SB_REV_EVT4 = 4,
-  SB_REV_DVT  = 5,
-  SB_REV_DVT2 = 6,
-  SB_REV_PVT  = 7,
-  SB_REV_PVT2 = 8,
-  SB_REV_MP   = 9,
-  SB_REV_MP2  = 10,
+  SB_REV_POC     = 0,
+  SB_REV_EVT     = 1,
+  SB_REV_EVT2    = 2,
+  SB_REV_EVT3    = 3,
+  SB_REV_EVT_MPS = 4,
+  SB_REV_DVT     = 5,
+  SB_REV_DVT_MPS = 6,
+  SB_REV_PVT     = 7,
+  SB_REV_PVT_MPS = 8,
+  SB_REV_MP      = 9,
+  SB_REV_MP_MPS  = 10,
 
   UNKNOWN_REV = 0xFF,
 };
@@ -375,9 +377,14 @@ enum {
 };
 
 enum {
+  // BB HSC
   HSC_ADM1278 = 0,
   HSC_LTC4286,
   HSC_MP5990,
+  // MEDUSA HSC
+  MEDUSA_HSC_LTC4287,
+  MEDUSA_HSC_LTC4282,
+  MEDUSA_HSC_ADM1272,
   HSC_UNKNOWN,
 };
 

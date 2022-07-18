@@ -27,11 +27,19 @@ LOCAL_URI += " \
     file://platform.cpp \
     file://cpld.cpp \
     file://me.cpp \
+    file://nic_mctp.cpp \
+    file://nic_mctp.h \
+    file://nic.cpp \
+    file://nic.h \
+    file://mezz_nic.hpp \
+    file://mezz_nic.cpp \
     file://nic_ext.h \
     file://nic_ext.cpp \
     file://vr_fw.h \
-    file://vr_fw.cpp \ 
+    file://vr_fw.cpp \
+    file://swb_bic.cpp \
     "
-DEPENDS += "libmcu libpal libfpga libvr libncsi libnl-wrapper libkv libobmc-i2c libnm libbic libpldm-oem libobmc-mctp libipmi libpldm-oem"
-RDEPENDS:${PN} += "libmcu libpal libfpga libvr libncsi libnl-wrapper libkv libobmc-i2c libnm libbic libpldm-oem libobmc-mctp libipmi libpldm-oem"
-LDFLAGS += "-lmcu -lpal -lfpga -lvr -lnl-wrapper -lkv -lobmc-i2c -lnm -lbic -lpldm_oem -lobmc-mctp -lipmi -lpldm -lpldm_oem"
+
+DEPENDS += "libmcu libpal libfpga libvr libncsi libnl-wrapper libkv libobmc-i2c libnm libbic libpldm-oem libobmc-mctp libipmi libpldm-oem libgpio-ctrl"
+RDEPENDS:${PN} += "libmcu libpal libfpga libvr libncsi libnl-wrapper libkv libobmc-i2c libnm libbic libpldm-oem libobmc-mctp libipmi libpldm-oem libgpio-ctrl"
+LDFLAGS += "-lmcu -lpal -lfpga -lvr -lnl-wrapper -lkv -lobmc-i2c -lnm -lbic -lpldm_oem -lobmc-mctp -lipmi -lpldm -lpldm_oem -lgpio-ctrl"

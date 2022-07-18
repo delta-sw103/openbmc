@@ -38,8 +38,12 @@ IMAGE_INSTALL += " \
   fan-util \
   hgxmgr \
   gpiod \
+  asd \
+  asd-test \
   bios-util \
   pldmd \
   front-paneld \
   mctpd \
+  ncsi-util \
+  crashdump \
 "

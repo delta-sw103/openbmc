@@ -10,17 +10,11 @@
 #define PMBUS_PMON_CONFIG  (0xD4)
 #define ADM1278_SLAVE_ADDR (0x80)
 #define ADM1278_RSENSE     (0.5)
-#define ADM1278_EIN_EXT    (0xDC)
 #define ADM1278_PEAK_IOUT  (0xD0)
 #define ADM1278_PEAK_PIN   (0xDA)
-#define ADM1278_EIN_RESP_LEN (8)
-#define ADM1278_PIN_COEF (7837)   //256 * 1/m * (Y * 10^(-R) - b) = 1/6123 * (Y * 100)/ADM1278_RSENSE
 
 //LTC4286 CMD INFO
 #define LTC4286_SLAVE_ADDR (0x80)
-#define LTC4286_MFR_READ_EIN (0xFA)
-#define LTC4286_EIN_RESP_LEN (12)
-#define LTC4286_EIN_COEF (655360) //655360000 *  LTC4286_RSENSE
 #define LTC4286_MFR_IOUT_MAX (0xFE03)
 #define LTC4286_MFR_PIN_MAX (0xFE0B)
 
@@ -29,20 +23,22 @@
 #define MP5990_PEAK_IOUT   (0xA6)
 #define MP5990_PEAK_PIN    (0xA3)
 
+//LTC4286 CMD INFO
+#define LTC4287_MFR_IOUT_MAX (0xFE03)
+#define LTC4287_MFR_PIN_MAX  (0xFE0B)
+
 //PMBus
 #define PMBUS_PAGE         (0x00)
 #define PMBUS_VOUT_MODE    (0x20)
 #define PMBUS_VOUT_COMMAND (0x21)
 #define PMBUS_READ_VIN     (0x88)
 #define PMBUS_READ_IIN     (0x89)
-#define PMBUS_READ_EIN     (0x86)
 #define PMBUS_READ_VOUT    (0x8B)
 #define PMBUS_READ_IOUT    (0x8C)
 #define PMBUS_READ_TEMP1   (0x8D)
 #define PMBUS_READ_TEMP2   (0x8E)
 #define PMBUS_READ_POUT    (0x96)
 #define PMBUS_READ_PIN     (0x97)
-#define PMBUS_EIN_RESP_LEN (6)
 #define PMBUS_CMD_LEN_MAX (2)
 #define PMBUS_RESP_LEN_MAX (255)
 
@@ -66,6 +62,10 @@
 
 #define DPV2_EFUSE_RLOAD      14000
 #define DPV2_EFUSE_SLAVE_ADDR 0x50
+
+#define MEDUSA_HSC_LTC4282_ADDR 0x44
+#define MEDUSA_HSC_ADM1272_ADDR 0x1f
+#define MEDUSA_HSC_LTC4287_ADDR 0x11
 
 typedef struct {
   float lnr_thresh;
@@ -551,7 +551,6 @@ enum {
   BMC_SENSOR_HSC_PEAK_IOUT = 0xC8,
   BMC_SENSOR_HSC_PEAK_PIN  = 0xC9,
   BMC_SENSOR_FAN_PWR = 0xCA,
-  BMC_SENSOR_HSC_EIN = 0xCB,
   BMC_SENSOR_PDB_CL_VDELTA = 0xCC,
   BMC_SENSOR_CURR_LEAKAGE = 0xCD,
   BMC_SENSOR_PDB_BB_VDELTA = 0xCE,
@@ -694,6 +693,12 @@ typedef struct {
   float b;
   float r;
 } PAL_PMBUS_INFO;
+
+typedef struct {
+  char chip_name[16];
+  char driver[16];
+  uint8_t target_addr;
+} PAL_CHIP_INFO;
 
 typedef struct {
   uint8_t fru: 4;

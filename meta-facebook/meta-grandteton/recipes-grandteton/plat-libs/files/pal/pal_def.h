@@ -1,5 +1,7 @@
 #ifndef __PAL_COMMON_DEF_H__
 #define __PAL_COMMON_DEF_H__
+#include <openbmc/misc-utils.h>
+
 
 #define BMC_DEF_SLAVE_ADDR (0x10)
 
@@ -12,7 +14,6 @@
 #define LARGEST_DEVICE_NAME (120)
 #define UNIT_DIV            (1000)
 #define ERR_NOT_READY       (-2)
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 #define PAGE_SIZE  0x1000
 #define PREPARE_FW_UPDATE_CLEAR (0x00)
@@ -22,21 +23,23 @@
 #define READING_NA      (-2)
 
 //XDP Debug PIN
-#define RST_PLTRST_BMC_N "RST_PLTRST_PLD_N"
-#define IRQ_BMC_PRDY_N  "FM_DBP_BMC_PRDY_N"
-#define DBP_PRESENT_N "FM_BMC_DBP_PRESENT_R_N"
-#define FM_JTAG_TCK_MUX_SEL "FM_JTAG_TCK_MUX_BMC_SEL" //Choice Jtag to CPU or PCH
-#define FM_BMC_PREQ_N "FM_DBP_CPU_PREQ_GF_N"
-#define FM_JTAG_BMC_MUX_SEL "FM_JTAG_BMC_MUX_SEL" //Choice BMC to CPLD or BMC to CPU/PCH
+#define RST_PLTRST_BMC_N       "RST_PLTRST_PLD_N"
+#define IRQ_BMC_PRDY_N         "FM_DBP_BMC_PRDY_N"
+#define DBP_PRESENT_N          "FM_BMC_DBP_PRESENT_R_N"
+#define FM_JTAG_TCK_MUX_SEL    "FM_JTAG_TCK_MUX_BMC_SEL" //Choice Jtag to CPU or PCH
+#define FM_BMC_PREQ_N          "FM_DBP_CPU_PREQ_GF_N"
+#define FM_JTAG_BMC_MUX_SEL    "FM_JTAG_BMC_MUX_SEL" //Choice BMC to CPLD or BMC to CPU/PCH
 #define FM_BMC_CPU_PWR_DEBUG_N "FM_BMC_CPU_FBRK_OUT_N"
+#define PWRGD_SYS_PWROK        "PWRGD_SYS_PWROK_R"
 
 //NM Device Info
 #define NM_IPMB_BUS_ID             (I2C_BUS_6)
 #define NM_SLAVE_ADDR              (0x2C)
 
 //SWB Device Info
-#define SWB_BIC_EID       (0x0A)
-#define SWB_UART_ID       (5)
+#define SWB_BIC_EID    (0x0A)
+#define SWB_BUS_ID     (3)
+#define SWB_UART_ID    (5)
 
 enum {
   VR0_COMP,

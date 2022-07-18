@@ -12,10 +12,13 @@ LOCAL_URI += "\
     file://pal_def.h \
     file://pal_sensors.c \
     file://pal_sensors.h \
+    file://pal_swb_sensors.c \
+    file://pal_swb_sensors.h \
     file://plat/meson.build \
     "
 
 DEPENDS += " \
+    libhal \
     libgpio-ctrl \
     libncsi \
     libnl-wrapper \
@@ -25,11 +28,13 @@ DEPENDS += " \
     libobmc-sensors \
     libpeci \
     libpeci-sensors \
+    libpldm-oem \
     "
 
 # These shouldn't be needed but are because we aren't properly versioning the
 # shared libraries contained in these recipes.
 RDEPENDS:${PN} += " \
+    libhal \
     libgpio-ctrl \
     libncsi \
     libnl-wrapper \
@@ -39,4 +44,5 @@ RDEPENDS:${PN} += " \
     libobmc-sensors \
     libpeci \
     libpeci-sensors \
+    libpldm-oem \
     "
