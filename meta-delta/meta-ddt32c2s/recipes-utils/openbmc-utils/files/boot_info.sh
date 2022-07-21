@@ -1,5 +1,9 @@
 #!/bin/sh
-# shellcheck disable=SC1091,SC2034
+# shellcheck disable=SC1055,SC1009
+# shellcheck disable=SC1073,SC1072
+# shellcheck disable=SC1091,SC2086
+# shellcheck disable=SC2034,SC2181
+#
 # Copyright 2019-present Facebook. All Rights Reserved.
 #
 # This program file is free software; you can redistribute it and/or modify it
@@ -24,7 +28,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 usage() {
     program=$(basename "$0")
     echo "Usage:"
-    echo "  $program <bmc|bios> reset <master|slave>"
+    echo "  $program <bmc> reset <master|slave>"
     echo ""
     echo "Examples:"
     echo "  $program bmc"
@@ -92,39 +96,39 @@ bmc_boot_from() {
     devmem 0x1e78502c 32 $boot_source
 }
 
-bios_boot_info() {
-    master_disable=$(( $(head -n 1 < "${SCMCPLD_SYSFS_DIR}/iso_buff_brg_com_bios_dis0_n") ))
-    slave_disable=$(( $(head -n 1 < "${SCMCPLD_SYSFS_DIR}/iso_buff_brg_com_bios_dis1_n") ))
-    boot_source="master"
-    if [ $master_disable -eq 0 ]; then
-        boot_source="master"
-    elif [ $slave_disable -eq 0 ]; then
-        boot_source="slave"
-    fi
-    echo $boot_source
-}
+#bios_boot_info() {
+    # master_disable=$(( $(head -n 1 < "${SCMCPLD_SYSFS_DIR}/iso_buff_brg_com_bios_dis0_n") ))
+    # slave_disable=$(( $(head -n 1 < "${SCMCPLD_SYSFS_DIR}/iso_buff_brg_com_bios_dis1_n") ))
+    # boot_source="master"
+    # if [ $master_disable -eq 0 ]; then
+    #     boot_source="master"
+    # elif [ $slave_disable -eq 0 ]; then
+    #     boot_source="slave"
+    # fi
+    # echo $boot_source
+#}
 
-bios_boot_from() {
-    boot_source=$(bios_boot_info)
-    if [ "$1" = "master" ]; then
-        if [ "$boot_source" = "master" ]; then
-            echo "Current boot source is master, no need to switch."
-            return 0
-        fi
-        echo 0 > "${SCMCPLD_SYSFS_DIR}/iso_buff_brg_com_bios_dis0_n"
-        echo 0 > "${SCMCPLD_SYSFS_DIR}/iso_buff_brg_com_bios_dis1_n"
-    elif [ "$1" = "slave" ]; then
-        if [ "$boot_source" = "slave" ]; then
-            echo "Current boot source is slave, no need to switch."
-            return 0
-        fi
-        echo 1 > "${SCMCPLD_SYSFS_DIR}/iso_buff_brg_com_bios_dis0_n"
-        echo 0 > "${SCMCPLD_SYSFS_DIR}/iso_buff_brg_com_bios_dis1_n"
-    fi
-    wedge_power.sh off
-    sleep 1
-    wedge_power.sh on
-}
+#bios_boot_from() {
+    # boot_source=$(bios_boot_info)
+    # if [ "$1" = "master" ]; then
+    #     if [ "$boot_source" = "master" ]; then
+    #         echo "Current boot source is master, no need to switch."
+    #         return 0
+    #     fi
+    #     echo 0 > "${SCMCPLD_SYSFS_DIR}/iso_buff_brg_com_bios_dis0_n"
+    #     echo 0 > "${SCMCPLD_SYSFS_DIR}/iso_buff_brg_com_bios_dis1_n"
+    # elif [ "$1" = "slave" ]; then
+    #     if [ "$boot_source" = "slave" ]; then
+    #         echo "Current boot source is slave, no need to switch."
+    #         return 0
+    #     fi
+    #     echo 1 > "${SCMCPLD_SYSFS_DIR}/iso_buff_brg_com_bios_dis0_n"
+    #     echo 0 > "${SCMCPLD_SYSFS_DIR}/iso_buff_brg_com_bios_dis1_n"
+    # fi
+    # wedge_power.sh off
+    # sleep 1
+    # wedge_power.sh on
+#}
 
 if [ $# -lt 1 ]; then
     usage
@@ -151,25 +155,25 @@ case $1 in
             fi
         fi
     ;;
-    "bios")
-        if [ $# -eq 1 ]; then
-            bios_boot_info
-            exit 0
-        else
-            if [ "$2" = "reset" ] && [ $# -ge 3 ]; then
-                case $3 in
-                    "master" | "slave")
-                        bios_boot_from "$3"
-                        exit 0
-                    ;;
-                    *)
-                        usage
-                        exit 1
-                    ;;
-                esac
-            fi
-        fi
-    ;;
+    # "bios")
+    #     if [ $# -eq 1 ]; then
+    #         bios_boot_info
+    #         exit 0
+    #     else
+    #         if [ "$2" = "reset" ] && [ $# -ge 3 ]; then
+    #             case $3 in
+    #                 "master" | "slave")
+    #                     bios_boot_from "$3"
+    #                     exit 0
+    #                 ;;
+    #                 *)
+    #                     usage
+    #                     exit 1
+    #                 ;;
+    #             esac
+    #         fi
+    #     fi
+    # ;;
     *)
         usage
         exit 1

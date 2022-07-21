@@ -15,7 +15,7 @@
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
-FILESEXTRAPATHS:prepend := "${THISDIR}/files/delta:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
 LOCAL_URI += " \
     file://board-utils.sh \
@@ -36,6 +36,7 @@ LOCAL_URI += " \
     file://spi_util.sh \
     file://switch_reset.sh \
     file://us_console.sh \
+    file://wedge_power.sh \
     "
 
 OPENBMC_UTILS_FILES += " \
@@ -53,6 +54,7 @@ OPENBMC_UTILS_FILES += " \
     spi_util.sh \
     switch_reset.sh \
     us_console.sh \
+    wedge_power.sh \
     "
 
 DEPENDS:append = " update-rc.d-native"

@@ -1,6 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC1091
-# Copyright 2019-present Facebook. All Rights Reserved.
+# Copyright 2020-present Delta Eletronics, Inc. All Rights Reserved.
 #
 # This program file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -20,7 +20,7 @@
 
 . /usr/local/bin/openbmc-utils.sh
 
-echo "SMB_SYSCPLD: $((SMB_CPLD_VER)).$((SMB_CPLD_SUB_VER))"
-echo "SMB_PWRCPLD: $((PWR_CPLD_VER)).$((PWR_CPLD_SUB_VER))"
-echo "SCMCPLD: $((SCM_CPLD_VER)).$((SCM_CPLD_SUB_VER))"
-echo "FCMCPLD: $((FCM_CPLD_VER)).$((FCM_CPLD_SUB_VER))"
+echo "SWPLD1: $((SWPLD1_VER))"
+echo "SWPLD2: $((SWPLD2_VER))"
+echo "SWPLD3: $((SWPLD3_VER))"
+echo "SYSFPGA: $((SYSFPGA_VER))"

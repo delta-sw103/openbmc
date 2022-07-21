@@ -1,6 +1,6 @@
 #!/bin/bash
-# shellcheck disable=SC1091,SC2086
-# Copyright 2019-present Facebook. All Rights Reserved.
+# shellcheck disable=SC1091
+# Copyright 2020-present Delta Eletronics, Inc. All Rights Reserved.
 #
 # This program file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -52,7 +52,7 @@ function get_presence
 function get_fan_presence
 {
   local num=1
-  while [ $num -le 6 ]; do
+  while [ $num -le 7 ]; do
       key="fan${num}"
       file="/tmp/gpionames/FAN${num}_PRESENT/value"
       get_presence "$file" "$key"

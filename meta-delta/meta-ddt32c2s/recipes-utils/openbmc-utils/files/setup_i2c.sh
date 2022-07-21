@@ -93,7 +93,7 @@ i2c_device_add 5 0x27 pca9555          #PCA9555
 # Bus 6
 
 # Bus 7
-i2c_device_add 7 0x50 24c08                        #BMC EEPROM
+i2c_device_add 7 0x50 24c02                        #BMC EEPROM
 
 # i2c-mux 5-0072: child bus 16-23
 

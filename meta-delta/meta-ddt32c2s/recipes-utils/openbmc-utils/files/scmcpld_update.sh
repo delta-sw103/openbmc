@@ -1,6 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC1091
-# Copyright 2019-present Facebook. All Rights Reserved.
+# Copyright 2020-present Delta Eletronics, Inc. All Rights Reserved.
 #
 # This program file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -24,7 +24,8 @@ source /usr/local/bin/openbmc-utils.sh
 prog="$0"
 img="$1"
 
-DLL_PATH=/usr/lib/libcpldupdate_dll_ast_jtag.so
+DLL_PATH=/usr/lib/libcpldupdate_dll_gpio.so
+
 
 usage() {
     echo "Usage: $prog <img_file> <options: hw|sw>"
@@ -45,38 +46,18 @@ if [ $# -lt 1 ]; then
 fi
 
 enable_jtag_chain(){
-    gpio_set BMC_JTAG_MUX_IN  1
-    gpio_set PWR_CPLD_JTAG_EN_N  1
-    gpio_set SYS_CPLD_JTAG_EN_N  1
-    gpio_set SCM_CPLD_JTAG_EN_N  1
-    gpio_set FCM_CPLD_JTAG_EN_N  0
-    gpio_set PWR_CPLD_HITLESS  0
-    gpio_set FCM_CPLD_HITLESS  0
-    gpio_set SCM_CPLD_HITLESS  1
-    gpio_set SMB_CPLD_HITLESS  0
-    gpio_set BMC_FCM_SEL  1
-    gpio_set BMC_SCM_CPLD_EN 0
+    gpio_set BMC_CPLD_UPDATE_EN        1
 }
 
 disable_jtag_chain(){
-    gpio_set BMC_JTAG_MUX_IN  0
-    gpio_set PWR_CPLD_JTAG_EN_N  1
-    gpio_set SYS_CPLD_JTAG_EN_N  1
-    gpio_set SCM_CPLD_JTAG_EN_N  1
-    gpio_set FCM_CPLD_JTAG_EN_N  1
-    gpio_set PWR_CPLD_HITLESS  0
-    gpio_set FCM_CPLD_HITLESS  0
-    gpio_set SCM_CPLD_HITLESS  0
-    gpio_set SMB_CPLD_HITLESS  0
-    gpio_set BMC_FCM_SEL  1
-    gpio_set BMC_SCM_CPLD_EN 1
+    gpio_set BMC_CPLD_UPDATE_EN        0
 }
 
-trap 'rm -rf /tmp/scmcpld_update' INT TERM QUIT EXIT
+trap 'rm -rf /tmp/smbcpld_update' INT TERM QUIT EXIT
 
-echo 1 > /tmp/scmcpld_update
+echo 1 > /tmp/smbcpld_update
 
-wedge_prepare_cpld_update
+delta_prepare_cpld_update
 
 enable_jtag_chain
 
@@ -85,7 +66,11 @@ case $2 in
         cpldprog -p "${img}"
         ;;
     sw)
-        ispvm -f 1000 dll $DLL_PATH "${img}"
+        ispvm -f 1000 dll $DLL_PATH "${img}" \
+        --tdi BMC_TDI \
+        --tdo BMC_TDO \
+        --tms BMC_TMS \
+        --tck BMC_TCK
         ;;
     *)
         # default: hw mode
@@ -111,6 +96,7 @@ if [ $result -eq $expect ]; then
     exit 0
 else
     echo "Upgrade failure. Return code from utility : $result"
-    echo "To prevent system reboot. Keep fscd service stop & watchdog disable."
+    echo "To prevent system reboot. Keep fscd stop & watchdog disable."
     exit 1
 fi
+
