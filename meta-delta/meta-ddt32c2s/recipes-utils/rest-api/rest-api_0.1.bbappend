@@ -15,8 +15,12 @@
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
+
 LOCAL_URI += " \
-    file://plat_tree.py \
-    file://board_setup_routes.py \
-    file://common_setup_routes.py \
-    "
+    file://acl_config.py \
+    file://acl_providers/ddt32c2s_acl_provider.py \
+"
+
+aclfiles += "ddt32c2s_acl_provider.py"
+
+binfiles += "acl_config.py"
