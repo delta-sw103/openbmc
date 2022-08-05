@@ -13,16 +13,22 @@
 #include <openbmc/obmc-sensors.h>
 #include <openbmc/libgpio.h>
 #include <openbmc/obmc-i2c.h>
+#include <openbmc/ipmb.h>
+#include <openbmc/nvme-mi.h>
 #include "pal.h"
 #include "pal_sensors.h"
 
 static int read_adc_val(uint8_t id, float *value);
 static int read_battery_val(uint8_t id, float *value);
 static int read_temp(uint8_t id, float *value);
+static int read_peci(uint8_t id, float *value);
 static int read_rpm(uint8_t id, float *value);
 static int read_pmbus(uint8_t id, float *value);
 static int read_hsc(uint8_t id, float *value);
 static int read_cpld_adc(uint8_t id, float *value);
+static int read_ina230_pwr(uint8_t id, float *value);
+static int read_nvme_temp(uint8_t id, float *value);
+static int read_nic_temp(uint8_t id, float *value);
 
 //{SensorName, ID, FUNCTION, RAEDING AVAILABLE, {UCR, UNC, UNR, LCR, LNC, LNR, Pos, Neg}, unit}
 PAL_SENSOR_MAP server_sensor_map[] = {
@@ -31,11 +37,11 @@ PAL_SENSOR_MAP server_sensor_map[] = {
   [SERVER_OUTLET_TEMP] =
   {"NETLAKE_OUTLET_TEMP", MB_OUTLET, read_temp, STBY_READING, {0, 0, 0, 0, 0, 0, 0, 0}, TEMP, NORMAL_POLL_INTERVAL},
   [SERVER_SOC_TEMP] =
-  {"SOC_TEMP", SOC_TEMP, read_temp, POST_COMPLT_READING, {0, 0, 0, 0, 0, 0, 0, 0}, TEMP, NORMAL_POLL_INTERVAL},
+  {"SOC_TEMP", SOC_TEMP, read_peci, POST_COMPLT_READING, {0, 0, 0, 0, 0, 0, 0, 0}, TEMP, NORMAL_POLL_INTERVAL},
   [SERVER_DIMMA_TEMP] =
-  {"DIMMA_TEMP", DIMMA_TEMP, read_temp, POST_COMPLT_READING, {0, 0, 0, 0, 0, 0, 0, 0}, TEMP, NORMAL_POLL_INTERVAL},
+  {"DIMMA_TEMP", DIMMA_TEMP, read_peci, POST_COMPLT_READING, {0, 0, 0, 0, 0, 0, 0, 0}, TEMP, NORMAL_POLL_INTERVAL},
   [SERVER_DIMMB_TEMP] =
-  {"DIMMB_TEMP", DIMMB_TEMP, read_temp, POST_COMPLT_READING, {0, 0, 0, 0, 0, 0, 0, 0}, TEMP, NORMAL_POLL_INTERVAL},
+  {"DIMMB_TEMP", DIMMB_TEMP, read_peci, POST_COMPLT_READING, {0, 0, 0, 0, 0, 0, 0, 0}, TEMP, NORMAL_POLL_INTERVAL},
   [SERVER_A_P12V_STBY_NETLAKE_VOL] =
   {"A_P12V_STBY_NETLAKE_VOL", CPLD_ADC_P12V_STBY, read_cpld_adc, STBY_READING, {13.3488, 13.2192, 13.4784, 10.7088, 10.8192, 10.5984, 0, 0}, VOLT, NORMAL_POLL_INTERVAL},
   [SERVER_A_P3V3_STBY_NETLAKE_VOL] =
@@ -82,6 +88,8 @@ PAL_SENSOR_MAP server_sensor_map[] = {
   {"PVCCANCPU_CUR", VR_PVCCANCPU_CUR, read_pmbus, POWER_ON_READING, {1.545, 0, 1.56, 0, 0, 0, 0, 0}, CURR, NORMAL_POLL_INTERVAL},
   [SERVER_PVDDQ_ABC_CPU_CUR] =
   {"PVDDQ_ABC_CPU_CUR", VR_PVDDQ_ABC_CPU_CUR, read_pmbus, POWER_ON_READING, {17.0671, 0, 17.2328, 0, 0, 0, 0, 0}, CURR, NORMAL_POLL_INTERVAL},
+  [SERVER_P12V_COME_PWR] =
+  {"P12V_COME_PWR", P12V_COME_PWR, read_ina230_pwr, STBY_READING, {117.4645, 0, 119.7565, 0, 0, 0, 0, 0}, POWER, NORMAL_POLL_INTERVAL},
   [SERVER_P1V8_STBY_PWR] =
   {"P1V8_STBY_NETLAKE_PWR", VR_P1V8_STBY_PWR, read_pmbus, STBY_READING, {4.15056, 0, 4.23154, 0, 0, 0, 0, 0}, POWER, NORMAL_POLL_INTERVAL},
   [SERVER_P1V05_STBY_PWR] =
@@ -121,6 +129,14 @@ PAL_SENSOR_MAP bmc_sensor_map[] = {
   {"HSC_OUTPUT_CUR", HSC_IOUT, read_hsc, STBY_READING, {20, 0, 0, 0, 0, 0, 0, 0}, CURR, NORMAL_POLL_INTERVAL},
   [BMC_HSC_INPUT_PWR] =
   {"HSC_INPUT_PWR", HSC_PIN, read_hsc, STBY_READING, {200, 0, 0, 0, 0, 0, 0, 0}, POWER, NORMAL_POLL_INTERVAL},
+  [BMC_M2_A_TEMP] =
+  {"M.2_A TEMP", NVME_A_TEMP, read_nvme_temp, POWER_ON_READING, {0, 0, 0, 0, 0, 0, 0, 0}, TEMP, NORMAL_POLL_INTERVAL},
+  [BMC_M2_B_TEMP] =
+  {"M.2_B_TEMP", NVME_B_TEMP, read_nvme_temp, POWER_ON_READING, {0, 0, 0, 0, 0, 0, 0, 0}, TEMP, NORMAL_POLL_INTERVAL},
+  [BMC_M2_C_TEMP] =
+  {"M.2_C_TEMP", NVME_C_TEMP, read_nvme_temp, POWER_ON_READING, {0, 0, 0, 0, 0, 0, 0, 0}, TEMP, NORMAL_POLL_INTERVAL},
+  [BMC_OCP_NIC_TEMP] =
+  {"OCP_NIC_TEMP", OCP_NIC_TEMP, read_nic_temp, POWER_ON_READING, {0, 0, 0, 0, 0, 0, 0, 0}, TEMP, NORMAL_POLL_INTERVAL},
 };
 
 PAL_SENSOR_MAP fio_sensor_map[] = {
@@ -180,6 +196,7 @@ const uint8_t server_sensor_list[] = {
   SERVER_PVCCIN_CUR,
   SERVER_PVCCANCPU_CUR,
   SERVER_PVDDQ_ABC_CPU_CUR,
+  SERVER_P12V_COME_PWR,
   SERVER_P1V8_STBY_PWR,
   SERVER_P1V05_STBY_PWR,
   SERVER_PVNN_PCH_PWR,
@@ -201,6 +218,10 @@ const uint8_t bmc_sensor_list[] = {
   BMC_HSC_OUTPUT_VOL,
   BMC_HSC_OUTPUT_CUR,
   BMC_HSC_INPUT_PWR,
+  BMC_M2_A_TEMP,
+  BMC_M2_B_TEMP,
+  BMC_M2_C_TEMP,
+  BMC_OCP_NIC_TEMP,
 };
 
 const uint8_t pdb_sensor_list[] = {
@@ -218,9 +239,9 @@ PAL_DEV_INFO temp_dev_list[] = {
   {"tmp75-i2c-4-48",  "MB_INLET_TEMP"},
   {"tmp75-i2c-4-4a",  "MB_OUTLET_TEMP"},
   {"tmp75-i2c-10-48",  "FIO_INLET_TEMP"},
-  {"peci_cputemp.cpu0-auxiliary-0000", "Die"},
-  {"peci_dimmtemp.cpu0-auxiliary-0000", "DIMM A1"},
-  {"peci_dimmtemp.cpu0-auxiliary-0000", "DIMM B1"},
+  {"peci_cputemp.cpu0-isa-0000", "Die"},
+  {"peci_dimmtemp.cpu0-isa-0000", "DIMM A1"},
+  {"peci_dimmtemp.cpu0-isa-0000", "DIMM B1"},
 };
 
 PAL_PMBUS_INFO pmbus_dev_table[] = {
@@ -283,6 +304,12 @@ PAL_CPLD_ADC_INFO cpld_adc_list[] = {
   {0x10, 1},
   {0x0E, 1},
   {0x0C, 1},
+};
+
+const uint8_t nvme_temp_list[] = {
+  [NVME_A_TEMP] = NVME_A_BUS,
+  [NVME_B_TEMP] = NVME_B_BUS,
+  [NVME_C_TEMP] = NVME_C_BUS,
 };
 
 size_t server_sensor_cnt = ARRAY_SIZE(server_sensor_list);
@@ -355,6 +382,28 @@ read_temp(uint8_t id, float *value) {
   }
 
   return sensors_read(temp_dev_list[id].chip, temp_dev_list[id].label, value);
+}
+
+static int
+read_peci(uint8_t id, float *value) {
+  if (value == NULL) {
+    syslog(LOG_ERR, "%s: invalid parameter: value pointer is NULL", __func__);
+    return -1;
+  }
+
+  if (id >= ARRAY_SIZE(temp_dev_list)) {
+    return ERR_SENSOR_NA;
+  }
+
+  int ret = 0;
+  ret = sensors_read(temp_dev_list[id].chip, temp_dev_list[id].label, value);
+  if (ret < 0) {
+    sensors_reinit();
+    sleep(POWER_ON_SENSOR_RETRY_SEC);
+    ret = sensors_read(temp_dev_list[id].chip, temp_dev_list[id].label, value);
+  }
+
+  return ret;
 }
 
 static int
@@ -446,7 +495,7 @@ read_pmbus(uint8_t id, float *value) {
   do {
     ret = i2c_rdwr_msg_transfer(fd, addr, setpage_data, sizeof(setpage_data),
                                 NULL, 0);
-    usleep(SENSOR_RETRY_INTERVAL);
+    usleep(SENSOR_RETRY_INTERVAL_USEC);
   } while ((ret < 0) && ((retry--) > 0));
 
   if (ret < 0) {
@@ -469,7 +518,7 @@ read_pmbus(uint8_t id, float *value) {
     ret = i2c_rdwr_msg_transfer(fd, addr, &getreading_data,
                                 sizeof(getreading_data),
                                 rbuf_reading_raw, rlen_reading);
-    usleep(SENSOR_RETRY_INTERVAL);
+    usleep(SENSOR_RETRY_INTERVAL_USEC);
   } while ((ret < 0) && ((retry--) > 0));
 
   if (ret < 0) {
@@ -571,7 +620,7 @@ read_hsc(uint8_t id, float *value) {
   retry = SENSOR_RETRY_TIME;
   do {
     ret = i2c_rdwr_msg_transfer(fd, addr, (uint8_t *)&getreading_data, sizeof(getreading_data), rbuf, rlen);
-    usleep(SENSOR_RETRY_INTERVAL);
+    usleep(SENSOR_RETRY_INTERVAL_USEC);
   } while ((ret < 0) && ((retry--) > 0));
 
   if (ret < 0) {
@@ -657,6 +706,167 @@ read_cpld_adc(uint8_t id, float *value) {
 
   //Calculate from divided voltage
   *value = ((float)sensor_read_raw / 4096) * 3.3 * cpld_adc_list[id].resistor_ratio;
+
+  return ret;
+}
+
+static int
+read_ina230_pwr(uint8_t id, float *value) {
+  if (value == NULL) {
+    syslog(LOG_ERR, "%s: invalid parameter: value pointer is NULL", __func__);
+    return -1;
+  }
+
+  int ret = 0;
+  /* byte 1-3: Intel Manufacturer ID, byte 4: Mode
+     byte 5: Domain ID, byte 6: Policy ID */
+  uint8_t tbuf[] = {0x57, 0x1, 0x0, 0x1, 0x0, 0x0};
+  uint8_t rbuf[NM_GLOBAL_POWER_STATISTICS_LENGTH];
+  uint8_t rlen = 0;
+  uint8_t retry;
+
+  for (retry = SENSOR_RETRY_TIME; retry > 0; retry--) {
+    ret = netlakemtp_common_me_ipmb_wrapper(NETFN_NM_REQ,
+                                        CMD_NM_GET_NODE_MANAGER_STATISTICS,
+                                        tbuf, sizeof(tbuf), rbuf, &rlen);
+    if (ret >= 0) {
+      break;
+    }
+
+    usleep(SENSOR_RETRY_INTERVAL_USEC);
+  }
+
+  if (ret < 0) {
+    syslog(LOG_ERR, "%s() Failed to get ina230 reading from NM", __func__);
+    return -1;
+  } else {
+    //2 bytes for Power Statistics Current Value
+    *value = (float)(rbuf[4] << 8 | rbuf[3]);
+  }
+
+  return 0;
+}
+
+static int
+read_nvme_temp(uint8_t id, float *value) {
+
+  if (value == NULL) {
+    syslog(LOG_ERR, "%s: invalid parameter: value pointer is NULL", __func__);
+    return -1;
+  }
+
+  if (id >= ARRAY_SIZE(nvme_temp_list)) {
+    return ERR_SENSOR_NA;
+  }
+
+  int ret = 0, fd = 0;
+  uint8_t bus = nvme_temp_list[id];
+  uint8_t addr = NVME_ADDR;
+  uint8_t tbuf = NVME_GET_STATUS_CMD;
+  uint8_t tlen = sizeof(tbuf);
+  uint8_t rlen = NVME_GET_STATUS_LEN;
+  uint8_t retry;
+  uint8_t rbuf[NVME_GET_STATUS_LEN] = {0};
+
+  fd = i2c_cdev_slave_open(bus, addr >> 1, I2C_SLAVE_FORCE_CLAIM);
+  if (fd < 0) {
+    syslog(LOG_WARNING, "%s() Failed to open I2C bus %d\n", __func__, bus);
+    return ERR_SENSOR_NA;
+  }
+
+  for (retry = SENSOR_RETRY_TIME; retry > 0; retry--) {
+    ret = i2c_rdwr_msg_transfer(fd, addr, &tbuf, tlen, rbuf, rlen);
+    if (ret >= 0) {
+      break;
+    }
+
+    usleep(SENSOR_RETRY_INTERVAL_USEC);
+  }
+  close(fd);
+
+  // valid temperature range: -60C(0xC4) ~ +127C(0x7F)
+  // C4h-FFh is two's complement, means -60 to -1
+  ret = nvme_temp_value_check((int)rbuf[NVME_TEMP_REG], value);
+  if (ret != 0) {
+    ret = ERR_SENSOR_NA;
+  }
+
+  return ret;
+}
+
+/* Check the valid range of NIC Temperature. */
+static int
+nic_temp_value_check(uint8_t value, float *value_check) {
+
+  if (value_check == NULL) {
+    syslog(LOG_ERR, "%s(): fail to check NIC temperature due to the NULL parameter.\n", __func__);
+    return -1;
+  }
+
+  if (value <= MAX_NIC_TEMPERATURE) {
+    *value_check = (float)value;
+  } else {
+    return -1;
+  }
+
+  return 0;
+}
+
+static int
+read_nic_temp(uint8_t id, float *value) {
+
+  if (value == NULL) {
+    syslog(LOG_ERR, "%s: invalid parameter: value pointer is NULL", __func__);
+    return -1;
+  }
+
+  int fd = 0, ret = -1;
+  uint8_t bus = NIC_BUS;
+  uint8_t addr = NIC_ADDR;
+  uint8_t retry = SENSOR_RETRY_TIME;
+  uint8_t tbuf = NIC_INFO_TEMP_CMD;
+  uint8_t tlen = sizeof(tbuf);
+  uint8_t rlen = NIC_TEMP_LEN;
+  uint8_t rbuf = 0;
+  uint8_t res_temp = 0;
+  static int nic_temp_retry = 0;
+
+  fd = i2c_cdev_slave_open(bus, addr >> 1, I2C_SLAVE_FORCE_CLAIM);
+  if (fd < 0) {
+    syslog(LOG_WARNING, "%s() Failed to open I2C bus %d\n", __func__, bus);
+    return ERR_SENSOR_NA;
+  }
+
+  do {
+    ret = i2c_rdwr_msg_transfer(fd, addr, &tbuf, tlen, &rbuf, rlen);
+    if (ret != 0) {
+      usleep(SENSOR_RETRY_INTERVAL_USEC);
+    }
+  } while ((ret < 0) && ((retry--) > 0));
+
+  ret = nic_temp_value_check(rbuf, value);
+
+  // Temperature within valid range
+  if (ret == 0) {
+    nic_temp_retry = 0;
+  } else {
+    if (nic_temp_retry <= NIC_TEMP_RETRY_TIME) {
+      ret = READING_SKIP;
+      nic_temp_retry++;
+    } else {
+      ret = ERR_SENSOR_NA;
+    }
+  }
+
+  close(fd);
+
+  if (ret < 0) {
+    syslog(LOG_ERR, "%s() Failed to get reading %x-%x", __func__,
+           NIC_BUS, NIC_ADDR);
+    return -1;
+  } else {
+    *value = (float)rbuf;
+  }
 
   return ret;
 }

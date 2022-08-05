@@ -61,8 +61,8 @@ static void print_value_data(const json& j) {
         if (value["type"] == "flags") {
           for (const auto& flag : value["value"]) {
             std::cout << "\n    [" << int(flag[0]) << "] "
-                      << std::string(flag[1])
-                      << " <" << std::dec << int(flag[2]) << ">";
+                      << std::string(flag[1]) << " <" << std::dec
+                      << int(flag[2]) << ">";
           }
           std::cout << '\n';
         } else {
@@ -151,11 +151,11 @@ static void print_text(const std::string& req_s, json& j) {
   std::string status;
   j.at("status").get_to(status);
   if (status == "SUCCESS") {
-    if (req_s == "value_data")
+    if (req_s == "getMonitorData")
       print_value_data(j["data"]);
-    else if (req_s == "raw_data")
+    else if (req_s == "getMonitorDataRaw")
       print_nested(j["data"]);
-    else if (req_s == "list")
+    else if (req_s == "listModbusDevices")
       print_table(j["data"]);
     else if (req_s == "raw")
       print_hexstring(j["data"]);
@@ -187,6 +187,114 @@ do_raw_cmd(const std::string& req_s, int timeout, int resp_len, bool json_fmt) {
     print_text("raw", resp_j);
 }
 
+static void do_read_cmd(
+    int devAddr,
+    int regAddr,
+    int regCount,
+    int timeout,
+    bool json_fmt) {
+  json req;
+  req["type"] = "readHoldingRegisters";
+  req["devAddress"] = devAddr;
+  req["regAddress"] = regAddr;
+  req["numRegisters"] = regCount;
+  if (timeout != 0) {
+    req["timeout"] = timeout;
+  }
+  RackmonClient cli;
+  std::string resp = cli.request(req.dump());
+  json resp_j = json::parse(resp);
+  if (json_fmt) {
+    print_json(resp_j);
+    return;
+  }
+  std::string status;
+  resp_j.at("status").get_to(status);
+  if (status == "SUCCESS") {
+    std::vector<unsigned int> values;
+    resp_j.at("regValues").get_to(values);
+    for (auto value : values) {
+      std::cout << "0x" << std::hex << std::setw(4) << std::setfill('0')
+                << value << ' ';
+    }
+    std::cout << std::endl;
+  } else {
+    std::cout << status << std::endl;
+  }
+}
+
+static void do_read_file_cmd(
+    int devAddr,
+    int fileNum,
+    int recordNum,
+    int dataSize,
+    int timeout,
+    bool json_fmt) {
+  json req;
+  req["type"] = "readFileRecord";
+  req["devAddress"] = devAddr;
+  if (timeout != 0) {
+    req["timeout"] = timeout;
+  }
+  req["records"] = json::array();
+  req["records"][0]["fileNum"] = fileNum;
+  req["records"][0]["recordNum"] = recordNum;
+  req["records"][0]["dataSize"] = dataSize;
+  RackmonClient cli;
+  std::string resp = cli.request(req.dump());
+  json resp_j = json::parse(resp);
+  if (json_fmt) {
+    print_json(resp_j);
+    return;
+  }
+  std::string status;
+  resp_j.at("status").get_to(status);
+  if (status == "SUCCESS") {
+    for (auto& rec : resp_j["data"]) {
+      std::cout << "FILE:0x" << std::hex << rec["fileNum"];
+      std::cout << " RECORD:0x" << std::hex << rec["recordNum"] << std::endl;
+      for (auto& data : rec["data"]) {
+        std::cout << std::hex << std::setw(4) << std::setfill('0') << int(data)
+                  << ' ';
+      }
+      std::cout << std::endl;
+    }
+  } else {
+    std::cout << status << std::endl;
+  }
+}
+
+static void do_write_cmd(
+    int devAddr,
+    int regAddr,
+    std::vector<int>& values,
+    int timeout,
+    bool json_fmt) {
+  json req;
+  if (values.size() == 1) {
+    req["type"] = "writeSingleRegister";
+    req["regValue"] = values[0];
+  } else {
+    req["type"] = "presetMultipleRegisters";
+    req["regValue"] = values;
+  }
+  req["devAddress"] = devAddr;
+  req["regAddress"] = regAddr;
+  if (timeout != 0) {
+    req["timeout"] = timeout;
+  }
+  RackmonClient cli;
+  std::string resp = cli.request(req.dump());
+  json resp_j = json::parse(resp);
+  if (json_fmt) {
+    print_json(resp_j);
+    return;
+  }
+  std::string status;
+  resp_j.at("status").get_to(status);
+  std::cout << status << std::endl;
+}
+
 static void do_cmd(const std::string& type, bool json_fmt) {
   json req;
   req["type"] = type;
@@ -199,9 +307,39 @@ static void do_cmd(const std::string& type, bool json_fmt) {
     print_text(type, resp_j);
 }
 
+static void do_data_cmd(
+    const std::string& type,
+    bool json_fmt,
+    std::vector<int>& deviceFilter,
+    std::vector<std::string>& deviceTypeFilter,
+    std::vector<int>& regFilter,
+    std::vector<std::string>& regNameFilter,
+    bool latestOnly) {
+  json req;
+  req["type"] = type;
+  if (deviceFilter.size()) {
+    req["deviceFilter"]["deviceAddress"] = deviceFilter;
+  } else if (deviceTypeFilter.size()) {
+    req["deviceFilter"]["deviceType"] = deviceTypeFilter;
+  }
+  if (regFilter.size()) {
+    req["registerFilter"]["registerAddress"] = regFilter;
+  } else if (regNameFilter.size()) {
+    req["registerFilter"]["registerName"] = regNameFilter;
+  }
+  req["latestValueOnly"] = latestOnly;
+  RackmonClient cli;
+  std::string resp = cli.request(req.dump());
+  json resp_j = json::parse(resp);
+  if (json_fmt)
+    print_json(resp_j);
+  else
+    print_text(type, resp_j);
+}
+
 static void do_rackmonstatus() {
   json req;
-  req["type"] = "list";
+  req["type"] = "listModbusDevices";
   RackmonClient cli;
   std::string resp = cli.request(req.dump());
   json resp_j = json::parse(resp);
@@ -250,9 +388,79 @@ int main(int argc, const char** argv) {
   raw_cmd->callback(
       [&]() { do_raw_cmd(req, raw_cmd_timeout, expected_len, json_fmt); });
 
+  int devAddress = 0;
+  int regAddress = 0;
+  int regCount = 1;
+  auto read_cmd =
+      app.add_subcommand("read", "Read Register(s) of a given device");
+  read_cmd->add_option("-t,--timeout", raw_cmd_timeout, "Timeout (ms)");
+  read_cmd
+      ->add_option(
+          "DeviceAddress", devAddress, "The device from which we want to read")
+      ->required();
+  read_cmd
+      ->add_option(
+          "RegisterAddress",
+          regAddress,
+          "The Register from which we want to read")
+      ->required();
+  read_cmd->add_option(
+      "--count", regCount, "The number of registers to read", true);
+  read_cmd->callback([&]() {
+    do_read_cmd(devAddress, regAddress, regCount, raw_cmd_timeout, json_fmt);
+  });
+
+  std::vector<int> values{};
+  auto write_cmd = app.add_subcommand(
+      "write", "Write Register(s) of a given device with values");
+  write_cmd->add_option("-t,--timeout", raw_cmd_timeout, "Timeout (ms)");
+  write_cmd
+      ->add_option(
+          "DeviceAddress", devAddress, "The device to which we want to write")
+      ->required();
+  write_cmd
+      ->add_option(
+          "RegisterAddress",
+          regAddress,
+          "The Register to which we want to write")
+      ->required();
+  write_cmd
+      ->add_option(
+          "Value",
+          values,
+          "The values we want to write (Each value is 16bit register)")
+      ->required();
+  write_cmd->callback([&]() {
+    do_write_cmd(devAddress, regAddress, values, raw_cmd_timeout, json_fmt);
+  });
+
+  int fileNum, recNum, dataSize;
+  auto read_file =
+      app.add_subcommand("read_file", "Read file record from the device");
+  read_file
+      ->add_option(
+          "DeviceAddress",
+          devAddress,
+          "The device from which we want to read the record")
+      ->required();
+  read_file->add_option("FileNum", fileNum, "The File we want to read")
+      ->required();
+  read_file
+      ->add_option(
+          "RecordNum", recNum, "The Record in the file we want to read")
+      ->required();
+  read_file
+      ->add_option("DataSize", dataSize, "The size in words we want to read")
+      ->required();
+  read_file->add_option("-t,--timeout", raw_cmd_timeout, "Timeout (ms)");
+  read_file->callback([&]() {
+    do_read_file_cmd(
+        devAddress, fileNum, recNum, dataSize, raw_cmd_timeout, json_fmt);
+  });
+
   // List command
   app.add_subcommand("list", "Return list of Modbus devices")->callback([&]() {
-    do_cmd("list", json_fmt);
+    do_cmd("listModbusDevices", json_fmt);
   });
 
   // Status command
@@ -262,10 +470,44 @@ int main(int argc, const char** argv) {
       ->callback(do_rackmonstatus);
 
   // Data command (Get monitored data)
-  std::string format = "raw";
+  std::string format = "value";
+  std::vector<int> regFilter{};
+  std::vector<int> deviceFilter{};
+  std::vector<std::string> deviceTypeFilter{};
+  std::vector<std::string> regNameFilter{};
+  bool latestOnly = false;
   auto data = app.add_subcommand("data", "Return detailed monitoring data");
-  data->callback([&]() { do_cmd(format + "_data", json_fmt); });
+  data->callback([&]() {
+    do_data_cmd(
+        format == "raw" ? "getMonitorDataRaw" : "getMonitorData",
+        json_fmt,
+        deviceFilter,
+        deviceTypeFilter,
+        regFilter,
+        regNameFilter,
+        latestOnly);
+  });
   data->add_set("-f,--format", format, {"raw", "value"}, "Format the data");
+  data->add_option(
+      "--reg-addr",
+      regFilter,
+      "Return values of provided registers only");
+  data->add_option(
+      "--dev-addr",
+      deviceFilter,
+      "Return values of provided device addresses only");
+  data->add_option(
+      "--dev-type",
+      deviceTypeFilter,
+      "Return values of provided devices of the given type only");
+  data->add_option(
+      "--reg-name",
+      regNameFilter,
+      "Return values of provided register names only");
+  data->add_flag(
+      "--latest",
+      latestOnly,
+      "Returns only the latest stored value for a given register");
 
   // Pause command
   app.add_subcommand("pause", "Pause monitoring")->callback([&]() {

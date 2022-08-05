@@ -192,7 +192,7 @@ class RestEndpointTest(FbossRestEndpointTest, unittest.TestCase):
             else:
                 Logger.info("/api/sys/sensors: get PIM{} sensors None".format(pim + 1))
 
-    @unittest.skipIf(qemu_check(), "test env is QEMU, skipped")
+    @unittest.skip("FIXME T127573953")
     def test_endpoint_api_sys_sensors(self):
         self.set_endpoint_sensors_attributes()
         self.verify_endpoint_attributes(
@@ -606,3 +606,7 @@ class RestEndpointTest(FbossRestEndpointTest, unittest.TestCase):
             RestEndpointTest.PIM_SERIAL_ENDPOINT,
             self.endpoint_piminfo_attrb,  # same keys as piminfo
         )
+
+    @unittest.skip("FIXME T127573953")
+    def test_endpoint_api_sys_bmc_secondary_boot(self):
+        pass

@@ -56,9 +56,36 @@ void RackmonUNIXSocketService::executeJSONCommand(const json& req, json& resp) {
     for (size_t i = 0; i < resp_m.len; i++) {
       resp["data"].push_back(int(resp_m.raw[i]));
     }
-  } else if (cmd == "list") {
+  } else if (cmd == "listModbusDevices") {
     resp["data"] = rackmond_.listDevices();
-  } else if (cmd == "raw_data") {
+
+  } else if (cmd == "readHoldingRegisters") {
+    uint8_t devAddress = req["devAddress"];
+    uint16_t regAddress = req["regAddress"];
+    size_t numRegisters = req["numRegisters"];
+    ModbusTime timeout = ModbusTime(req.value("timeout", 0));
+    std::vector<uint16_t> value(numRegisters);
+    rackmond_.readHoldingRegisters(devAddress, regAddress, value, timeout);
+    resp["regValues"] = value;
+  } else if (cmd == "writeSingleRegister") {
+    uint8_t devAddress = req["devAddress"];
+    uint16_t regAddress = req["regAddress"];
+    uint16_t regValue = req["regValue"];
+    ModbusTime timeout = ModbusTime(req.value("timeout", 0));
+    rackmond_.writeSingleRegister(devAddress, regAddress, regValue, timeout);
+  } else if (cmd == "presetMultipleRegisters") {
+    uint8_t devAddress = req["devAddress"];
+    uint16_t regAddress = req["regAddress"];
+    std::vector<uint16_t> values = req["regValue"];
+    ModbusTime timeout = ModbusTime(req.value("timeout", 0));
+    rackmond_.writeMultipleRegisters(devAddress, regAddress, values, timeout);
+  } else if (cmd == "readFileRecord") {
+    uint8_t devAddress = req["devAddress"];
+    ModbusTime timeout = ModbusTime(req.value("timeout", 0));
+    std::vector<FileRecord> records = req["records"];
+    rackmond_.readFileRecord(devAddress, records, timeout);
+    resp["data"] = records;
+  } else if (cmd == "getMonitorDataRaw") {
     std::vector<ModbusDeviceRawData> ret;
     rackmond_.getRawData(ret);
     resp["data"] = ret;
@@ -66,9 +93,32 @@ void RackmonUNIXSocketService::executeJSONCommand(const json& req, json& resp) {
     rackmond_.stop();
   } else if (cmd == "resume") {
     rackmond_.start();
-  } else if (cmd == "value_data") {
+  } else if (cmd == "getMonitorData") {
+    ModbusDeviceFilter devFilter{};
+    ModbusRegisterFilter regFilter{};
+    if (req.contains("deviceFilter")) {
+      const json& j = req["deviceFilter"];
+      if (j.contains("deviceAddress")) {
+        devFilter.addrFilter = j["deviceAddress"];
+      } else if (j.contains("deviceType")) {
+        devFilter.typeFilter = j["deviceType"];
+      } else {
+        throw std::logic_error("Unknown device filter");
+      }
+    }
+    if (req.contains("registerFilter")) {
+      const json& j = req["registerFilter"];
+      if (j.contains("registerAddress")) {
+        regFilter.addrFilter = j["registerAddress"];
+      } else if (j.contains("registerName")) {
+        regFilter.nameFilter = j["registerName"];
+      } else {
+        throw std::logic_error("Unknown register filter");
+      }
+    }
+    bool latestValueOnly = req.value("latestValueOnly", false);
     std::vector<ModbusDeviceValueData> ret;
-    rackmond_.getValueData(ret);
+    rackmond_.getValueData(ret, devFilter, regFilter, latestValueOnly);
     resp["data"] = ret;
   } else {
     throw std::logic_error("UNKNOWN_CMD: " + cmd);

@@ -57,10 +57,29 @@ enum {
   CMD_UNKNOWN = 0xff,
 };
 
+enum {
+  M2_DEV_FREYA_RLEN = 14,
+};
+
 #define MAX_READ_RETRY 5
 
 #define CONFIG_M2_SINGLE 0x08
 #define CONFIG_M2_DUAL 0x04
+
+enum {
+  GET_1OU = 0,
+  GET_2OU = 1,
+};
+
+enum {
+  SI_TEST_CARD = 0x00,
+  EXPANSION_WITH_6_M2 = 0x01,
+  RAINBOW_FALLS = 0x02,
+  VERNAL_FALLS_TI = 0x03,
+  VERNAL_FALLS_AST1030 = 0x04,
+  NO_PRESENT_CARD = 0xFE,
+  NO_EXPECTED_TYPE = 0xFF,
+};
 
 int bic_get_dev_id(uint8_t slot_id, ipmi_dev_id_t *dev_id, uint8_t intf);
 int bic_get_self_test_result(uint8_t slot_id, uint8_t *self_test_result, uint8_t intf);
@@ -104,8 +123,7 @@ int bic_get_fan_speed(uint8_t fan_id, float *value);
 int bic_get_fan_pwm(uint8_t fan_id, float *value);
 int bic_do_12V_cycle(uint8_t slot_id);
 int bic_get_dev_info(uint8_t slot_id, uint8_t dev_id, uint8_t *nvme_ready, uint8_t *status, uint8_t *type);
-int bic_get_dev_power_status(uint8_t slot_id, uint8_t dev_id, uint8_t *nvme_ready, uint8_t *status, \
-                             uint8_t *ffi, uint8_t *meff, uint16_t *vendor_id, uint8_t *major_ver, uint8_t *minor_ver,uint8_t *additional_ver, uint8_t intf);
+int bic_get_dev_power_status(uint8_t slot_id, uint8_t dev_id, M2_DEV_INFO *m2_dev_info, uint8_t intf);
 int bic_set_dev_power_status(uint8_t slot_id, uint8_t dev_id, uint8_t status, uint8_t intf);
 int bic_get_ifx_vr_remaining_writes(uint8_t slot_id, uint8_t bus, uint8_t addr, uint8_t *writes, uint8_t intf);
 int bic_get_isl_vr_remaining_writes(uint8_t slot_id, uint8_t bus, uint8_t addr, uint8_t *writes, uint8_t intf);
@@ -133,6 +151,7 @@ int bic_get_oem_sensor_reading(uint8_t slot_id, uint8_t index, ipmi_sensor_readi
 int bic_get_m2_config(uint8_t *config, uint8_t slot, uint8_t intf);
 void bic_open_cwc_usb(uint8_t slot);
 void bic_close_cwc_usb(uint8_t slot);
+int bic_get_card_type(uint8_t slot_id, uint8_t select, uint8_t *type);
 
 #ifdef __cplusplus
 } // extern "C"

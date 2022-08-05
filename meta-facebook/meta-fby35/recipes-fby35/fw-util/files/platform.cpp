@@ -9,7 +9,10 @@
 #include "bic_vr.h"
 #include "bic_pcie_sw.h"
 #include "bic_m2_dev.h"
+#include <facebook/bic.h>
 #include <facebook/bic_fwupdate.h>
+#include <facebook/bic_ipmi.h>
+#include <openbmc/pal.h>
 #include "usbdbg.h"
 #include "mp5990.h"
 
@@ -30,9 +33,9 @@ class ClassConfig {
   public:
     ClassConfig() {
       uint8_t bmc_location = 0;
-      uint8_t board_type = 0;
       uint8_t hsc_type = HSC_UNKNOWN;
       uint8_t board_rev = UNKNOWN_REV;
+      int config_status;
 
       if (fby35_common_get_bmc_location(&bmc_location) < 0) {
         printf("Failed to initialize the fw-util\n");
@@ -40,34 +43,11 @@ class ClassConfig {
       }
 
       if (bmc_location == NIC_BMC) {
-        if (fby35_common_get_2ou_board_type(FRU_SLOT1, &board_type) < 0) {
-          syslog(LOG_WARNING, "Failed to get slot1 2ou board type\n");
-        }
         static BmcCpldComponent  cpld_bmc("bmc", "cpld", MAX10_10M04, 9, 0x40);
 
         //slot1 bb bic/cpld
         static BicFwComponent    bic_bb_fw1("slot1", "bb_bic", "bb", FW_BB_BIC);
         static CpldComponent     cpld_bb_fw1("slot1", "bb_cpld", "bb", FW_BB_CPLD, 0, 0);
-        if (board_type != E1S_BOARD) {
-          static PCIESWComponent pciesw_2ou_fw1("slot1", "2ou_pciesw", FRU_SLOT1, "2ou", FW_2OU_PESW);
-          static VrExtComponent  vr_2ou_vr_p3v3_1_fw1("slot1", "2ou_vr_stby1", FRU_SLOT1, "2ou", FW_2OU_3V3_VR1);
-          static VrExtComponent  vr_2ou_vr_p3v3_2_fw1("slot1", "2ou_vr_stby2", FRU_SLOT1, "2ou", FW_2OU_3V3_VR2);
-          static VrExtComponent  vr_2ou_vr_p3v3_3_fw1("slot1", "2ou_vr_stby3", FRU_SLOT1, "2ou", FW_2OU_3V3_VR3);
-          static VrExtComponent  vr_2ou_vr_p1v8_fw1("slot1", "2ou_vr_p1v8", FRU_SLOT1, "2ou", FW_2OU_1V8_VR);
-          static VrExtComponent  vr_2ou_fw1("slot1", "2ou_vr_pesw", FRU_SLOT1, "2ou", FW_2OU_PESW_VR);
-          static M2DevComponent  m2_2ou_dev0("slot1", "2ou_dev0", FRU_SLOT1, "2ou", FW_2OU_M2_DEV0);
-          static M2DevComponent  m2_2ou_dev1("slot1", "2ou_dev1", FRU_SLOT1, "2ou", FW_2OU_M2_DEV1);
-          static M2DevComponent  m2_2ou_dev2("slot1", "2ou_dev2", FRU_SLOT1, "2ou", FW_2OU_M2_DEV2);
-          static M2DevComponent  m2_2ou_dev3("slot1", "2ou_dev3", FRU_SLOT1, "2ou", FW_2OU_M2_DEV3);
-          static M2DevComponent  m2_2ou_dev4("slot1", "2ou_dev4", FRU_SLOT1, "2ou", FW_2OU_M2_DEV4);
-          static M2DevComponent  m2_2ou_dev5("slot1", "2ou_dev5", FRU_SLOT1, "2ou", FW_2OU_M2_DEV5);
-          static M2DevComponent  m2_2ou_dev6("slot1", "2ou_dev6", FRU_SLOT1, "2ou", FW_2OU_M2_DEV6);
-          static M2DevComponent  m2_2ou_dev7("slot1", "2ou_dev7", FRU_SLOT1, "2ou", FW_2OU_M2_DEV7);
-          static M2DevComponent  m2_2ou_dev8("slot1", "2ou_dev8", FRU_SLOT1, "2ou", FW_2OU_M2_DEV8);
-          static M2DevComponent  m2_2ou_dev9("slot1", "2ou_dev9", FRU_SLOT1, "2ou", FW_2OU_M2_DEV9);
-          static M2DevComponent  m2_2ou_dev10("slot1", "2ou_dev10", FRU_SLOT1, "2ou", FW_2OU_M2_DEV10);
-          static M2DevComponent  m2_2ou_dev11("slot1", "2ou_dev11", FRU_SLOT1, "2ou", FW_2OU_M2_DEV11);
-        }
       } else {
         // Register USB Debug Card components
         static UsbDbgComponent   usbdbg("ocpdbg", "mcu", "FBY35", 9, 0x60, false);
@@ -117,6 +97,17 @@ class ClassConfig {
             static VrComponent     vr_vccinfaon_fw1("slot1", "vr_vccinfaon", FW_VR_VCCINFAON);
         }
 
+        //slot1 1ou vr
+        config_status = bic_is_exp_prsnt(FRU_SLOT1);
+        if (config_status < 0) config_status = 0;
+        if( (config_status & PRESENT_1OU) == PRESENT_1OU ) {
+            if( isRainbowFalls(FRU_SLOT1) ){
+                static VrComponent     vr_1ou_va0v8_fw1("slot1", "1ou_vr_v9asica", FW_1OU_VR_V9_ASICA);
+                static VrComponent     vr_1ou_vddqab_fw1("slot1", "1ou_vr_vddqab", FW_1OU_VR_VDDQAB);
+                static VrComponent     vr_1ou_vddqcd_fw1("slot1", "1ou_vr_vddqcd", FW_1OU_VR_VDDQCD);
+            }
+        }
+
         //slot2 sb bic/cpld/bios/me/vr
         static BicFwComponent    bic_fw2("slot2", "bic", "sb", FW_SB_BIC);
         static BicFwComponent    bic_rcvy_fw2("slot2", "bic_rcvy", "sb", FW_BIC_RCVY);
@@ -155,6 +146,17 @@ class ClassConfig {
             static VrComponent       vr_vccinfaon_fw3("slot3", "vr_vccinfaon", FW_VR_VCCINFAON);
         }
 
+        //slot3 1ou vr
+        config_status = bic_is_exp_prsnt(FRU_SLOT3);
+        if (config_status < 0) config_status = 0;
+        if( (config_status & PRESENT_1OU) == PRESENT_1OU ) {
+            if(isRainbowFalls(FRU_SLOT3)){
+                static VrComponent     vr_1ou_va0v8_fw3("slot3", "1ou_vr_v9asica", FW_1OU_VR_V9_ASICA);
+                static VrComponent     vr_1ou_vddqab_fw3("slot3", "1ou_vr_vddqab", FW_1OU_VR_VDDQAB);
+                static VrComponent     vr_1ou_vddqcd_fw3("slot3", "1ou_vr_vddqcd", FW_1OU_VR_VDDQCD);
+            }
+        }
+
         //slot3 1ou bic/cpld
         static BicFwComponent    bic_1ou_fw3("slot3", "1ou_bic", "1ou", FW_1OU_BIC);
         static CpldComponent     cpld_1ou_fw3("slot3", "1ou_cpld", "1ou", FW_1OU_CPLD, 0, 0);
@@ -182,55 +184,24 @@ class ClassConfig {
         static BicFwComponent    bic_2ou_fw4("slot4", "2ou_bic", "2ou", FW_2OU_BIC);
         static CpldComponent     cpld_2ou_fw4("slot4", "2ou_cpld", "2ou", FW_2OU_CPLD, 0, 0);
 
-        /*if ( (bic_is_exp_prsnt(FRU_SLOT1) & PRESENT_2OU) == PRESENT_2OU ) {
-          if ( fby35_common_get_2ou_board_type(FRU_SLOT1, &board_type) < 0) {
-            syslog(LOG_WARNING, "Failed to get slot1 2ou board type\n");
-          } else if ( board_type == GPV3_MCHP_BOARD || board_type == GPV3_BRCM_BOARD ) {
-            static PCIESWComponent pciesw_2ou_fw1("slot1", "2ou_pciesw", FRU_SLOT1, "2ou", FW_2OU_PESW);
-            static VrExtComponent  vr_2ou_vr_p3v3_1_fw1("slot1", "2ou_vr_stby1", FRU_SLOT1, "2ou", FW_2OU_3V3_VR1);
-            static VrExtComponent  vr_2ou_vr_p3v3_2_fw1("slot1", "2ou_vr_stby2", FRU_SLOT1, "2ou", FW_2OU_3V3_VR2);
-            static VrExtComponent  vr_2ou_vr_p3v3_3_fw1("slot1", "2ou_vr_stby3", FRU_SLOT1, "2ou", FW_2OU_3V3_VR3);
-            static VrExtComponent  vr_2ou_vr_p1v8_fw1("slot1", "2ou_vr_p1v8", FRU_SLOT1, "2ou", FW_2OU_1V8_VR);
-            static VrExtComponent  vr_2ou_fw1("slot1", "2ou_vr_pesw", FRU_SLOT1, "2ou", FW_2OU_PESW_VR);
-            static M2DevComponent  m2_2ou_dev0_fw1("slot1", "2ou_dev0", FRU_SLOT1, "2ou", FW_2OU_M2_DEV0);
-            static M2DevComponent  m2_2ou_dev1_fw1("slot1", "2ou_dev1", FRU_SLOT1, "2ou", FW_2OU_M2_DEV1);
-            static M2DevComponent  m2_2ou_dev2_fw1("slot1", "2ou_dev2", FRU_SLOT1, "2ou", FW_2OU_M2_DEV2);
-            static M2DevComponent  m2_2ou_dev3_fw1("slot1", "2ou_dev3", FRU_SLOT1, "2ou", FW_2OU_M2_DEV3);
-            static M2DevComponent  m2_2ou_dev4_fw1("slot1", "2ou_dev4", FRU_SLOT1, "2ou", FW_2OU_M2_DEV4);
-            static M2DevComponent  m2_2ou_dev5_fw1("slot1", "2ou_dev5", FRU_SLOT1, "2ou", FW_2OU_M2_DEV5);
-            static M2DevComponent  m2_2ou_dev6_fw1("slot1", "2ou_dev6", FRU_SLOT1, "2ou", FW_2OU_M2_DEV6);
-            static M2DevComponent  m2_2ou_dev7_fw1("slot1", "2ou_dev7", FRU_SLOT1, "2ou", FW_2OU_M2_DEV7);
-            static M2DevComponent  m2_2ou_dev8_fw1("slot1", "2ou_dev8", FRU_SLOT1, "2ou", FW_2OU_M2_DEV8);
-            static M2DevComponent  m2_2ou_dev9_fw1("slot1", "2ou_dev9", FRU_SLOT1, "2ou", FW_2OU_M2_DEV9);
-            static M2DevComponent  m2_2ou_dev10_fw1("slot1", "2ou_dev10", FRU_SLOT1, "2ou", FW_2OU_M2_DEV10);
-            static M2DevComponent  m2_2ou_dev11_fw1("slot1", "2ou_dev11", FRU_SLOT1, "2ou", FW_2OU_M2_DEV11);
-          }
-        }
-        if ( (bic_is_exp_prsnt(FRU_SLOT3) & PRESENT_2OU) == PRESENT_2OU ) {
-          if ( fby35_common_get_2ou_board_type(FRU_SLOT3, &board_type) < 0) {
-            syslog(LOG_WARNING, "Failed to get slot3 2ou board type\n");
-          } else if ( board_type == GPV3_MCHP_BOARD || board_type == GPV3_BRCM_BOARD ) {
-            static PCIESWComponent pciesw_2ou_fw3("slot3", "2ou_pciesw", FRU_SLOT3, "2ou", FW_2OU_PESW);
-            static VrExtComponent  vr_2ou_vr_p3v3_1_fw3("slot3", "2ou_vr_stby1", FRU_SLOT3, "2ou", FW_2OU_3V3_VR1);
-            static VrExtComponent  vr_2ou_vr_p3v3_2_fw3("slot3", "2ou_vr_stby2", FRU_SLOT3, "2ou", FW_2OU_3V3_VR2);
-            static VrExtComponent  vr_2ou_vr_p3v3_3_fw3("slot3", "2ou_vr_stby3", FRU_SLOT3, "2ou", FW_2OU_3V3_VR3);
-            static VrExtComponent  vr_2ou_vr_p1v8_fw3("slot3", "2ou_vr_p1v8", FRU_SLOT3, "2ou", FW_2OU_1V8_VR);
-            static VrExtComponent  vr_2ou_fw3("slot3", "2ou_vr_pesw", FRU_SLOT3, "2ou", FW_2OU_PESW_VR);
-            static M2DevComponent  m2_2ou_dev0_fw3("slot3", "2ou_dev0", FRU_SLOT3, "2ou", FW_2OU_M2_DEV0);
-            static M2DevComponent  m2_2ou_dev1_fw3("slot3", "2ou_dev1", FRU_SLOT3, "2ou", FW_2OU_M2_DEV1);
-            static M2DevComponent  m2_2ou_dev2_fw3("slot3", "2ou_dev2", FRU_SLOT3, "2ou", FW_2OU_M2_DEV2);
-            static M2DevComponent  m2_2ou_dev3_fw3("slot3", "2ou_dev3", FRU_SLOT3, "2ou", FW_2OU_M2_DEV3);
-            static M2DevComponent  m2_2ou_dev4_fw3("slot3", "2ou_dev4", FRU_SLOT3, "2ou", FW_2OU_M2_DEV4);
-            static M2DevComponent  m2_2ou_dev5_fw3("slot3", "2ou_dev5", FRU_SLOT3, "2ou", FW_2OU_M2_DEV5);
-            static M2DevComponent  m2_2ou_dev6_fw3("slot3", "2ou_dev6", FRU_SLOT3, "2ou", FW_2OU_M2_DEV6);
-            static M2DevComponent  m2_2ou_dev7_fw3("slot3", "2ou_dev7", FRU_SLOT3, "2ou", FW_2OU_M2_DEV7);
-            static M2DevComponent  m2_2ou_dev8_fw3("slot3", "2ou_dev8", FRU_SLOT3, "2ou", FW_2OU_M2_DEV8);
-            static M2DevComponent  m2_2ou_dev9_fw3("slot3", "2ou_dev9", FRU_SLOT3, "2ou", FW_2OU_M2_DEV9);
-            static M2DevComponent  m2_2ou_dev10_fw3("slot3", "2ou_dev10", FRU_SLOT3, "2ou", FW_2OU_M2_DEV10);
-            static M2DevComponent  m2_2ou_dev11_fw3("slot3", "2ou_dev11", FRU_SLOT3, "2ou", FW_2OU_M2_DEV11);
-          }
-        }*/
+
+
       }
+  }
+
+  static bool isRainbowFalls(uint8_t slot_id) {
+    int ret;
+    uint8_t card_type = 0;
+    ret = bic_get_card_type(slot_id, CARD_TYPE_1OU, &card_type);
+    if( !ret && card_type == TYPE_1OU_RAINBOW_FALLS) {
+      return true;
+    }
+
+    ret = (pal_is_fw_update_ongoing(slot_id) == false) ? bic_get_1ou_type(slot_id, &card_type):bic_get_1ou_type_cache(slot_id, &card_type);
+    if( !ret && card_type == RF_1U) {
+      return true;
+    }
+    return false;
   }
 };
 

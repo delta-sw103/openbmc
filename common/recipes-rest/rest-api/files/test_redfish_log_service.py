@@ -97,6 +97,7 @@ class TestGetLogService(AioHTTPTestCase):
             "@odata.id": "/redfish/v1/Systems/{}".format(FRU_NAME) + "/LogServices/SEL",
             "@odata.type": "#LogService.v1_1_2.LogService",
             "Id": "SEL",
+            "Name": "SEL",
             "LogEntryType": "SEL",
             "Entries": {
                 "@odata.id": "/redfish/v1/Systems/{}".format(FRU_NAME)
@@ -133,9 +134,10 @@ class TestGetLogService(AioHTTPTestCase):
                     "@odata.id": "/redfish/v1/Systems/{}".format(FRU_NAME)
                     + "/LogServices/SEL/Entries/1",
                     "@odata.type": "#LogEntry.v1_10_0.LogEntry",
-                    "EventTimestamp": "2021-11-10 02:43:41",
-                    "EntryType": "ipmid",
+                    "EventTimestamp": "2021-11-10T02:43:41Z",
+                    "EntryType": "SEL",
                     "Name": "slot1:1",
+                    "Id": "slot1:1",
                     "Message": "SEL Entry: FRU: 1, "
                     + "Record: Standard (0x02), "
                     + "Time: 2021-11-10 02:43:41, "
@@ -144,6 +146,7 @@ class TestGetLogService(AioHTTPTestCase):
                 },
             ],
             "Members@odata.count": 1,
+            "Name": "Log Entries",
         }
         response = await req.json()
         self.maxDiff = None
@@ -160,9 +163,10 @@ class TestGetLogService(AioHTTPTestCase):
             "@odata.id": "/redfish/v1/Systems/{}".format(FRU_NAME)
             + "/LogServices/SEL/Entries/1",
             "@odata.type": "#LogEntry.v1_10_0.LogEntry",
-            "EventTimestamp": "2021-11-10 02:43:41",
-            "EntryType": "ipmid",
+            "EventTimestamp": "2021-11-10T02:43:41Z",
+            "EntryType": "SEL",
             "Name": "slot1:1",
+            "Id": "slot1:1",
             "Message": "SEL Entry: FRU: 1, "
             + "Record: Standard (0x02), "
             + "Time: 2021-11-10 02:43:41, "

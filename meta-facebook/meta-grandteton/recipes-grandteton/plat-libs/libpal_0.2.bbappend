@@ -10,14 +10,22 @@ LOCAL_URI += "\
     file://pal_common.c \
     file://pal_common.h \
     file://pal_def.h \
+    file://pal_gpio.h \
     file://pal_sensors.c \
     file://pal_sensors.h \
+    file://pal_mb_sensors.c \
+    file://pal_mb_sensors.h \
     file://pal_swb_sensors.c \
     file://pal_swb_sensors.h \
+    file://pal_hmc_sensors.c \
+    file://pal_hmc_sensors.h \
+    file://pal_bb_sensors.c \
+    file://pal_bb_sensors.h \
     file://plat/meson.build \
     "
 
 DEPENDS += " \
+    libhgx \
     libhal \
     libgpio-ctrl \
     libncsi \
@@ -34,6 +42,7 @@ DEPENDS += " \
 # These shouldn't be needed but are because we aren't properly versioning the
 # shared libraries contained in these recipes.
 RDEPENDS:${PN} += " \
+    libhgx \
     libhal \
     libgpio-ctrl \
     libncsi \

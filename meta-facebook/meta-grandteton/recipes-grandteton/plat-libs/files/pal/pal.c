@@ -53,36 +53,36 @@
 #define NUM_BMC_FRU     1
 
 const char pal_fru_list[] = \
-"all, mb, nic0, nic1, swb, bmc, scm, pdbv, pdbh, bp0, bp1, fio,\
+"all, mb, nic0, nic1, swb, hmc, bmc, scm, vpdb, hpdb, bp0, bp1, fio,\
  fan0, fan1, fan2, fan3, fan4, fan5, fan6, fan7, \
  fan8, fan9, fan10, fan11, fan12, fan13, fan14, fan15";
 
 const char pal_server_list[] = "mb";
 
 
+#define ALL_CAPABILITY  FRU_CAPABILITY_SENSOR_READ | FRU_CAPABILITY_SENSOR_HISTORY
+
 #define MB_CAPABILITY   FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SERVER |  \
                         FRU_CAPABILITY_SENSOR_ALL | FRU_CAPABILITY_POWER_ALL
 
 #define SWB_CAPABILITY  FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_ALL
 
+#define HMC_CAPABILITY  FRU_CAPABILITY_SENSOR_ALL
+
 #define NIC_CAPABILITY  FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_ALL | \
                         FRU_CAPABILITY_NETWORK_CARD
 
-#define OCP_CAPABILITY  FRU_CAPABILITY_SENSOR_ALL
+#define BMC_CAPABILITY  FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_MANAGEMENT_CONTROLLER
 
-#define BMC_CAPABILITY  FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_ALL | \
-                        FRU_CAPABILITY_MANAGEMENT_CONTROLLER
-
-#define SCM_CAPABILITY  FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_ALL | \
-                        FRU_CAPABILITY_MANAGEMENT_CONTROLLER
+#define SCM_CAPABILITY  FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_ALL
 
 #define PDB_CAPABILITY  FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_ALL
 
 #define BP_CAPABILITY   FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_ALL
 
-#define FIO_CAPABILITY  FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_ALL
+#define FIO_CAPABILITY  FRU_CAPABILITY_FRUID_ALL
 
-#define FAN_CAPABILITY  FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_ALL
+#define FAN_CAPABILITY  FRU_CAPABILITY_FRUID_ALL
 
 
 struct fru_dev_info {
@@ -95,16 +95,17 @@ struct fru_dev_info {
 };
 
 struct fru_dev_info fru_dev_data[] = {
-  {FRU_ALL,   "all",    NULL,           0,  0, 0},
+  {FRU_ALL,   "all",    NULL,           0,  0,    ALL_CAPABILITY},
   {FRU_MB,    "mb",     "Mother Board", 33, 0x51, MB_CAPABILITY},
   {FRU_SWB,   "swb",    "Switch Board", 3,  0x20, SWB_CAPABILITY},
+  {FRU_HMC,   "hmc",    "HMC Board"  ,   0,    0, HMC_CAPABILITY},
   {FRU_NIC0,  "nic0",   "Mezz Card 0",  13, 0x50, NIC_CAPABILITY},
   {FRU_NIC1,  "nic1",   "Mezz Card 1",  4,  0x52, NIC_CAPABILITY},
-  {FRU_DBG,   "ocpdbg", "Debug Board",  14, 0,    OCP_CAPABILITY},
+  {FRU_DBG,   "ocpdbg", "Debug Board",  14, 0,    0},
   {FRU_BMC,   "bmc",    "BSM Board",    15, 0x56, BMC_CAPABILITY},
   {FRU_SCM,   "scm",    "SCM Board",    15, 0x50, SCM_CAPABILITY},
-  {FRU_PDBV,  "pdbv",   "PDBV Board",   36, 0x52, PDB_CAPABILITY},
-  {FRU_PDBH,  "pdbh",   "PDBH Board",   37, 0x51, PDB_CAPABILITY},
+  {FRU_PDBV,  "vpdb",   "VPDB Board",   36, 0x52, PDB_CAPABILITY},
+  {FRU_PDBH,  "hpdb",   "HPDB Board",   37, 0x51, PDB_CAPABILITY},
   {FRU_BP0,   "bp0",    "BP0 Board",    40, 0x56, BP_CAPABILITY},
   {FRU_BP1,   "bp1",    "BP1 Board",    41, 0x56, BP_CAPABILITY},
   {FRU_FIO,   "fio",    "FIO Board",    3,  0x20, FIO_CAPABILITY},
@@ -144,6 +145,7 @@ pal_is_fru_prsnt(uint8_t fru, uint8_t *status) {
   switch (fru) {
     case FRU_MB:
     case FRU_SWB:
+    case FRU_HMC:
     case FRU_NIC0:
     case FRU_NIC1:
     case FRU_DBG:
@@ -204,6 +206,7 @@ pal_get_fru_name(uint8_t fru, char *name) {
     return -1;
 
   strcpy(name, fru_dev_data[fru].name);
+
   return 0;
 }
 
@@ -678,7 +681,7 @@ pal_get_sensor_util_timeout(uint8_t fru) {
 
 int pal_get_fru_capability(uint8_t fru, unsigned int *caps)
 {
-  if (fru > MAX_NUM_FRUS || fru == FRU_ALL)
+  if (fru > MAX_NUM_FRUS)
     return -1;
 
   *caps = fru_dev_data[fru].cap;

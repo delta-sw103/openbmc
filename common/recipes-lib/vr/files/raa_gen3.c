@@ -142,11 +142,14 @@ check_dev_rev(uint32_t rev, uint8_t mode) {
       break;
     case RAA_GEN3_LEGACY:
     case RAA_GEN3_PRODUCTION:
-      if ( sw_rev < VR_RAA_GEN3_SW_REV_MIN ) {
-        syslog(LOG_WARNING, "%s: GEN3 unexpected IC_DEVICE_REV %08X", __func__, rev);
-        return -1;
-      }
-    break;
+      // Confirmed with Renesas FAE,
+      // We can ignore the IC_DEVICE_REV check.
+      // But we need to make sure that legacy IC use legacy HEX and production IC use production HEX.
+      // if ( sw_rev < VR_RAA_GEN3_SW_REV_MIN ) {
+      //   syslog(LOG_WARNING, "%s: GEN3 unexpected IC_DEVICE_REV %08X", __func__, rev);
+      //   return -1;
+      // }
+      break;
     default:
       syslog(LOG_WARNING, "RAA Mode not support");
       return -1;
@@ -554,6 +557,14 @@ program_raa(uint8_t bus, uint8_t addr, struct raa_config *config, bool force) {
 int
 raa_fw_update(struct vr_info *info, void *args) {
   struct raa_config *config = (struct raa_config *)args;
+  uint8_t remain = 0;
+  uint8_t mode = 0;
+  char ver_key[MAX_KEY_LEN] = {0};
+  char value[MAX_VALUE_LEN] = {0};
+
+  if (info == NULL || config == NULL) {
+    return VR_STATUS_FAILURE;
+  }
 
   if (info->addr != config->addr) {
     return VR_STATUS_SKIP;
@@ -569,6 +580,21 @@ raa_fw_update(struct vr_info *info, void *args) {
   }
   if (program_raa(info->bus, info->addr, config, info->force)) {
     return VR_STATUS_FAILURE;
+  }
+
+  if (pal_is_support_vr_delay_activate() && info->private_data) {
+    snprintf(ver_key, sizeof(ver_key), "%s_vr_%02xh_new_crc", (char *)info->private_data, info->addr);
+    if (get_raa_hex_mode(info->bus, info->addr, &mode) < 0) {
+      snprintf(value, sizeof(value), "Renesas %08X, Remaining Writes: Unknown",
+             config->crc_exp);
+    } else if (get_raa_remaining_wr(info->bus, info->addr, mode, &remain) < 0) {
+      snprintf(value, sizeof(value), "Renesas %08X, Remaining Writes: Unknown",
+             config->crc_exp);
+    } else {
+      snprintf(value, sizeof(value), "Renesas %08X, Remaining Writes: %u",
+             config->crc_exp, remain);
+    }
+    kv_set(ver_key, value, 0, KV_FPERSIST);
   }
 
   return VR_STATUS_SUCCESS;

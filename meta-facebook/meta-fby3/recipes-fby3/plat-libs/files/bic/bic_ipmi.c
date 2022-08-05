@@ -62,6 +62,7 @@ typedef struct _sdr_rec_hdr_t {
 
 #define KV_SLOT_IS_M2_EXP_PRESENT "slot%x_is_m2_exp_prsnt"
 #define KV_SLOT_GET_1OU_TYPE      "slot%x_get_1ou_type"
+#define KV_SLOT_GET_1OU_CARD_TYPE      "slot%x_1ou_card_type"
 #define KV_MB_INDEX               "get_mb_index"
 
 #define KV_SLOT_IS_2U_TOPBOT_PRESENT "slot%x_is_2u_topbot_prsnt"
@@ -1086,6 +1087,44 @@ bic_get_1ou_type_cache(uint8_t slot_id, uint8_t *type) {
 }
 
 int
+bic_get_card_type(uint8_t slot_id, uint8_t select, uint8_t *type) {
+  uint8_t tbuf[4] = {0x9c, 0x9c, 0x00, select};
+  uint8_t rbuf[16] = {0};
+  uint8_t tlen = sizeof(tbuf);
+  uint8_t rlen = 0;
+
+  int ret = 0;
+  int val = 0;
+  char key[MAX_KEY_LEN] = {0};
+  char tmp_str[MAX_VALUE_LEN] = {0};
+
+  if (type == NULL) {
+    return -1;
+  }
+
+  if (select != GET_1OU) {
+    printf("[%s] only support get 1OU card type \n", __FUNCTION__);
+    return -1;
+  }
+
+  snprintf(key, sizeof(key), KV_SLOT_GET_1OU_CARD_TYPE, slot_id);
+  if (kv_get(key, tmp_str, NULL, 0) == 0) {
+    *type = atoi(tmp_str);
+    return 0;
+  } else {
+    ret = bic_ipmb_send(slot_id, NETFN_OEM_1S_REQ, BIC_CMD_OEM_GET_CARD_TYPE, tbuf, tlen, rbuf, &rlen, NONE_INTF);
+    if (ret == 0) {
+      *type = rbuf[3];
+      val = *type;
+      snprintf(tmp_str, sizeof(tmp_str), "%d", val);
+      kv_set(key, tmp_str, 0, 0);
+    }
+  }
+
+  return ret;
+}
+
+int
 bic_set_amber_led(uint8_t slot_id, uint8_t dev_id, uint8_t status) {
   uint8_t tbuf[5] = {0x9c, 0x9c, 0x00, 0x00, 0x00};
   uint8_t rbuf[2] = {0};
@@ -1525,7 +1564,7 @@ bic_is_m2_exp_prsnt(uint8_t slot_id) {
     present = rbuf[0] & 0xC;
 
     if ( ret < 0 ) {
-      syslog(LOG_WARNING, "%s() Failed to get expansion present status. ret=%d", __func__, ret);
+      syslog(LOG_WARNING, "%s() slot%d Failed to get expansion present status. ret=%d", __func__, slot_id, ret);
       return ret;
     } else {
       if ( present == 0) {
@@ -2210,9 +2249,9 @@ int
 bic_get_dev_info(uint8_t slot_id, uint8_t dev_id, uint8_t *nvme_ready, uint8_t *status, uint8_t *type) {
   int ret = 0;
   uint8_t retry = MAX_READ_RETRY;
-  uint16_t vendor_id = 0, reversed_vender_sph = 0;
-  uint8_t ffi = 0 ,meff = 0 ,major_ver = 0, minor_ver = 0,additional_ver = 0;
+  uint16_t reversed_vender_sph = 0;
   uint8_t type_2ou = UNKNOWN_BOARD;
+  M2_DEV_INFO m2_dev_info = {};
 
   if (slot_id == FRU_2U_TOP || slot_id == FRU_2U_BOT) {
     type_2ou = CWC_MCHP_BOARD;
@@ -2236,30 +2275,32 @@ bic_get_dev_info(uint8_t slot_id, uint8_t dev_id, uint8_t *nvme_ready, uint8_t *
 
     while (retry) {
       if (slot_id == FRU_2U_TOP) {
-        ret = bic_get_dev_power_status(FRU_SLOT1, dev_id, nvme_ready, status, &ffi, &meff, 
-                                      &vendor_id, &major_ver,&minor_ver,&additional_ver, RREXP_BIC_INTF1);
+        ret = bic_get_dev_power_status(FRU_SLOT1, dev_id, &m2_dev_info, RREXP_BIC_INTF1);
       } else if (slot_id == FRU_2U_BOT) {
-        ret = bic_get_dev_power_status(FRU_SLOT1, dev_id, nvme_ready, status, &ffi, &meff, 
-                                      &vendor_id, &major_ver,&minor_ver,&additional_ver, RREXP_BIC_INTF2);
+        ret = bic_get_dev_power_status(FRU_SLOT1, dev_id, &m2_dev_info, RREXP_BIC_INTF2);
       } else {
-        ret = bic_get_dev_power_status(slot_id, dev_id, nvme_ready, status, &ffi, &meff, &vendor_id, &major_ver,&minor_ver,&additional_ver, REXP_BIC_INTF);
+        ret = bic_get_dev_power_status(slot_id, dev_id, &m2_dev_info, REXP_BIC_INTF);
       }
       if (!ret)
         break;
       msleep(50);
       retry--;
     }
+
+    *nvme_ready = m2_dev_info.nvme_ready;
+    *status = m2_dev_info.status;
+
     //syslog(LOG_WARNING, "bic_get_dev_power_status: dev_id %d nvme_ready %d status %d",dev_id, *nvme_ready, *status);
     reversed_vender_sph = (((VENDOR_SPH << 8) & 0xFF00) | ((VENDOR_SPH >> 8) & 0x00FF));
 
     if (*nvme_ready) {
-      if ( meff == MEFF_DUAL_M2 ) {
+      if ( m2_dev_info.meff == MEFF_DUAL_M2 ) {
         *type = DEV_TYPE_DUAL_M2;
       } else{
-        if (ffi == FFI_ACCELERATOR) {
-          if (vendor_id == VENDOR_BRCM) {
+        if (m2_dev_info.ffi == FFI_ACCELERATOR) {
+          if (m2_dev_info.vendor_id == VENDOR_BRCM) {
             *type = DEV_TYPE_BRCM_ACC;
-          } else if (vendor_id == VENDOR_SPH || vendor_id == reversed_vender_sph) {
+          } else if (m2_dev_info.vendor_id == VENDOR_SPH || m2_dev_info.vendor_id == reversed_vender_sph) {
             *type = DEV_TYPE_SPH_ACC;
           } else {
             *type = DEV_TYPE_M2;
@@ -2280,10 +2321,9 @@ err_out:
 }
 
 int
-bic_get_dev_power_status(uint8_t slot_id, uint8_t dev_id, uint8_t *nvme_ready, uint8_t *status, \
-                         uint8_t *ffi, uint8_t *meff, uint16_t *vendor_id, uint8_t *major_ver, uint8_t *minor_ver,uint8_t *additional_ver, uint8_t intf) {
+bic_get_dev_power_status(uint8_t slot_id, uint8_t dev_id, M2_DEV_INFO *m2_dev_info, uint8_t intf) {
   uint8_t tbuf[5] = {0x9c, 0x9c, 0x00}; // IANA ID
-  uint8_t rbuf[12] = {0x00};
+  uint8_t rbuf[MAX_IPMB_RES_LEN] = {0x00};
   uint8_t tlen = 5;
   uint8_t rlen = 0;
   int ret = 0;
@@ -2330,22 +2370,28 @@ bic_get_dev_power_status(uint8_t slot_id, uint8_t dev_id, uint8_t *nvme_ready, u
   ret = bic_ipmb_send(slot_id, NETFN_OEM_1S_REQ, CMD_OEM_1S_DEV_POWER, tbuf, tlen, rbuf, &rlen, intf);
 
   if (dev_id >= DUAL_DEV_ID0_2OU && dev_id <= DUAL_DEV_ID5_2OU) { //dual m.2 sitauation, it will return two byte.
-    status[0] = rbuf[3];
-    status[1] = rbuf[4];
+    m2_dev_info->status = (rbuf[3] << 8) | rbuf[4];
   } else {
     // Ignore first 3 bytes of IANA ID
-    *status = rbuf[3];
+    m2_dev_info->status = rbuf[3];
     if (intf == REXP_BIC_INTF || intf == RREXP_BIC_INTF1 || intf == RREXP_BIC_INTF2) {
-      *nvme_ready = rbuf[4]; //1 is assigned directly. for REXP_EXP_INTF, we assige it from rbuf[4]
+      m2_dev_info->nvme_ready = rbuf[4]; //1 is assigned directly. for REXP_EXP_INTF, we assige it from rbuf[4]
     } else {
-      *nvme_ready = 0x1;
+      m2_dev_info->nvme_ready = 0x1;
     }
-    if ( ffi != NULL ) *ffi = rbuf[5];   // FFI_0 0:Storage 1:Accelerator
-    if ( meff != NULL ) *meff = rbuf[6];  // MEFF  0x35: M.2 22110 0xF0: Dual M.2
-    if ( vendor_id != NULL ) *vendor_id = (rbuf[7] << 8 ) | rbuf[8]; // PCIe Vendor ID
-    if ( major_ver != NULL ) *major_ver = rbuf[9];  //FW version Major Revision
-    if ( minor_ver != NULL ) *minor_ver = rbuf[10]; //FW version Minor Revision
-    if ( additional_ver != NULL ) *additional_ver = rbuf[11]; //Additional FW version
+    
+    if ( rlen == M2_DEV_FREYA_RLEN ) {
+      m2_dev_info->is_freya = true;
+    }
+
+    m2_dev_info->ffi = rbuf[5];   // FFI_0 0:Storage 1:Accelerator
+    m2_dev_info->meff = rbuf[6];  // MEFF  0x35: M.2 22110 0xF0: Dual M.2
+    m2_dev_info->vendor_id = (rbuf[7] << 8 ) | rbuf[8]; // PCIe Vendor ID
+    m2_dev_info->major_ver = rbuf[9];  //FW version Major Revision
+    m2_dev_info->minor_ver = rbuf[10]; //FW version Minor Revision
+    m2_dev_info->additional_ver = rbuf[11]; //Additional FW version
+    m2_dev_info->sec_major_ver = rbuf[12]; //Secondary Major Revision
+    m2_dev_info->sec_minor_ver = rbuf[13]; //Secondary Minor Revision
   }
 
   return ret;

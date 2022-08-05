@@ -72,6 +72,11 @@ static int read_cached_val(uint8_t snr_number, float *value);
 static int read_fan_speed(uint8_t snr_number, float *value);
 static int read_fan_pwm(uint8_t pwm_id, float *value);
 static int read_curr_leakage(uint8_t snr_number, float *value);
+static int read_pdb_vin(uint8_t pdb_id, float *value);
+static int read_pdb_vout(uint8_t pdb_id, float *value);
+static int read_pdb_iout(uint8_t pdb_id, float *value);
+static int read_pdb_pout(uint8_t pdb_id, float *value);
+static int read_pdb_temp(uint8_t pdb_id, float *value);
 static int read_pdb_cl_vdelta(uint8_t snr_number, float *value);
 static int read_dpv2_efuse(uint8_t info, float *value);
 static int pal_sdr_init(uint8_t fru);
@@ -80,6 +85,7 @@ static bool sdr_init_done[MAX_NUM_FRUS] = {false};
 static uint8_t bic_dynamic_sensor_list[4][MAX_SENSOR_NUM + 1] = {0};
 static uint8_t bic_dynamic_skip_sensor_list[4][MAX_SENSOR_NUM + 1] = {0};
 static uint8_t rev_id = UNKNOWN_REV;
+static uint8_t bmc_dynamic_sensor_list[MAX_SENSOR_NUM + 1] = {0};
 
 int pwr_off_flag[MAX_NODES] = {0};
 int temp_cnt = 0;
@@ -816,6 +822,25 @@ const uint8_t nic_sensor_list[] = {
 const uint8_t bmc_discrete_sensor_list[] = {
 };
 
+const uint8_t delta_pdb_sensor_list[] = {
+  BMC_SENSOR_VPDB_DELTA_1_TEMP,
+  BMC_SENSOR_VPDB_DELTA_2_TEMP,
+  BMC_SENSOR_PDB_48V_DELTA_1_VIN,
+  BMC_SENSOR_PDB_48V_DELTA_2_VIN,
+  BMC_SENSOR_PDB_12V_DELTA_1_VOUT,
+  BMC_SENSOR_PDB_12V_DELTA_2_VOUT,
+  BMC_SENSOR_PDB_DELTA_1_IOUT,
+  BMC_SENSOR_PDB_DELTA_2_IOUT,
+};
+
+const uint8_t rns_pdb_sensor_list[] = {
+  BMC_SENSOR_VPDB_WW_TEMP,
+  BMC_SENSOR_PDB_48V_WW_VIN,
+  BMC_SENSOR_PDB_12V_WW_VOUT,
+  BMC_SENSOR_PDB_12V_WW_IOUT,
+  BMC_SENSOR_PDB_12V_WW_PWR,
+};
+
 /*  PAL_ATTR_INFO:
  *  For the PMBus direct format conversion
  *  X = 1/m × (Y × 10^-R − b)
@@ -844,6 +869,23 @@ PAL_ATTR_INFO mp5990_info_list[] = {
   [HSC_CURRENT] = {16, 0, 1},
   [HSC_POWER] = {1, 0, 1},
   [HSC_TEMP] = {1, 0, 1},
+};
+
+//Delta
+PAL_PDB_COEFFICIENT delta_pdb_info_list[] = {
+  [PDB_VOLTAGE_OUT] = {0.00024414},
+  [PDB_VOLTAGE_IN] = {0.125},
+  [PDB_CURRENT] = {0.25},
+  [PDB_TEMP] = {0.25},
+};
+
+//RNS
+PAL_PDB_COEFFICIENT rns_pdb_info_list[] = {
+  [PDB_VOLTAGE_OUT] = {0.005},
+  [PDB_VOLTAGE_IN] = {0.1},
+  [PDB_CURRENT] = {0.1},
+  [PDB_TEMP] = {1},
+  [PDB_POWER] = {0.2},
 };
 
 PAL_PMBUS_INFO dpv2_efuse_info_list[] = {
@@ -1044,20 +1086,20 @@ PAL_SENSOR_MAP sensor_map[] = {
   {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xAD
   {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xAE
   {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xAF
-
-  {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xB0
-  {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xB1
-  {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0XB2
-  {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xB3
-  {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xB4
-  {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xB5
-  {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xB6
-  {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xB7
-  {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xB8
-  {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xB9
-  {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xBA
-  {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xBB
-  {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xBC
+//{                       SensorName,          ID, FUNCTION, PWR_STATUS, {   LNR,    LCR,   LNC,    UNC,    UCR,     UNR,  Pos, Neg}, Unit}
+  {"BMC_SENSOR_VPDB_DELTA_1_TEMP"   , PDB_DELTA_1, read_pdb_temp,  true, {     0,      0,     0,      0,    115,     130,    0,   0}, TEMP}, //0xB0
+  {"BMC_SENSOR_VPDB_DELTA_2_TEMP"   , PDB_DELTA_2, read_pdb_temp,  true, {     0,      0,     0,      0,    115,     130,    0,   0}, TEMP}, //0xB1
+  {"BMC_SENSOR_VPDB_WW_TEMP"        , PDB_RNS    , read_pdb_temp,  true, {     0,      0,     0,      0,    100,     115,    0,   0}, TEMP}, //0XB2
+  {"BMC_SENSOR_PDB_48V_DELTA_1_VIN" , PDB_DELTA_1, read_pdb_vin ,  true, {    36,  42.72,  43.2,   56.1,  56.61,      62,    0,   0}, VOLT}, //0xB3
+  {"BMC_SENSOR_PDB_48V_DELTA_2_VIN" , PDB_DELTA_2, read_pdb_vin ,  true, {    36,  42.72,  43.2,   56.1,  56.61,      62,    0,   0}, VOLT}, //0xB4
+  {"BMC_SENSOR_PDB_48V_WW_VIN"      , PDB_RNS    , read_pdb_vin ,  true, {  38.5,  42.72,  43.2,   56.1,  56.61,    61.5,    0,   0}, VOLT}, //0xB5
+  {"BMC_SENSOR_PDB_12V_DELTA_1_VOUT", PDB_DELTA_1, read_pdb_vout,  true, { 8.162, 11.125, 11.25,  13.75, 13.875,      15,    0,   0}, VOLT}, //0xB6
+  {"BMC_SENSOR_PDB_12V_DELTA_2_VOUT", PDB_DELTA_2, read_pdb_vout,  true, { 8.162, 11.125, 11.25,  13.75, 13.875,      15,    0,   0}, VOLT}, //0xB7
+  {"BMC_SENSOR_PDB_12V_WW_VOUT"     , PDB_RNS    , read_pdb_vout,  true, {    10, 11.125, 11.25,  13.75, 13.875,    13.6,    0,   0}, VOLT}, //0xB8
+  {"BMC_SENSOR_PDB_DELTA_1_IOUT"    , PDB_DELTA_1, read_pdb_iout,  true, {     0,      0,     0,      0,    100,       0,    0,   0}, CURR}, //0xB9
+  {"BMC_SENSOR_PDB_DELTA_2_IOUT"    , PDB_DELTA_2, read_pdb_iout,  true, {     0,      0,     0,      0,    136,       0,    0,   0}, CURR}, //0xBA
+  {"BMC_SENSOR_PDB_12V_WW_IOUT"     , PDB_RNS    , read_pdb_iout,  true, {     0,      0,     0,      0,    144,       0,    0,   0}, CURR}, //0xBB
+  {"BMC_SENSOR_PDB_12V_WW_PWR"      , PDB_RNS    , read_pdb_pout,  true, {     0,      0,     0,      0,   1800,       0,    0,   0}, POWER}, //0xBC
   {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xBD
   {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xBE
   {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xBF
@@ -1143,6 +1185,12 @@ PAL_CHIP_INFO medusa_hsc_list[] = {
   {"adm1272", "adm1272", MEDUSA_HSC_ADM1272_ADDR}
 };
 
+PAL_PDB_INFO pdb_info_list[] = {
+  [PDB_DELTA_1] = {DELTA_1_PDB_ADDR, delta_pdb_info_list},
+  [PDB_DELTA_2] = {DELTA_2_PDB_ADDR, delta_pdb_info_list},
+  [PDB_RNS] = {RNS_PDB_ADDR, rns_pdb_info_list}
+};
+
 size_t bmc_sensor_cnt = sizeof(bmc_sensor_list)/sizeof(uint8_t);
 size_t nicexp_sensor_cnt = sizeof(nicexp_sensor_list)/sizeof(uint8_t);
 size_t nic_sensor_cnt = sizeof(nic_sensor_list)/sizeof(uint8_t);
@@ -1163,6 +1211,8 @@ size_t bic_2ou_gpv3_skip_sensor_cnt = sizeof(bic_2ou_gpv3_skip_sensor_list)/size
 size_t bic_1ou_edsff_skip_sensor_cnt = sizeof(bic_1ou_edsff_skip_sensor_list)/sizeof(uint8_t);
 size_t bmc_dpv2_x8_sensor_cnt = sizeof(bmc_dpv2_x8_sensor_list)/sizeof(uint8_t);
 size_t bic_dpv2_x16_sensor_cnt = sizeof(bic_dpv2_x16_sensor_list)/sizeof(uint8_t);
+size_t rns_pdb_sensor_cnt = sizeof(rns_pdb_sensor_list)/sizeof(uint8_t);
+size_t delta_pdb_sensor_cnt = sizeof(delta_pdb_sensor_list)/sizeof(uint8_t);
 
 static int compare(const void *arg1, const void *arg2) {
   return(*(int *)arg2 - *(int *)arg1);
@@ -1236,11 +1286,45 @@ get_skip_sensor_list(uint8_t fru, uint8_t **skip_sensor_list, int *cnt, const ui
 }
 
 int
+pal_get_pdb_sensor_list(size_t *current_bmc_cnt) {
+  const uint8_t pdb_bus = 11;
+
+  if (current_bmc_cnt == NULL) {
+    return -1;
+  }
+
+  if (i2c_detect_device(pdb_bus, RNS_PDB_ADDR >> 1) == 0) { // RNS PDB
+    if ((*current_bmc_cnt + rns_pdb_sensor_cnt) > MAX_SENSOR_NUM) {
+      syslog(LOG_ERR, "%s() current_bmc_cnt exceeds the limit of max sensor number", __func__);
+      return -1;
+    }
+    memcpy(&bmc_dynamic_sensor_list[*current_bmc_cnt], rns_pdb_sensor_list, rns_pdb_sensor_cnt);
+    *current_bmc_cnt += rns_pdb_sensor_cnt;
+    return 0;
+  } else if ((i2c_detect_device(pdb_bus, DELTA_1_PDB_ADDR >> 1) == 0) || (i2c_detect_device(pdb_bus, DELTA_2_PDB_ADDR >> 1) == 0)) {
+    if ((*current_bmc_cnt + delta_pdb_sensor_cnt) > MAX_SENSOR_NUM) {
+      syslog(LOG_ERR, "%s() current_bmc_cnt exceeds the limit of max sensor number", __func__);
+      return -1;
+    }
+    memcpy(&bmc_dynamic_sensor_list[*current_bmc_cnt], delta_pdb_sensor_list, delta_pdb_sensor_cnt);
+    *current_bmc_cnt += delta_pdb_sensor_cnt;
+    return 0;
+  } else {
+    syslog(LOG_ERR, "%s() Fail to identify the module of PDB", __func__);
+    return -1;
+  }
+}
+
+int
 pal_get_fru_sensor_list(uint8_t fru, uint8_t **sensor_list, int *cnt) {
   uint8_t bmc_location = 0, type = 0;
   int ret = 0, config_status = 0;
   uint8_t board_type = 0;
   uint8_t current_cnt = 0;
+  size_t current_bmc_cnt = 0;
+  char key[MAX_KEY_LEN] = {0};
+  char hsc_type[MAX_VALUE_LEN] = {0};
+  bool is_48v_medusa = false;
 
   ret = fby35_common_get_bmc_location(&bmc_location);
   if (ret < 0) {
@@ -1253,8 +1337,23 @@ pal_get_fru_sensor_list(uint8_t fru, uint8_t **sensor_list, int *cnt) {
       *sensor_list = (uint8_t *) nicexp_sensor_list;
       *cnt = nicexp_sensor_cnt;
     } else {
-      *sensor_list = (uint8_t *) bmc_sensor_list;
-      *cnt = bmc_sensor_cnt;
+      memcpy(bmc_dynamic_sensor_list, bmc_sensor_list, bmc_sensor_cnt);
+      current_bmc_cnt = bmc_sensor_cnt;
+      snprintf(key, sizeof(key), "bb_hsc_conf");
+      if (kv_get(key, hsc_type, NULL, KV_FPERSIST) < 0) {
+        syslog(LOG_WARNING, "%s() Cannot get the key bb_hsc_conf", __func__);
+      } else {
+        is_48v_medusa = strncmp(hsc_type, "ltc4282", sizeof(hsc_type)) ? true : false;
+      }
+      if (is_48v_medusa) { // if is 48V medusa, need to add PDB sensor list
+        ret = pal_get_pdb_sensor_list(&current_bmc_cnt);
+        if (ret < 0) {
+          syslog(LOG_ERR, "%s() Cannot get the PDB sensor list", __func__);
+        }
+      }
+
+      *sensor_list = (uint8_t *) bmc_dynamic_sensor_list;
+      *cnt = current_bmc_cnt;
     }
 
     break;
@@ -1521,9 +1620,12 @@ int pal_get_fan_speed(uint8_t fan, int *rpm)
     }
     ret = sensors_read_fan(label, &value);
   } else if ( bmc_location == NIC_BMC ) {
-    if ( pal_is_fw_update_ongoing(FRU_SLOT1) == true ) return PAL_ENOTSUP;
-    else ret = bic_get_fan_speed(fan, &value);
+    ret = bic_get_fan_speed(fan, &value);
+  } else {
+    syslog(LOG_WARNING, "%s() Cannot get the location of BMC", __func__);
+    return -1;
   }
+
   if (value <= 0) {
     return -1;
   }
@@ -1549,8 +1651,7 @@ int pal_get_fan_name(uint8_t num, char *name)
 static int
 _pal_get_pwm_value(uint8_t pwm, float *value, uint8_t bmc_location) {
   if ( bmc_location == NIC_BMC ) {
-    if ( pal_is_fw_update_ongoing(FRU_SLOT1) == true ) return PAL_ENOTSUP;
-    else return bic_get_fan_pwm(pwm, value);
+    return bic_get_fan_pwm(pwm, value);
   }
   return sensors_read_pwmfan(pwm, value);
 }
@@ -1706,6 +1807,7 @@ read_snr_from_all_slots(uint8_t target_snr_num, uint8_t action, float *val) {
 
     if ( strcmp(sys_conf, "Type_1") == 0 ) config = CONFIG_A;
     else if ( strcmp(sys_conf, "Type_DPV2") == 0 ) config = CONFIG_B;
+    else if ( strcmp(sys_conf, "Type_HD") == 0 ) config = CONFIG_B;
     else if ( strcmp(sys_conf, "Type_17") == 0 ) config = CONFIG_D;
     else syslog(LOG_WARNING, "%s() Couldn't identiy the system type: %s", __func__, sys_conf);
 
@@ -1734,14 +1836,137 @@ read_snr_from_all_slots(uint8_t target_snr_num, uint8_t action, float *val) {
   return PAL_EOK;
 }
 
+static int
+get_pdb_reading(uint8_t pdb_id, uint8_t type, uint16_t cmd, float *value) {
+  const uint8_t pdb_bus = 11;
+  uint8_t addr = pdb_info_list[pdb_id].target_addr;
+  static int fd = -1;
+  uint8_t rbuf[PMBUS_RESP_LEN_MAX] = {0x00}, tbuf[PMBUS_CMD_LEN_MAX] = {cmd};
+  uint8_t rlen = 2;
+  uint8_t tlen = 1;
+  int retry = MAX_RETRY;
+  int ret = ERR_NOT_READY;
+
+  if (value == NULL) {
+    return READING_NA;
+  }
+
+  if ( fd < 0 ) {
+    fd = i2c_cdev_slave_open(pdb_bus, addr >> 1, I2C_SLAVE_FORCE_CLAIM);
+    if ( fd < 0 ) {
+      syslog(LOG_WARNING, "Failed to open bus %d", pdb_bus);
+      return READING_NA;
+    }
+  }
+
+  for (retry = MAX_RETRY; retry > 0; retry--) {
+    ret = i2c_rdwr_msg_transfer(fd, addr, tbuf, tlen, rbuf, rlen);
+    if (ret == 0) {
+      break;
+    }
+  }
+  if ( ret < 0 ) {
+    ret = READING_NA;
+    goto exit;
+  }
+  // Renesas's response data is direct format
+  if ((pdb_id == PDB_RNS) || (cmd == PMBUS_READ_VOUT)) {
+    *value = (float)(rbuf[1] << 8 | rbuf[0]);
+  // Delta's reponse data need to ignore bits 11~15, except PMBUS_READ_VOUT
+  } else if ((pdb_id == PDB_DELTA_1) || (pdb_id == PDB_DELTA_2)) {
+    *value = (float)(((rbuf[1] & 0x07) << 8) | rbuf[0]);
+  } else {
+    ret = READING_NA;
+    goto exit;
+  }
+
+  return ret;
+exit:
+  if ( fd >= 0 ) {
+    close(fd);
+    fd = -1;
+  }
+  return ret;
+}
+
+static int
+read_pdb_vin(uint8_t pdb_id, float *value) {
+  if (value == NULL) {
+    return READING_NA;
+  }
+
+  if (get_pdb_reading(pdb_id, PDB_VOLTAGE_IN, PMBUS_READ_VIN, value) < 0 ) {
+    return READING_NA;
+  }
+  *value *= pdb_info_list[pdb_id].coefficient[PDB_VOLTAGE_IN].data;
+  return PAL_EOK;
+}
+
+static int
+read_pdb_vout(uint8_t pdb_id, float *value) {
+  if (value == NULL) {
+    return READING_NA;
+  }
+
+  if (get_pdb_reading(pdb_id, PDB_VOLTAGE_OUT, PMBUS_READ_VOUT, value) < 0 ) {
+    return READING_NA;
+  }
+  *value *= pdb_info_list[pdb_id].coefficient[PDB_VOLTAGE_OUT].data;
+  return PAL_EOK;
+}
+
+static int
+read_pdb_iout(uint8_t pdb_id, float *value) {
+  if (value == NULL) {
+    return READING_NA;
+  }
+
+  if (get_pdb_reading(pdb_id, PDB_CURRENT, PMBUS_READ_IOUT, value) < 0 ) {
+    return READING_NA;
+  }
+  *value *= pdb_info_list[pdb_id].coefficient[PDB_CURRENT].data;
+  return PAL_EOK;
+}
+
+static int
+read_pdb_pout(uint8_t pdb_id, float *value) {
+  if (value == NULL) {
+    return READING_NA;
+  }
+
+  if (get_pdb_reading(pdb_id, PDB_POWER, PMBUS_READ_POUT, value) < 0 ) {
+    return READING_NA;
+  }
+  *value *= pdb_info_list[pdb_id].coefficient[PDB_POWER].data;
+  return PAL_EOK;
+}
+
+static int
+read_pdb_temp(uint8_t pdb_id, float *value) {
+  if (value == NULL) {
+    return READING_NA;
+  }
+
+  if (get_pdb_reading(pdb_id, PDB_TEMP, PMBUS_READ_TEMP1, value) < 0 ) {
+    return READING_NA;
+  }
+  *value *= pdb_info_list[pdb_id].coefficient[PDB_TEMP].data;
+  return PAL_EOK;
+}
+
 // Calculate Crater lake vdelta
 static int
 read_pdb_cl_vdelta(uint8_t snr_number, float *value) {
   float medusa_vout = 0;
   float min_hsc_vin = 0;
+  uint8_t hsc_input_vol_num = BIC_SENSOR_HSC_INPUT_VOL; // Default Crater Lake sensor
+
+  if (fby35_common_get_slot_type(FRU_SLOT1) == SERVER_TYPE_HD || fby35_common_get_slot_type(FRU_SLOT3) == SERVER_TYPE_HD) {
+    hsc_input_vol_num = BIC_HD_SENSOR_HSC_INPUT_VOL;
+  }
 
   if ( sensor_cache_read(FRU_BMC, BMC_SENSOR_MEDUSA_VOUT, &medusa_vout) < 0) return READING_NA;
-  if ( read_snr_from_all_slots(BIC_SENSOR_HSC_INPUT_VOL, GET_MIN_VAL, &min_hsc_vin) < 0) return READING_NA;
+  if ( read_snr_from_all_slots(hsc_input_vol_num, GET_MIN_VAL, &min_hsc_vin) < 0) return READING_NA;
 
   //Calculate the Vdrop between BMC_SENSOR_MEDUSA_VOUT and each individual HSC_Input_Vol
   //And return the max Vdrop. The UCR of Vdrop is 0.9V.
@@ -1759,10 +1984,15 @@ read_curr_leakage(uint8_t snr_number, float *value) {
   float medusa_curr = 0;
   float bb_hsc_curr = 0;
   float total_hsc_iout = 0;
+  uint8_t hsc_output_cur_num = BIC_SENSOR_HSC_OUTPUT_CUR; // Default Crater Lake sensor
+
+  if (fby35_common_get_slot_type(FRU_SLOT1) == SERVER_TYPE_HD || fby35_common_get_slot_type(FRU_SLOT3) == SERVER_TYPE_HD) {
+    hsc_output_cur_num = BIC_HD_SENSOR_HSC_OUTPUT_CUR;
+  }
 
   if ( sensor_cache_read(FRU_BMC, BMC_SENSOR_MEDUSA_CURR, &medusa_curr) < 0) return READING_NA;
   if ( sensor_cache_read(FRU_BMC, BMC_SENSOR_HSC_IOUT, &bb_hsc_curr) < 0) return READING_NA;
-  if ( read_snr_from_all_slots(BIC_SENSOR_HSC_OUTPUT_CUR, GET_TOTAL_VAL, &total_hsc_iout) < 0) return READING_NA;
+  if ( read_snr_from_all_slots(hsc_output_cur_num, GET_TOTAL_VAL, &total_hsc_iout) < 0) return READING_NA;
 
   *value = (medusa_curr - bb_hsc_curr - total_hsc_iout) / medusa_curr;
   *value *= 100;
@@ -2025,7 +2255,7 @@ read_adc_val(uint8_t adc_id, float *value) {
 
       if ( ADC10 == adc_id ) { // 0xFB, BMC_SENSOR_FAN_IOUT
         if ( gval == MAXIM_SOLUTION ) {
-          *value = *value/0.157/0.33;
+          *value = (((*value/0.157/0.33) - 2.5) * 0.96) + 0.15;
         } else if ( gval == MPS_SOLUTION ) {
           *value = *value/0.01/5.11;
         } else {
@@ -2035,7 +2265,7 @@ read_adc_val(uint8_t adc_id, float *value) {
       }
       else if ( ADC11 == adc_id ) { // 0xFC, BMC_SENSOR_NIC_IOUT
         if ( gval == MAXIM_SOLUTION ) {
-          *value = (*value/0.22/1.2) * 1.005 + 0.04;
+          *value = *value/0.22/1.2;
         } else if ( gval == MPS_SOLUTION ) {
           *value = *value/0.01/30;
         } else {
@@ -2164,9 +2394,19 @@ read_hsc_pin(uint8_t hsc_id, float *value) {
   if ( get_hsc_reading(hsc_id, I2C_WORD, HSC_POWER, PMBUS_READ_PIN, value, NULL) < 0 ) {
     return READING_NA;
   }
+
+  if ( rev_id == UNKNOWN_REV ) {
+    if ( get_board_rev(FRU_BMC, BOARD_ID_BB, &rev_id) < 0 ) {
+      syslog(LOG_WARNING, "%s() Failed to get revision id", __func__);
+      return -1;
+    }
+  }
+
   switch (hsc_id) {
     case HSC_ADM1278:
-      *value *= 0.96; //improve the accuracy of PIN to +-2%
+      if (rev_id < BB_REV_DVT) {
+        *value *= 0.96; //improve the accuracy of PIN to +-2%
+      }
       break;
     case HSC_MP5990:
       *value = ((*value + 0.05) * 1.02) + 0.2;
@@ -2186,9 +2426,18 @@ read_hsc_iout(uint8_t hsc_id, float *value) {
     return READING_NA;
   }
 
+  if ( rev_id == UNKNOWN_REV ) {
+    if ( get_board_rev(FRU_BMC, BOARD_ID_BB, &rev_id) < 0 ) {
+      syslog(LOG_WARNING, "%s() Failed to get revision id", __func__);
+      return -1;
+    }
+  }
+
   switch (hsc_id) {
     case HSC_ADM1278:
-      *value *= 0.96; //improve the accuracy of PIN to +-2%
+      if (rev_id < BB_REV_DVT) {
+        *value *= 0.96; //improve the accuracy of PIN to +-2%
+      }
       break;
     case HSC_MP5990:
       *value = ((*value - 0.05) * 0.99) + 0.16;

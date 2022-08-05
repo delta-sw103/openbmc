@@ -61,9 +61,24 @@ extern "C" {
 // Define SENSOR_NA to distinguish whether sensor reading fail or not
 #define SENSOR_NA    (-4)
 
+#define PAGE_SIZE  0x1000
+
 // System Control Unit (ADC Register
 #define ADC_BASE         0x1E6E9000
 #define REG_ADC0C        0x0c
+
+// LPC control
+#define AST_LPC_BASE 0x1e789000
+#define HICRA_OFFSET 0x9C
+#define HICRA_MASK_UART1 0x70000
+#define HICRA_MASK_UART3 0x1C00000
+#define HICRA_MASK_UART4 0xE000000
+
+#define UART1_TO_UART3 0x5
+#define UART3_TO_UART1 0x5
+
+#define UART3_TO_UART4 0x6
+#define UART4_TO_UART3 0x4
 
 extern const char pal_fru_list_sensor_history[];
 extern const char pal_fru_list[];
@@ -75,12 +90,26 @@ enum {
   FRU_PRESENT,
 };
 
+enum {
+  DEBUG_CARD_PRESENT = 0,
+  DEBUG_CARD_ABSENT,
+};
+
 /*
 TODO: Temporary. Error code needs to modify later on
 */
 enum {
   ERR_CODE_FRU_SERVER_HEALTH = 0x05,
   ERR_CODE_FRU_PDB_HEALTH = 0x09,
+};
+
+enum {
+  EVT = 0,
+  EVT2 = 1,
+  DVT = 2,
+  PVT = 3,
+  MP = 4,
+  POC = 7,
 };
 
 int pal_check_gpio_prsnt(uint8_t gpio, int presnt_expect);
@@ -93,6 +122,8 @@ int pal_set_id_led(uint8_t fru, enum LED_HIGH_ACTIVE value);
 int pal_set_fault_led(uint8_t fru, enum LED_HIGH_ACTIVE value);
 int pal_get_error_code(uint8_t *data, uint8_t* error_count);
 void pal_set_error_code(unsigned char error_num, uint8_t error_code_status);
+
+int8_t pal_set_uart_routing(uint8_t routing);
 
 #ifdef __cplusplus
 } // extern "C"

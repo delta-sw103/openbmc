@@ -63,8 +63,8 @@ xdpe152xx_mfr_fw(uint8_t bus, uint8_t addr, uint8_t code, uint8_t *data, uint8_t
 
   if (resp) {
     tbuf[0] = IFX_MFR_FW_CMD_DATA;
-    if (vr_xfer(bus, addr, tbuf, 1, rbuf, 6) < 0) {
-      syslog(LOG_WARNING, "%s: Block read 0x%02X failed", __func__, tbuf[0]);
+    if (vr_xfer(bus, addr, tbuf, 1, rbuf, 1) < 0) {
+      syslog(LOG_WARNING, "%s: Get block read length failed", __func__);
       return -1;
     }
 
@@ -72,6 +72,14 @@ xdpe152xx_mfr_fw(uint8_t bus, uint8_t addr, uint8_t code, uint8_t *data, uint8_t
       syslog(LOG_WARNING, "%s: Unexpected data, len = %u", __func__, rbuf[0]);
       return -1;
     }
+
+    // block bytes + read length 1 byte
+    uint8_t rlen_with_block = rbuf[0] + 1;
+    if (vr_xfer(bus, addr, tbuf, 1, rbuf, rlen_with_block) < 0) {
+      syslog(LOG_WARNING, "%s: Read 0x%02X bytes failed", __func__, rlen_with_block);
+      return -1;
+    }
+
     memcpy(resp, rbuf+1, 4);
   }
 
@@ -517,6 +525,9 @@ xdpe152xx_parse_file(struct vr_info *info, const char *path) {
 int
 xdpe152xx_fw_update(struct vr_info *info, void *args) {
   struct xdpe152xx_config *config = (struct xdpe152xx_config *)args;
+  uint8_t remain = 0;
+  char ver_key[MAX_KEY_LEN] = {0};
+  char value[MAX_VALUE_LEN] = {0};
 
   if (info == NULL || config == NULL) {
     return VR_STATUS_FAILURE;
@@ -536,6 +547,18 @@ xdpe152xx_fw_update(struct vr_info *info, void *args) {
   }
   if (program_xdpe152xx(info->bus, info->addr, config, info->force)) {
     return VR_STATUS_FAILURE;
+  }
+
+  if (pal_is_support_vr_delay_activate() && info->private_data) {
+    snprintf(ver_key, sizeof(ver_key), "%s_vr_%02xh_new_crc", (char *)info->private_data, info->addr);
+    if (get_xdpe152xx_remaining_wr(info->bus, info->addr, &remain) < 0) {
+      snprintf(value, sizeof(value), "Infineon %08X, Remaining Writes: Unknown",
+             config->sum_exp);
+    } else {
+      snprintf(value, sizeof(value), "Infineon %08X, Remaining Writes: %u",
+             config->sum_exp, remain);
+    }
+    kv_set(ver_key, value, 0, KV_FPERSIST);
   }
 
   return VR_STATUS_SUCCESS;

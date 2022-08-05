@@ -35,6 +35,12 @@
 
 #define POWER_ON_STR        "on"
 #define POWER_OFF_STR       "off"
+#define NVME_BIND_PATH "/sys/bus/i2c/drivers/pca954x/bind"
+#define NVME_UNBIND_PATH "/sys/bus/i2c/drivers/pca954x/unbind"
+#define PECI_BIND_PATH "/sys/bus/peci/drivers/intel_peci_client/bind"
+#define PECI_UNBIND_PATH "/sys/bus/peci/drivers/intel_peci_client/unbind"
+#define PCA_954X_BUS_ADDR "7-0071"
+#define PECI_BUS_ADDR "0-30"
 #define POLL_TIMEOUT        -1 /* Forever */
 
 // Thread for gpio timer
@@ -175,11 +181,75 @@ reset_button_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_value_t curr)
 static void
 power_good_status_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_value_t curr) {
   kv_set(PWR_GOOD_KV_KEY, (curr == GPIO_VALUE_HIGH) ? HIGH_STR : LOW_STR, 0, 0);
+  FILE *fp;
+  int rc = 0;
+
+  if (curr == GPIO_VALUE_HIGH) {
+    fp = fopen((char*)NVME_BIND_PATH, "w");
+    if (fp == NULL) {
+      syslog(LOG_INFO, "failed to open device for write %s error: %s", NVME_BIND_PATH, strerror(errno));
+      return;
+    }
+
+    rc = fputs((char*)PCA_954X_BUS_ADDR, fp);
+    fclose(fp);
+
+    if (rc < 0) {
+      syslog(LOG_WARNING, "%s() m2 bind failed\n", __func__);
+    }
+  } else {
+    fp = fopen((char*)NVME_UNBIND_PATH, "w");
+    if (fp == NULL) {
+      syslog(LOG_INFO, "failed to open device for write %s error: %s", NVME_UNBIND_PATH, strerror(errno));
+      return;
+    }
+
+    rc = fputs((char*)PCA_954X_BUS_ADDR, fp);
+    fclose(fp);
+
+    if (rc < 0) {
+      syslog(LOG_WARNING, "%s() m2 unbind failed\n", __func__);
+    }
+  }
 }
 
 static void
 post_complete_status_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_value_t curr) {
   kv_set(POST_CMPLT_KV_KEY, (curr == GPIO_VALUE_HIGH) ? HIGH_STR : LOW_STR, 0, 0);
+  FILE *fp;
+  int rc = 0;
+
+  if (curr == GPIO_VALUE_LOW) {
+    fp = fopen((char*)PECI_BIND_PATH, "w");
+
+    if (fp == NULL) {
+      int err = errno;
+      syslog(LOG_INFO, "failed to open device for write %s error: %s", PECI_BIND_PATH, strerror(errno));
+      return;
+    }
+
+    rc = fputs((char*)PECI_BUS_ADDR, fp);
+    fclose(fp);
+
+    if (rc < 0) {
+      syslog(LOG_WARNING, "%s() peci driver bind failed\n", __func__);
+    }
+  } else {
+    fp = fopen((char*)PECI_UNBIND_PATH, "w");
+
+    if (fp == NULL) {
+      int err = errno;
+      syslog(LOG_INFO, "failed to open device for write %s error: %s", PECI_UNBIND_PATH, strerror(errno));
+      return;
+    }
+
+    rc = fputs((char*)PECI_BUS_ADDR, fp);
+    fclose(fp);
+
+    if (rc < 0) {
+      syslog(LOG_WARNING, "%s() peci driver unbind failed\n", __func__);
+    }
+  }
 }
 
 // thread for display post code led
@@ -214,20 +284,45 @@ post_code_led_handler() {
   }
 }
 
+static int8_t
+set_debug_present_routing(gpio_value_t value) {
+  int ret = 0;
+  if (value == GPIO_VALUE_HIGH) {
+      ret = pal_set_uart_routing(DEBUG_CARD_ABSENT);
+  }
+  else {
+      ret = pal_set_uart_routing(DEBUG_CARD_PRESENT);
+  }
+  if (ret < 0)
+  {
+    syslog(LOG_ERR, "%s() Failed to set debug present routing\n", __func__);
+  }
+  return 0;
+}
+
+static void
+debug_present_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_value_t curr) {
+  set_debug_present_routing(curr);
+}
+
+static void
+debug_present_init(gpiopoll_pin_t *gp, gpio_value_t value) {
+  set_debug_present_routing(value);
+}
+
 // GPIO table
 static struct
 gpiopoll_config g_gpios[] = {
   // shadow, description, edge, handler, oneshot
   {"FM_THERMTRIP_R_N",                "GPIOF3",   GPIO_EDGE_BOTH,     cpu_thermal_trip_handler,  NULL},
-  {"UART_CH_SELECT",                  "GPIOG0",   GPIO_EDGE_FALLING,  uart_button_handler,       NULL},
-  {"RST_BTN_N",                       "GPIOP2",   GPIO_EDGE_BOTH,     reset_button_handler,      NULL},
-  {"PWR_BTN_N",                       "GPIOP4",   GPIO_EDGE_BOTH,     power_button_handler,      NULL},
   {"PWRGD_PCH_R_PWROK",               "GPIOF4",   GPIO_EDGE_BOTH,     power_good_status_handler, NULL},
+  {"UART_CH_SELECT",                  "GPIOG0",   GPIO_EDGE_FALLING,  uart_button_handler,       NULL},
+  {"OCP_DEBUG_PRSNT_N",               "GPIOG2",   GPIO_EDGE_BOTH,     debug_present_handler,     debug_present_init},
   {"FM_BIOS_POST_CMPLT_R_N",          "GPIOH2",   GPIO_EDGE_BOTH,     post_complete_status_handler, NULL},
-  {"FM_CPU_MSMI_CATERR_LVT3_R_N",     "GPIOM3",   GPIO_EDGE_BOTH,     cpu_fail_handler,          NULL},
-  {"H_MEMHOT_OUT_FET_R_N",            "GPIOY2",   GPIO_EDGE_BOTH,     dimm_hot_handler,          NULL},
   {"IRQ_PVCCIN_CPU_VRHOT_LVC3_R_N",   "GPIOH3",   GPIO_EDGE_BOTH,     vr_hot_handler,            NULL},
   {"FM_CPU_MSMI_CATERR_LVT3_R_N",     "GPIOM3",   GPIO_EDGE_BOTH,     cpu_fail_handler,          NULL},
+  {"RST_BTN_N",                       "GPIOP2",   GPIO_EDGE_BOTH,     reset_button_handler,      NULL},
+  {"PWR_BTN_N",                       "GPIOP4",   GPIO_EDGE_BOTH,     power_button_handler,      NULL},
   {"FM_CPU_PROCHOT_LATCH_LVT3_R_N",   "GPIOV3",   GPIO_EDGE_BOTH,     cpu_throttle_handler,      NULL},
   {"H_MEMHOT_OUT_FET_R_N",            "GPIOY2",   GPIO_EDGE_BOTH,     dimm_hot_handler,          NULL},
 };
@@ -269,10 +364,9 @@ init_kv_value(char* key, char* shadow_name) {
 
 int
 main(int argc, char **argv) {
-  int rc, pid_file, ret;
+  int rc, pid_file;
   pthread_t tid_server_power_monitor;
   pthread_t tid_post_code_led_handler;
-  void *retval;
   gpiopoll_desc_t *polldesc;
 
   pid_file = open("/var/run/gpiod.pid", O_CREAT | O_RDWR, 0666);
@@ -297,6 +391,7 @@ main(int argc, char **argv) {
     }
     if (init_kv_value(POST_CMPLT_KV_KEY, "FM_BIOS_POST_CMPLT_R_N") < 0) {
         syslog(LOG_WARNING, "%s set up kv post complete failed!\n", __func__);
+    }
     if (pthread_create(&tid_post_code_led_handler, NULL, post_code_led_handler, NULL) < 0) {
       syslog(LOG_WARNING, "pthread_create for post_code_led_handler\n");
     }

@@ -5,7 +5,11 @@ pal_headers += [
     'pal_common.h',
     'pal_def.h',
     'pal_sensors.h',
-    'pal_swb_sensors.h'
+    'pal_mb_sensors.h',
+    'pal_swb_sensors.h',
+    'pal_hmc_sensors.h',
+    'pal_bb_sensors.h',
+    'pal_gpio.h'
     ]
 
 pal_sources += [
@@ -14,7 +18,10 @@ pal_sources += [
     'pal_cfg.c',
     'pal_common.c',
     'pal_sensors.c',
-    'pal_swb_sensors.c'
+    'pal_mb_sensors.c',
+    'pal_swb_sensors.c',
+    'pal_bb_sensors.c',
+    'pal_hmc_sensors.c'
     ]
 
 pal_deps += [
@@ -29,4 +36,5 @@ pal_deps += [
     cc.find_library('peci'),
     cc.find_library('peci_sensors'),
     dependency('libpldm-oem'),
+    dependency('libhgx'),
     ]

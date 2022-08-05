@@ -42,7 +42,7 @@
 #include <sys/un.h>
 #include "pal.h"
 
-#define PLATFORM_NAME "yosemitev35"
+#define PLATFORM_NAME "yosemite35"
 #define LAST_KEY "last_key"
 
 #define OFFSET_SYS_GUID 0x17F0
@@ -1926,6 +1926,9 @@ pal_get_custom_event_sensor_name(uint8_t fru, uint8_t sensor_num, char *name) {
         case ME_SENSOR_SMART_CLST:
           sprintf(name, "SmaRT&CLST");
           break;
+         case BIOS_SENSOR_PMIC_ERR:
+          snprintf(name, MAX_SNR_NAME, "PMIC_ERR");
+          break;
         case BIC_SENSOR_PROC_FAIL:
           sprintf(name, "PROC_FAIL");
           break;
@@ -2491,13 +2494,13 @@ pal_parse_pwr_detect_event(uint8_t fru, uint8_t *event_data, char *error_log) {
 static int
 pal_parse_button_detect_event(uint8_t fru, uint8_t *event_data, char *error_log) {
   enum {
-    ADAPTER_BUTTON_BMC_CO_N_R = 0x01,
+    BB_BUTTON_BMC_BIC_N_R = 0x01,
     AC_ON_OFF_BTN_SLOT1_N = 0x02,
     AC_ON_OFF_BTN_SLOT3_N = 0x03,
   };
   switch (event_data[0]) {
-    case ADAPTER_BUTTON_BMC_CO_N_R:
-      strcat(error_log, "ADAPTER_BUTTON_BMC_CO_N_R");
+    case BB_BUTTON_BMC_BIC_N_R:
+      strcat(error_log, "BB_BUTTON_BMC_BIC_N_R");
       break;
     case AC_ON_OFF_BTN_SLOT1_N:
       strcat(error_log, "AC_ON_OFF_BTN_SLOT1_N");
@@ -2563,6 +2566,26 @@ pal_parse_slot_present_event(uint8_t fru, uint8_t *event_data, char *error_log) 
   return PAL_EOK;
 }
 
+static int
+pal_parse_pmic_err_event(uint8_t fru, uint8_t *event_data, char *error_log) {
+  static const char dimm_lable[MAX_DIMM_NUM][4] = {"A0", "A2", "A3", "A4", "A6", "A7"};
+  uint8_t dimm_num = 0, err_type = 0;
+  char tmp_log[128] = {0};
+  char err_str[32] = {0};
+
+  if ((event_data == NULL) || (error_log == NULL)) {
+    syslog(LOG_WARNING, "%s(): NULL error log", __func__);
+    return -1;
+  }
+  dimm_num = event_data[0];
+  err_type = event_data[1];
+  get_pmic_err_str(err_type, err_str, sizeof(err_str));
+  snprintf(tmp_log, sizeof(tmp_log), "DIMM %s %s", dimm_lable[dimm_num], err_str);
+  strcat(error_log, tmp_log);
+
+  return PAL_EOK;
+}
+
 int
 pal_parse_sel(uint8_t fru, uint8_t *sel, char *error_log) {
   enum {
@@ -2599,6 +2622,9 @@ pal_parse_sel(uint8_t fru, uint8_t *sel, char *error_log) {
       break;
     case BB_BIC_SENSOR_SLOT_PRESENT:
       pal_parse_slot_present_event(fru, event_data, error_log);
+      break;
+    case BIOS_SENSOR_PMIC_ERR:
+      pal_parse_pmic_err_event(fru, event_data, error_log);
       break;
     default:
       unknown_snr = true;
@@ -3042,6 +3068,9 @@ pal_bic_sel_handler(uint8_t fru, uint8_t snr_num, uint8_t *event_data) {
   int ret = PAL_EOK;
   int i = 0;
   bool is_cri_sel = false;
+  uint8_t tbuf[16] = {0};
+  uint8_t rbuf[16] = {0};
+  uint8_t rlen = 0, tlen = 0;
 
   switch (snr_num) {
     case CATERR_B:
@@ -3101,6 +3130,16 @@ pal_bic_sel_handler(uint8_t fru, uint8_t snr_num, uint8_t *event_data) {
         return PAL_EOK;
       }
       break;
+    case BIOS_SENSOR_PMIC_ERR:
+      memcpy(tbuf, (uint8_t *)&IANA_ID, IANA_ID_SIZE);
+      memcpy(&tbuf[3], &event_data[3], 2); // dimm location, error type
+      tlen = IANA_ID_SIZE + 2;
+      if (bic_ipmb_wrapper(fru, NETFN_OEM_1S_REQ, BIC_CMD_OEM_NOTIFY_PMIC_ERR, tbuf, tlen, rbuf, &rlen) < 0) {
+        return -1;
+      }
+      break;
+    default:
+      return PAL_EOK;
   }
 
   if ( is_cri_sel == true ) {
@@ -3967,6 +4006,8 @@ int
 pal_check_slot_cpu_present(uint8_t slot_id) {
   int ret = 0;
   bic_gpio_t gpio = {0};
+  //CPU Present pin default for Crater Lake
+  uint8_t cpu_prsnt_pin = FM_CPU_SKTOCC_LVT3_PLD_N;
 
   ret = bic_get_gpio(slot_id, &gpio, NONE_INTF);
   if ( ret < 0 ) {
@@ -3974,7 +4015,12 @@ pal_check_slot_cpu_present(uint8_t slot_id) {
     return ret;
   }
 
-  if (BIT_VALUE(gpio, FM_CPU_SKTOCC_LVT3_PLD_N)) {
+  if (fby35_common_get_slot_type(slot_id) == SERVER_TYPE_HD) {
+    // CPU Present pin for Halfdome
+    cpu_prsnt_pin = HD_FM_PRSNT_CPU_BIC_N;
+  }
+
+  if (BIT_VALUE(gpio, cpu_prsnt_pin)) {
     syslog(LOG_CRIT, "FRU: %d, CPU absence", slot_id);
   } else {
     syslog(LOG_CRIT, "FRU: %d, CPU presence", slot_id);
@@ -4165,40 +4211,16 @@ pal_is_aggregate_snr_valid(uint8_t snr_num) {
 
 int
 pal_check_slot_fru(uint8_t slot_id) {
-  int ret = 0, i2cfd = 0 ,retry = 0;
-  uint8_t bus = slot_id + SLOT_BUS_BASE;
-  uint8_t tbuf[1] = {0x11};
-  uint8_t rbuf[1] = {0xff};
-  uint8_t tlen = 1;
-  uint8_t rlen = 1;
+  int slot_type = fby35_common_get_slot_type(slot_id);
 
-  i2cfd = i2c_cdev_slave_open(bus, CPLD_ADDRESS >> 1, I2C_SLAVE_FORCE_CLAIM);
-  if ( i2cfd < 0) {
-    printf("%s(): Failed to open bus %d. Err: %s\n", __func__, bus, strerror(errno));
-    goto error_exit;
-  }
-
-  while ( retry < MAX_READ_RETRY ) {
-    ret = i2c_rdwr_msg_transfer(i2cfd, CPLD_ADDRESS, tbuf, tlen, rbuf, rlen);
-    if ( ret < 0 ) {
-      retry++;
-      sleep(1);
-    } else {
-      break;
-    }
-  }
-  if ( retry == MAX_READ_RETRY ) {
-    syslog(LOG_WARNING, "%s() Failed to do i2c_rdwr_msg_transfer, tlen=%d", __func__, tlen);
-    goto error_exit;
-  }
-
-  if ( rbuf[0] != 0x0 ) {
+#ifdef CONFIG_HALFDOME
+  if ( slot_type != SERVER_TYPE_HD ) {
+#else
+  if ( slot_type != SERVER_TYPE_CL ) {
+#endif
     syslog(LOG_CRIT, "Slot%d plugged in a wrong FRU", slot_id);
   }
-
-error_exit:
-  if ( i2cfd > 0 ) close(i2cfd);
-  return ret;
+  return 0;
 }
 
 int
