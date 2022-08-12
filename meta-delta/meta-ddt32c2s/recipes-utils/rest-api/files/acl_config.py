@@ -1,11 +1,14 @@
 from typing import Any, Dict
-
 # type: Dict[str, Any]
-RULES = {"/api/sys/server": {"POST": ["wedge400", "wedge400c", "ddt32c2s"]}}
 
-# type: Dict[str, Any]
+RULES = {"/api/sys/server": {"POST": ["ddt32c2s"]}}
+
 RULES_REGEXP = {
     # forbid experimental API
+    r"^/redfish/v1/Managers/.*": {
+        "GET": [],
+        "POST": [],
+    },
     r"^/redfish/v1/Systems/.*": {
         "GET": [],
         "POST": [],
