@@ -20,7 +20,6 @@ IMAGE_INSTALL += " \
   fscd \
   fan-util \
   flashrom \
-  fruid \
   gpiocli \
   healthd \
   ipmid \
