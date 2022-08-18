@@ -106,6 +106,8 @@ typedef struct
 #define MAX_ME_SMBUS_WRITE_LEN 32
 #define MAX_ME_SMBUS_READ_LEN  32
 #define ME_SMBUS_WRITE_HEADER_LEN 14
+#define MAX_POST_CODE_PAGE 17
+#define MAX_POSTCODE_NUM  1024
 
 typedef struct {
   uint8_t bus_id;
@@ -171,7 +173,6 @@ int bic_write_fruid(uint8_t slot_id, uint8_t fru_id, const char *path, uint8_t i
 int bic_get_sdr(uint8_t slot_id, ipmi_sel_sdr_req_t *req, ipmi_sel_sdr_res_t *res, uint8_t *rlen, uint8_t intf);
 int bic_get_fw_ver(uint8_t slot_id, uint8_t comp, uint8_t *ver);
 int bic_get_1ou_type(uint8_t slot_id, uint8_t *type);
-int bic_get_1ou_type_cache(uint8_t slot_id, uint8_t *type);
 int bic_set_amber_led(uint8_t slot_id, uint8_t dev_id, uint8_t status);
 int bic_get_80port_record(uint8_t slot_id, uint8_t *rbuf, uint8_t *rlen, uint8_t intf);
 int bic_get_cpld_ver(uint8_t slot_id, uint8_t comp, uint8_t *ver, uint8_t bus, uint8_t addr, uint8_t intf);
@@ -223,6 +224,7 @@ int me_pmic_err_inj(uint8_t slot_id, uint8_t dimm, uint8_t err_type);
 void get_pmic_err_str(uint8_t err_type, char* str, uint8_t len);
 int bic_check_cable_status();
 int bic_get_card_type(uint8_t slot_id, uint8_t card_config, uint8_t *type);
+int bic_request_post_buffer_dword_data(uint8_t slot_id, uint32_t *port_buff, uint32_t input_len, uint32_t *output_len);
 #ifdef __cplusplus
 } // extern "C"
 #endif

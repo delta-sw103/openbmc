@@ -335,8 +335,8 @@ get_common_dimm_location_str(_dimm_info dimm_info, char* dimm_location_str, char
     sprintf(dimm_location_str, "DIMM Slot Location: Sled %02d/Socket %02d, Channel unknown, Slot unknown, DIMM unknown",
             dimm_info.sled, dimm_info.socket);
   } else {
-    dimm_info.channel &= 0x07; // Channel Bit[3:0]
-    dimm_info.slot &= 0x03;    // Slot [0-2]
+    dimm_info.channel &= 0x0F; // Channel Bit[3:0]
+    dimm_info.slot &= 0x07;    // Slot [0-2]
     pal_convert_to_dimm_str(dimm_info.socket, dimm_info.channel, dimm_info.slot, dimm_str);
     sprintf(dimm_location_str, "DIMM Slot Location: Sled %02d/Socket %02d, Channel %02d, Slot %02d, DIMM %s",
             dimm_info.sled, dimm_info.socket, dimm_info.channel, dimm_info.slot, dimm_str);
@@ -3051,4 +3051,36 @@ int __attribute__((weak))
 pal_get_mrc_desc(uint8_t fru, mrc_desc_t **desc, size_t *desc_count)
 {
   return PAL_EOK;
+}
+
+int
+pal_file_line_split(char **dst, char *src, char *delim, int maxsz) {
+  if ((dst == NULL) || (src == NULL) || (delim == NULL)) {
+    syslog(LOG_WARNING, "%s: invalid parameter pointer is NULL", __func__);
+    return -1;
+  }
+
+  char *s = strtok(src, delim);
+  int size = 0;
+
+  while (s) {
+    *dst++ = s;
+    if ((++size) >= maxsz) {
+      break;
+    }
+    s = strtok(NULL, delim);
+  }
+
+  return size;
+}
+
+int
+pal_bitcount(unsigned int val) {
+  int bitcount = 0;
+
+  while (val) {
+    bitcount++;
+    val &= (val - 1);
+  }
+  return bitcount;
 }

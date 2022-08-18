@@ -171,6 +171,8 @@ server_power_12v_off(uint8_t fru) {
       syslog(LOG_WARNING, "[%s] %s failed\n", __func__, cmd);
   }
 
+  pal_clear_vr_new_crc(fru);
+
   memset(cmd, 0, 64);
   snprintf(cmd, 64, FRU_ID_CPLD_NEW_VER_KEY, fru);
   kv_del(cmd, 0);
@@ -514,6 +516,10 @@ pal_sled_cycle(void) {
   if ( ret < 0 ) {
     printf("Fail to stop sensord\n");
   }
+  //Move the VR new crc to the tmp
+  for (i = 0; i < MAX_SERVER_BOARD_NUM; i++) {
+    pal_move_vr_new_crc(i+1, PERSIST_TO_TEMP);
+  }
 
   if ( bmc_location == BB_BMC ) {
     for (i = 1; i <= 4; i++) {
@@ -549,6 +555,7 @@ pal_sled_cycle(void) {
     }
     if (retry == MAX_READ_RETRY) {
       syslog(LOG_WARNING, "%s() Failed to do sled cycle, max retry: %d", __func__, retry);
+
     }
   } else {
     if ( bic_inform_sled_cycle() < 0 ) {
@@ -573,6 +580,11 @@ pal_sled_cycle(void) {
 
   if ( system("sv start sensord > /dev/null 2>&1 &") < 0 ) {
     printf("Fail to start sensord\n");
+  }
+
+  //Move files back if sled-cycle fails.
+  for (i = 0; i < MAX_SERVER_BOARD_NUM; i++) {
+    pal_move_vr_new_crc(i+1, TEMP_TO_PERSIST);
   }
 
   return ret;
@@ -708,7 +720,7 @@ pal_get_device_power(uint8_t slot_id, uint8_t dev_id, uint8_t *status, uint8_t *
 int
 pal_set_device_power(uint8_t slot_id, uint8_t dev_id, uint8_t cmd) {
   int ret;
-  uint8_t status, type, type_1ou = 0;
+  uint8_t status, type, type_1ou = TYPE_1OU_UNKNOWN;
   uint8_t intf = 0;
   uint8_t rsp[2] = {0}; //idx0 = dev id, idx1 = intf
 
@@ -756,9 +768,9 @@ pal_set_device_power(uint8_t slot_id, uint8_t dev_id, uint8_t cmd) {
         }
 
         if (intf == FEXP_BIC_INTF) {
-          bic_get_1ou_type_cache(slot_id, &type_1ou);
+          bic_get_1ou_type(slot_id, &type_1ou);
         }
-        if (type_1ou == EDSFF_1U) {
+        if (type_1ou == TYPE_1OU_VERNAL_FALLS_WITH_AST) {
           sleep(6); // EDSFF timing requirement
         } else {
           sleep(3);

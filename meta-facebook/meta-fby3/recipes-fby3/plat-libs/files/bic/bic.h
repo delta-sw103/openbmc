@@ -33,6 +33,8 @@ extern "C" {
 #include <errno.h>
 #include <libusb-1.0/libusb.h>
 
+#define SIZE_IANA_ID 3
+
 #define MAX_GPIO_PINS 96
 
 #define PRESENT_1OU 1
@@ -132,6 +134,27 @@ typedef struct
   uint8_t epaddr;
   uint8_t path[8];
 } usb_dev;
+
+enum DL_FIRMWARE_COMPONENT {
+  DL_COMPNT_BIOS = 0,
+  DL_COMPNT_CPLD,
+  DL_COMPNT_BIC,
+  DL_COMPNT_ME,
+  DL_COMPNT_BOOTLOADER,
+  DL_COMPNT_PVCCIN,
+  DL_COMPNT_PVCCSA,
+  DL_COMPNT_PVCCIO,
+  DL_COMPNT_P3V3_STBY,
+  DL_COMPNT_PVDDR_ABC,
+  DL_COMPNT_PVDDR_DEF
+};
+
+enum {
+  // BIC to BMC
+  USB_TI_INPUT_PORT = 0x1,
+  USB_AST_INPUT_PORT = 0x3,
+  USB_OUTPUT_PORT = 0x82,
+};
 
 enum {
   FW_CPLD = 1,
@@ -388,6 +411,7 @@ int bic_get_gpio(uint8_t slot_id, bic_gpio_t *gpio, uint8_t intf);
 int bic_master_write_read(uint8_t slot_id, uint8_t bus, uint8_t addr, uint8_t *wbuf, uint8_t wcnt, uint8_t *rbuf, uint8_t rcnt);
 int bic_mux_select(uint8_t slot_id, uint8_t bus, uint8_t dev_id, uint8_t intf);
 int bic_disable_brcm_parity_init(uint8_t slot_id, uint8_t comp);
+int get_sb_bic_solution(uint8_t slot_id, bool *is_ast1030);
 
 #ifdef __cplusplus
 } // extern "C"
