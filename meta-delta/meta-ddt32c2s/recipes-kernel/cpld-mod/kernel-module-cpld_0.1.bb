@@ -29,7 +29,6 @@ LOCAL_URI = " \
     file://delta_swpld1.c \
     file://delta_swpld2.c \
     file://delta_swpld3.c \
-    file://delta_sysfpga.c \
     file://COPYING \
     "
 
@@ -41,5 +40,4 @@ KERNEL_MODULE_AUTOLOAD += "    \
  delta_swpld1                  \
  delta_swpld2                  \
  delta_swpld3                  \
- delta_sysfpga                 \
 "

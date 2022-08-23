@@ -15,7 +15,7 @@
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
-obj-m := delta_swpld1.o delta_swpld2.o delta_swpld3.o
+obj-m := delta_sysfpga.o
 
 ccflags-y += -I$(KERNEL_EXTRA_HEADER_PATH)
 
