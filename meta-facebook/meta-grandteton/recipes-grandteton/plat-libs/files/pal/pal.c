@@ -40,8 +40,14 @@
 #include <openbmc/nl-wrapper.h>
 #include <openbmc/hal_fruid.h>
 #include "pal.h"
+#include <libpldm/pldm.h>
+#include <libpldm/platform.h>
+#include <libpldm-oem/pldm.h>
 
-#define GT_PLATFORM_NAME "grandteton"
+
+#if !defined(PLATFORM_NAME)
+  #define PLATFORM_NAME "grandteton"
+#endif
 
 #define GUID_SIZE 16
 #define OFFSET_SYS_GUID 0x17F0
@@ -53,9 +59,7 @@
 #define NUM_BMC_FRU     1
 
 const char pal_fru_list[] = \
-"all, mb, nic0, nic1, swb, hmc, bmc, scm, vpdb, hpdb, bp0, bp1, fio,\
- fan0, fan1, fan2, fan3, fan4, fan5, fan6, fan7, \
- fan8, fan9, fan10, fan11, fan12, fan13, fan14, fan15";
+"all, mb, nic0, nic1, swb, hmc, bmc, scm, vpdb, hpdb, bp0, bp1, fio, hsc, swb_hsc";
 
 const char pal_server_list[] = "mb";
 
@@ -82,7 +86,7 @@ const char pal_server_list[] = "mb";
 
 #define FIO_CAPABILITY  FRU_CAPABILITY_FRUID_ALL
 
-#define FAN_CAPABILITY  FRU_CAPABILITY_FRUID_ALL
+#define HSC_CAPABILITY  FRU_CAPABILITY_FRUID_ALL
 
 
 struct fru_dev_info {
@@ -95,41 +99,28 @@ struct fru_dev_info {
 };
 
 struct fru_dev_info fru_dev_data[] = {
-  {FRU_ALL,   "all",    NULL,           0,  0,    ALL_CAPABILITY},
-  {FRU_MB,    "mb",     "Mother Board", 33, 0x51, MB_CAPABILITY},
-  {FRU_SWB,   "swb",    "Switch Board", 3,  0x20, SWB_CAPABILITY},
-  {FRU_HMC,   "hmc",    "HMC Board"  ,   0,    0, HMC_CAPABILITY},
-  {FRU_NIC0,  "nic0",   "Mezz Card 0",  13, 0x50, NIC_CAPABILITY},
-  {FRU_NIC1,  "nic1",   "Mezz Card 1",  4,  0x52, NIC_CAPABILITY},
-  {FRU_DBG,   "ocpdbg", "Debug Board",  14, 0,    0},
-  {FRU_BMC,   "bmc",    "BSM Board",    15, 0x56, BMC_CAPABILITY},
-  {FRU_SCM,   "scm",    "SCM Board",    15, 0x50, SCM_CAPABILITY},
-  {FRU_PDBV,  "vpdb",   "VPDB Board",   36, 0x52, PDB_CAPABILITY},
-  {FRU_PDBH,  "hpdb",   "HPDB Board",   37, 0x51, PDB_CAPABILITY},
-  {FRU_BP0,   "bp0",    "BP0 Board",    40, 0x56, BP_CAPABILITY},
-  {FRU_BP1,   "bp1",    "BP1 Board",    41, 0x56, BP_CAPABILITY},
-  {FRU_FIO,   "fio",    "FIO Board",    3,  0x20, FIO_CAPABILITY},
-  {FRU_FAN0,  "fan0",   "FAN0 Board",   42, 0x50, FAN_CAPABILITY},
-  {FRU_FAN1,  "fan1",   "FAN1 Board",   43, 0x50, FAN_CAPABILITY},
-  {FRU_FAN2,  "fan2",   "FAN2 Board",   44, 0x50, FAN_CAPABILITY},
-  {FRU_FAN3,  "fan3",   "FAN3 Board",   45, 0x50, FAN_CAPABILITY},
-  {FRU_FAN4,  "fan4",   "FAN4 Board",   46, 0x50, FAN_CAPABILITY},
-  {FRU_FAN5,  "fan5",   "FAN5 Board",   47, 0x50, FAN_CAPABILITY},
-  {FRU_FAN6,  "fan6",   "FAN6 Board",   48, 0x50, FAN_CAPABILITY},
-  {FRU_FAN7,  "fan7",   "FAN7 Board",   49, 0x50, FAN_CAPABILITY},
-  {FRU_FAN8,  "fan8",   "FAN8 Board",   50, 0x50, FAN_CAPABILITY},
-  {FRU_FAN9,  "fan9",   "FAN9 Board",   51, 0x50, FAN_CAPABILITY},
-  {FRU_FAN10, "fan10",  "FAN10 Board",  52, 0x50, FAN_CAPABILITY},
-  {FRU_FAN11, "fan11",  "FAN11 Board",  53, 0x50, FAN_CAPABILITY},
-  {FRU_FAN12, "fan12",  "FAN12 Board",  54, 0x50, FAN_CAPABILITY},
-  {FRU_FAN13, "fan13",  "FAN13 Board",  55, 0x50, FAN_CAPABILITY},
-  {FRU_FAN14, "fan14",  "FAN14 Board",  56, 0x50, FAN_CAPABILITY},
-  {FRU_FAN15, "fan15",  "FAN15 Board",  57, 0x50, FAN_CAPABILITY},
+  {FRU_ALL,   "all",     NULL,            0,  0,    ALL_CAPABILITY},
+  {FRU_MB,    "mb",      "Mother Board",  33, 0x51, MB_CAPABILITY},
+  {FRU_SWB,   "swb",     "Switch Board",  3,  0x20, SWB_CAPABILITY},
+  {FRU_HMC,   "hmc",     "HMC Board"  ,   0,    0,  HMC_CAPABILITY},
+  {FRU_NIC0,  "nic0",    "Mezz Card 0",   13, 0x50, NIC_CAPABILITY},
+  {FRU_NIC1,  "nic1",    "Mezz Card 1",   4,  0x52, NIC_CAPABILITY},
+  {FRU_DBG,   "ocpdbg",  "Debug Board",   14, 0,    0},
+  {FRU_BMC,   "bmc",     "BSM Board",     15, 0x56, BMC_CAPABILITY},
+  {FRU_SCM,   "scm",     "SCM Board",     15, 0x50, SCM_CAPABILITY},
+  {FRU_PDBV,  "vpdb",    "VPDB Board",    36, 0x52, PDB_CAPABILITY},
+  {FRU_PDBH,  "hpdb",    "HPDB Board",    37, 0x51, PDB_CAPABILITY},
+  {FRU_BP0,   "bp0",     "BP0 Board",     40, 0x56, BP_CAPABILITY},
+  {FRU_BP1,   "bp1",     "BP1 Board",     41, 0x56, BP_CAPABILITY},
+  {FRU_FIO,   "fio",     "FIO Board",     3,  0x20, FIO_CAPABILITY},
+  {FRU_HSC,   "hsc",     "HSC Board",     2,  0x51, 0},
+  {FRU_SHSC,  "swb_hsc", "SWB HSC Board", 3,  0x20, 0},
+
 };
 
 int
 pal_get_platform_name(char *name) {
-  strcpy(name, GT_PLATFORM_NAME);
+  strcpy(name, PLATFORM_NAME);
 
   return 0;
 }
@@ -156,22 +147,8 @@ pal_is_fru_prsnt(uint8_t fru, uint8_t *status) {
     case FRU_BP0:
     case FRU_BP1:
     case FRU_FIO:
-    case FRU_FAN0:
-    case FRU_FAN1:
-    case FRU_FAN2:
-    case FRU_FAN3:
-    case FRU_FAN4:
-    case FRU_FAN5:
-    case FRU_FAN6:
-    case FRU_FAN7:
-    case FRU_FAN8:
-    case FRU_FAN9:
-    case FRU_FAN10:
-    case FRU_FAN11:
-    case FRU_FAN12:
-    case FRU_FAN13:
-    case FRU_FAN14:
-    case FRU_FAN15:
+    case FRU_HSC:
+    case FRU_SHSC:
       *status = 1;
       break;
     default:
@@ -236,7 +213,9 @@ pal_get_fruid_path(uint8_t fru, char *path) {
 int
 pal_get_fruid_eeprom_path(uint8_t fru, char *path) {
 
-  if (fru > MAX_NUM_FRUS || fru == FRU_ALL || fru == FRU_SWB || fru == FRU_FIO || fru == FRU_DBG)
+  if (fru > MAX_NUM_FRUS || fru == FRU_ALL || fru == FRU_SWB
+                         || fru == FRU_FIO || fru == FRU_DBG
+                         || fru == FRU_SHSC)
     return -1;
 
   sprintf(path, FRU_EEPROM, fru_dev_data[fru].bus, fru_dev_data[fru].bus, fru_dev_data[fru].addr);
@@ -261,6 +240,9 @@ pal_fruid_write(uint8_t fru, char *path) {
 
     case FRU_FIO:
      return hal_write_pldm_fruid(1, path);
+
+    case FRU_SHSC:
+     return hal_write_pldm_fruid(2, path);
 
     default:
     break;
@@ -288,7 +270,7 @@ pal_channel_to_bus(int channel) {
       return I2C_BUS_14; // USB (LCD Debug Board)
 
     case IPMI_CHANNEL_6:
-      return I2C_BUS_2; // ME
+      return I2C_BUS_6; // ME
   }
 
   // Debug purpose, map to real bus number
@@ -679,12 +661,64 @@ pal_get_sensor_util_timeout(uint8_t fru) {
   }
 }
 
+int
+is_mb_hsc_module(void) {
+  static bool cached = false;
+  static bool val = false;
+  uint8_t id;
+
+  if (!cached) {
+    if(pal_get_platform_id(&id))
+      return -1;
+
+    id = (id & 0x0C) >> 2;
+    if (id == SECOND_SOURCE)
+      val = true;
+    cached = true;
+  }
+  return val;
+}
+
+int
+is_swb_hsc_module(void) {
+  static bool cached = false;
+  static bool val = false;
+  uint8_t inf_devid[3] = { 0x02, 0x79, 0x02 };
+  uint8_t tbuf[16], rbuf[16];
+  uint8_t tlen=0;
+  int ret;
+
+  if(!cached) {
+    tbuf[tlen++] = VR0_COMP;
+    tbuf[tlen++] = 3;
+    tbuf[tlen++] = 0xAD;
+
+    size_t rlen = 0;
+    ret = pldm_oem_ipmi_send_recv(SWB_BUS_ID, SWB_BIC_EID,
+                               NETFN_OEM_1S_REQ, CMD_OEM_1S_BIC_BRIDGE,
+                               tbuf, tlen,
+                               rbuf, &rlen);
+
+    if(!ret && !memcmp(rbuf, inf_devid, 3)) {
+      val = true;
+    }
+    cached = true;
+  }
+  return val;
+}
+
 int pal_get_fru_capability(uint8_t fru, unsigned int *caps)
 {
   if (fru > MAX_NUM_FRUS)
     return -1;
 
-  *caps = fru_dev_data[fru].cap;
+  if(fru == FRU_SHSC && (is_swb_hsc_module() == true)) {
+    *caps = HSC_CAPABILITY;
+  } else if(fru == FRU_HSC && (is_mb_hsc_module() == true)) {
+    *caps = HSC_CAPABILITY;
+  } else {
+    *caps = fru_dev_data[fru].cap;
+  }
   return 0;
 }
 
@@ -714,5 +748,60 @@ pal_get_nm_selftest_result(uint8_t fruid, uint8_t *data)
 #ifdef DEBUG
   syslog(LOG_WARNING, "rbuf[0] =%x rbuf[1] =%x\n", rbuf[0], rbuf[1]);
 #endif
+  return ret;
+}
+
+int pal_get_cpld_version(uint8_t addr, uint8_t bus, uint8_t* rbuf)
+{
+  int fd = 0, ret = -1;
+  uint8_t tlen, rlen;
+  uint8_t tbuf[16] = {0};
+
+  fd = i2c_cdev_slave_open(bus, addr >> 1, I2C_SLAVE_FORCE_CLAIM);
+  if (fd < 0) {
+    syslog(LOG_WARNING, "%s() Failed to open %d", __func__, bus);
+    return ret;
+  }
+
+  tbuf[0] = 0xC0;
+  tbuf[1] = 0x00;
+  tbuf[2] = 0x00;
+  tbuf[3] = 0x00;
+
+  tlen = 4;
+  rlen = 4;
+
+  ret = i2c_rdwr_msg_transfer(fd, addr, tbuf, tlen, rbuf, rlen);
+  i2c_cdev_slave_close(fd);
+
+  if (ret == -1) {
+    syslog(LOG_WARNING, "%s bus=%x slavaddr=%x \n", __func__, bus, addr >> 1);
+    return ret;
+  }
+
+  return 0;
+}
+
+int
+pal_get_fw_info(uint8_t fru, unsigned char target, unsigned char* res, unsigned char* res_len) {
+  int ret = -1;
+  uint8_t rbuf[16] = {0};
+
+  if( fru != FRU_MB )
+    return -1;
+
+  switch (target) {
+    case CMD_GET_MAIN_CPLD_VER:
+      ret = pal_get_cpld_version(MAIN_CPLD_SLV_ADDR, MAIN_CPLD_BUS_NUM, rbuf);
+    break;
+    default:
+      return -1;
+  }
+
+  if( ret == 0 ) {
+    memcpy(res, rbuf, 4);
+    *res_len = 4;
+  }
+
   return ret;
 }

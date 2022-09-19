@@ -31,7 +31,8 @@ int bic_server_graceful_power_off(uint8_t slot_id);
 int bic_server_power_reset(uint8_t slot_id);
 int bic_server_power_cycle(uint8_t slot_id);
 int bic_get_server_power_status(uint8_t slot_id, uint8_t *power_status);
-
+int bic_get_power_lock_status(uint8_t* status);
+int bic_set_power_lock(uint8_t status);
 #ifdef __cplusplus
 } // extern "C"
 #endif

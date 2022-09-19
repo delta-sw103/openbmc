@@ -30,9 +30,10 @@
 #include <syslog.h>
 #include <pthread.h>
 #include <string.h>
-#include <openbmc/libgpio.h>
-#include <openbmc/obmc-i2c.h>
 #include <openbmc/kv.h>
+#include <openbmc/libgpio.h>
+#include <openbmc/misc-utils.h>
+#include <openbmc/obmc-i2c.h>
 #include "fby35_common.h"
 
 const char *slot_usage = "slot1|slot2|slot3|slot4";
@@ -112,14 +113,34 @@ error_exit:
 
 int
 fby35_common_is_fru_prsnt(uint8_t fru, uint8_t *val) {
+  uint8_t bmc_location = 0;
   gpio_value_t gpio_value;
-  gpio_value = gpio_get_value_by_shadow(gpio_server_prsnt[fru]);
-  if ( gpio_value == GPIO_VALUE_INVALID ) {
+
+  // 0: the fru isn't present
+  // 1: the fru is present
+  if (val == NULL) {
     return -1;
   }
-  //0: the fru isn't present
-  //1: the fru is present
-  *val = (gpio_value == GPIO_VALUE_HIGH)?0:1;
+
+  if (fby35_common_get_bmc_location(&bmc_location) < 0) {
+    syslog(LOG_WARNING, "%s() Cannot get the location of BMC", __func__);
+    return -1;
+  }
+
+  if (bmc_location == NIC_BMC) {
+    if (fru == FRU_SLOT1) {
+      *val = SLOT_PRESENT;
+    } else {
+      *val = SLOT_NOT_PRESENT;
+    }
+  } else {
+    gpio_value = gpio_get_value_by_shadow(gpio_server_prsnt[fru]);
+    if (gpio_value == GPIO_VALUE_INVALID) {
+      return -1;
+    }
+    *val = (gpio_value == GPIO_VALUE_HIGH) ? SLOT_NOT_PRESENT : SLOT_PRESENT;
+  }
+
   return 0;
 }
 
@@ -177,6 +198,40 @@ fby35_read_sb_cpld(uint8_t fru, uint8_t offset, uint8_t *data) {
     return -1;
   }
   *data = rbuf[0];
+
+  return 0;
+}
+
+static int
+fby35_read_sb_cpld_checked(uint8_t fru, uint8_t offset, uint8_t *data) {
+  uint8_t prsnt = 0, stby_pwr = 0;
+
+  if (data == NULL) {
+    return -1;
+  }
+
+  if (fby35_common_check_slot_id(fru)) {
+    syslog(LOG_WARNING, "%s: Unknown fru: %u", __func__, fru);
+    return -1;
+  }
+
+  if (fby35_common_is_fru_prsnt(fru, &prsnt)) {
+    return -1;
+  }
+  if (!prsnt) {
+    return -1;
+  }
+
+  if (fby35_common_server_stby_pwr_sts(fru, &stby_pwr)) {
+    return -1;
+  }
+  if (!stby_pwr) {
+    return -1;
+  }
+
+  if (retry_cond(!fby35_read_sb_cpld(fru, offset, data), 3, 50)) {
+    return -1;
+  }
 
   return 0;
 }
@@ -248,18 +303,71 @@ fby35_common_get_slot_type(uint8_t fru) {
     return ret;
   }
 
-  if (fby35_common_check_slot_id(fru)) {
-    syslog(LOG_WARNING, "%s: Unknown fru: %u", __func__, fru);
-    return -1;
-  }
-
-  if (fby35_read_sb_cpld(fru, CPLD_REG_BOARD, (uint8_t *)value)) {
+  if (fby35_read_sb_cpld_checked(fru, CPLD_REG_BOARD, (uint8_t *)value)) {
     return -1;
   }
 
   ret = value[0];
   if (kv_set(key, value, 1, KV_FCREATE)) {
     syslog(LOG_WARNING,"%s: kv_set failed, key: %s, val: %u", __func__, key, value[0]);
+    return -1;
+  }
+
+  return ret;
+}
+
+int
+fby35_common_get_sb_rev(uint8_t fru) {
+  int ret = 0;
+  char key[MAX_KEY_LEN];
+  char value[MAX_VALUE_LEN] = {0};
+
+  snprintf(key, sizeof(key), "fru%u_sb_rev_id", fru);
+  if (kv_get(key, value, NULL, 0) == 0) {
+    ret = value[0];
+    return ret;
+  }
+
+  if (fby35_read_sb_cpld_checked(fru, CPLD_REG_REV_ID, (uint8_t *)value)) {
+    return -1;
+  }
+
+  ret = value[0];
+  if (kv_set(key, value, 1, KV_FCREATE)) {
+    syslog(LOG_WARNING,"%s: kv_set failed, key: %s, val: %u", __func__, key, value[0]);
+    return -1;
+  }
+
+  return ret;
+}
+
+int
+fby35_common_get_sb_pch_bic_pwr_fault(uint8_t fru) {
+  int ret = 0;
+
+  if (fby35_read_sb_cpld_checked(fru, CPLD_REG_PCH_BIC_PWR_FAULT, (uint8_t *)&ret)) {
+    return -1;
+  }
+
+  return ret;
+}
+
+int
+fby35_common_get_sb_cpu_pwr_fault(uint8_t fru) {
+  int ret = 0;
+
+  if (fby35_read_sb_cpld_checked(fru, CPLD_REG_CPU_PWR_FAULT, (uint8_t *)&ret)) {
+    return -1;
+  }
+
+  return ret;
+}
+
+int
+fby35_common_get_sb_bic_boot_strap(uint8_t fru) {
+  int ret = 0;
+
+  if (fby35_read_sb_cpld_checked(fru, CPLD_REG_SB_BIC_BOOT_STRAP, (uint8_t *)&ret)) {
     return -1;
   }
 
@@ -416,17 +524,21 @@ fby35_common_get_2ou_board_type(uint8_t fru, uint8_t *board_type) {
   char key[MAX_KEY_LEN];
   char value[MAX_VALUE_LEN] = {0};
 
-  snprintf(key, sizeof(key), "fru%u_2ou_board_type", fru);
-  if (kv_get(key, value, NULL, 0) == 0) {
-    *board_type = ((uint8_t*)value)[0];
-    return 0;
-  }
-
-  if (fby35_read_sb_cpld(fru, CPLD_REG_RISER, board_type)) {
+  if (board_type == NULL) {
     return -1;
   }
 
-  if (kv_set(key, (char*)board_type, 1, KV_FCREATE)) {
+  snprintf(key, sizeof(key), "fru%u_2ou_board_type", fru);
+  if (kv_get(key, value, NULL, 0) == 0) {
+    *board_type = ((uint8_t *)value)[0];
+    return 0;
+  }
+
+  if (fby35_read_sb_cpld_checked(fru, CPLD_REG_RISER, board_type)) {
+    return -1;
+  }
+
+  if (kv_set(key, (char *)board_type, 1, KV_FCREATE)) {
     syslog(LOG_WARNING,"%s: kv_set failed, key: %s, val: %u", __func__, key, board_type[0]);
     return -1;
   }
@@ -718,7 +830,7 @@ exit:
 
 bool
 fby35_common_is_valid_img(const char* img_path, uint8_t comp, uint8_t rev_id) {
-  const char *rev_bb[] = {"POC1", "POC2", "EVT", "EVT2", "EVT3", "DVT", "PVT", "MP"};
+  const char *rev_bb[] = {"POC1", "POC2", "EVT", "EVT2", "EVT3", "DVT", "DVT_1C", "PVT", "MP"};
   const char *rev_sb[] = {"POC", "EVT", "EVT2", "EVT3", "EVT3", "DVT", "DVT", "PVT", "PVT", "MP", "MP"};
   const char **board_type = rev_sb;
   uint8_t board_id = 0, exp_fw_rev = 0;
@@ -853,7 +965,7 @@ fby35_common_is_valid_img(const char* img_path, uint8_t comp, uint8_t rev_id) {
   else {
     if (BB_REV_EVT <= rev_id && rev_id <= BB_REV_EVT3)
       exp_fw_rev = FW_REV_EVT;
-    else if (rev_id == BB_REV_DVT)
+    else if (rev_id == BB_REV_DVT || rev_id == BB_REV_DVT_1C)
       exp_fw_rev = FW_REV_DVT;
     else if (rev_id == BB_REV_PVT)
       exp_fw_rev = FW_REV_PVT;

@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <stdexcept>
 #include <openbmc/pal.h>
 #include "expansion.h"
 #ifdef BIC_SUPPORT
@@ -49,6 +50,19 @@ void ExpansionBoard::ready()
         }
       }
       break;
+    case FW_1OU_CXL:
+      if ( (config_status & PRESENT_1OU) != PRESENT_1OU ) {
+        is_present = false;
+      } else {
+        uint8_t type = TYPE_1OU_UNKNOWN;
+        if (bic_get_1ou_type(slot_id, &type)) {
+          throw runtime_error("Failed to get 1OU board type");
+        }
+        if (type != TYPE_1OU_RAINBOW_FALLS) {
+          throw runtime_error("Not present");
+        }
+      }
+      break;
     case FW_2OU_BIC:
     case FW_2OU_CPLD:
       if ( fby35_common_get_2ou_board_type(slot_id, &type_2ou) < 0 ) {
@@ -58,11 +72,6 @@ void ExpansionBoard::ready()
         is_present = false;
       break;
     case FW_2OU_PESW:
-    case FW_2OU_PESW_VR:
-    case FW_2OU_3V3_VR1:
-    case FW_2OU_3V3_VR2:
-    case FW_2OU_3V3_VR3:
-    case FW_2OU_1V8_VR:
     case FW_2OU_M2_DEV0:
       if ( (config_status & PRESENT_2OU) != PRESENT_2OU ) {
         is_present = false;

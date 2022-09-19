@@ -8,26 +8,18 @@ using nlohmann::json;
 
 namespace rackmon {
 
-void ModbusDeviceInfo::incErrors(uint32_t& counter) {
-  counter++;
-  if ((++numConsecutiveFailures) >= kMaxConsecutiveFailures) {
-    // If we are in exclusive mode let it continue to
-    // fail. We will mark it as dormant when we exit
-    // exclusive mode.
-    if (!exclusiveMode_) {
-      mode = ModbusDeviceMode::DORMANT;
-    }
-  }
-}
-
 ModbusDevice::ModbusDevice(
     Modbus& interface,
     uint8_t deviceAddress,
     const RegisterMap& registerMap,
     int numCommandRetries)
-    : interface_(interface), numCommandRetries_(numCommandRetries) {
+    : interface_(interface),
+      numCommandRetries_(numCommandRetries),
+      baudConfig_(registerMap.baudConfig) {
   info_.deviceAddress = deviceAddress;
-  info_.baudrate = registerMap.defaultBaudrate;
+  info_.preferredBaudrate = registerMap.preferredBaudrate;
+  info_.defaultBaudrate = registerMap.defaultBaudrate;
+  info_.baudrate = info_.defaultBaudrate;
   info_.deviceType = registerMap.name;
 
   for (auto& it : registerMap.registerDescriptors) {
@@ -44,23 +36,32 @@ ModbusDevice::ModbusDevice(
 void ModbusDevice::handleCommandFailure(std::exception& baseException) {
   if (TimeoutException * ex;
       (ex = dynamic_cast<TimeoutException*>(&baseException)) != nullptr) {
-    info_.incTimeouts();
+    info_.timeouts++;
   } else if (CRCError * ex;
              (ex = dynamic_cast<CRCError*>(&baseException)) != nullptr) {
-    info_.incCRCErrors();
+    info_.crcErrors++;
   } else if (ModbusError * ex;
              (ex = dynamic_cast<ModbusError*>(&baseException)) != nullptr) {
     // ModbusErrors can happen in normal operation. Do not let
     // it increment numConsecutiveFailures since it should not
     // account as a signal of a device being dormant.
     info_.deviceErrors++;
+    return;
   } else if (std::system_error * ex; (ex = dynamic_cast<std::system_error*>(
                                           &baseException)) != nullptr) {
-    info_.incMiscErrors();
+    info_.miscErrors++;
     logError << ex->what() << std::endl;
   } else {
-    info_.incMiscErrors();
+    info_.miscErrors++;
     logError << baseException.what() << std::endl;
+  }
+  if ((++info_.numConsecutiveFailures) >= kMaxConsecutiveFailures) {
+    // If we are in exclusive mode let it continue to
+    // fail. We will mark it as dormant when we exit
+    // exclusive mode.
+    if (!exclusiveMode_) {
+      info_.mode = ModbusDeviceMode::DORMANT;
+    }
   }
 }
 
@@ -71,7 +72,7 @@ void ModbusDevice::command(Msg& req, Msg& resp, ModbusTime timeout) {
   // to maintain stats on types of errors and re-throw (on
   // the last retry) in case the user wants to handle them
   // in a special way.
-  int numRetries = info_.exclusiveMode_ ? 1 : numCommandRetries_;
+  int numRetries = exclusiveMode_ ? 1 : numCommandRetries_;
   for (int retries = 0; retries < numRetries; retries++) {
     try {
       interface_.command(req, resp, info_.baudrate, timeout);
@@ -128,17 +129,42 @@ void ModbusDevice::readFileRecord(
   command(req, resp, timeout);
 }
 
+void ModbusDevice::setBaudrate(uint32_t baud) {
+  // Return early if earlier setBaud failed, or
+  // we dont have configuration or if we already
+  // are at the requested baudrate.
+  if (!setBaudEnabled_ || !baudConfig_.isSet || baud == info_.baudrate) {
+    return;
+  }
+  try {
+    writeSingleRegister(baudConfig_.reg, baudConfig_.baudValueMap.at(baud));
+    info_.baudrate = baud;
+  } catch (std::exception&) {
+    setBaudEnabled_ = false;
+    logError << "Failed to set baudrate to " << baud << std::endl;
+  }
+}
+
 void ModbusDevice::reloadRegisters() {
+  setPreferredBaudrate();
   // If the number of consecutive failures has exceeded
   // a threshold, mark the device as dormant.
   uint32_t timestamp = std::time(nullptr);
   for (auto& specialHandler : specialHandlers_) {
+    // Break early, if we are entering exclusive mode
+    if (exclusiveMode_) {
+      break;
+    }
     specialHandler.handle(*this);
   }
   std::unique_lock lk(registerListMutex_);
   for (auto& registerStore : info_.registerList) {
     uint16_t registerOffset = registerStore.regAddr();
     auto& nextRegister = registerStore.front();
+    // Break early, if we are entering exclusive mode
+    if (exclusiveMode_) {
+      break;
+    }
     if (!registerStore.isEnabled()) {
       continue;
     }

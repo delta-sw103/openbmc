@@ -54,8 +54,6 @@
 
 #define MRC_CODE_MATCH 4
 
-#define FAN_FAIL_RECORD_PATH "/tmp/cache_store/fan_fail_boost"
-
 #define NUM_CABLES 4
 #define NUM_MANAGEMENT_PINS 2
 
@@ -70,7 +68,8 @@ const char pal_dev_fru_list[] = "all, 1U, 2U, 1U-dev0, 1U-dev1, 1U-dev2, 1U-dev3
 const char pal_dev_pwr_list[] = "all, 1U-dev0, 1U-dev1, 1U-dev2, 1U-dev3, 2U-dev0, 2U-dev1, 2U-dev2, 2U-dev3, 2U-dev4, 2U-dev5, " \
                             "2U-dev6, 2U-dev7, 2U-dev8, 2U-dev9, 2U-dev10, 2U-dev11, 2U-dev12, 2U-dev13";
 const char pal_dev_pwr_option_list[] = "status, off, on, cycle";
-const char *pal_vr_addr_list[] = {"c0h", "c4h", "ech"};
+const char *pal_vr_addr_list[] = {"c0h", "c4h", "ech", "c2h", "c6h", "c8h", "cch", "d0h", "96h", "9ch", "9eh"};
+const char *pal_vr_1ou_addr_list[] = {"b0h", "b4h", "c8h"};
 const char *pal_server_fru_list[NUM_SERVER_FRU] = {"slot1", "slot2", "slot3", "slot4"};
 const char *pal_nic_fru_list[NUM_NIC_FRU] = {"nic"};
 const char *pal_bmc_fru_list[NUM_BMC_FRU] = {"bmc"};
@@ -87,7 +86,6 @@ size_t bmc_fru_cnt  = NUM_BMC_FRU;
 #define SEL_ERROR_STR  "slot%d_sel_error"
 #define SNR_HEALTH_STR "slot%d_sensor_health"
 #define GPIO_OCP_DEBUG_BMC_PRSNT_N "OCP_DEBUG_BMC_PRSNT_N"
-#define VR_NEW_CRC_STR "slot%d_vr_%s_new_crc"
 
 #define SLOT1_POSTCODE_OFFSET 0x02
 #define SLOT2_POSTCODE_OFFSET 0x03
@@ -100,7 +98,6 @@ size_t bmc_fru_cnt  = NUM_BMC_FRU;
 #define ENABLE_STR "enable"
 #define DISABLE_STR "disable"
 #define STATUS_STR "status"
-#define FAN_MODE_FILE "/tmp/cache_store/fan_mode"
 #define FAN_MODE_STR_LEN 8 // include the string terminal
 
 #define IPMI_GET_VER_FRU_NUM  5
@@ -113,6 +110,7 @@ size_t bmc_fru_cnt  = NUM_BMC_FRU;
 #define BMC_CPLD_BUS     (12)
 #define NIC_EXP_CPLD_BUS (9)
 #define CPLD_FW_VER_ADDR (0x80)
+#define HD_CPLD_FW_VER_ADDR (0x88)
 #define BMC_CPLD_VER_REG (0x28002000)
 #define SB_CPLD_VER_REG  (0x000000c0)
 #define KEY_BMC_CPLD_VER "bmc_cpld_ver"
@@ -122,6 +120,8 @@ size_t bmc_fru_cnt  = NUM_BMC_FRU;
 
 #define ERROR_LOG_LEN 256
 #define ERR_DESC_LEN 64
+
+#define KEY_FAN_MODE_EVENT "fan_mode_event"
 
 static int key_func_pwr_last_state(int event, void *arg);
 static int key_func_por_cfg(int event, void *arg);
@@ -150,6 +150,13 @@ enum get_fw_ver_board_type {
 enum cable_connection_status {
   CABLE_DISCONNECT = 0,
   CABLE_CONNECT = 1,
+};
+
+enum fscd_fan_mode {
+  FAN_MODE_NORMAL = 0,
+  FAN_MODE_TRANSITION,
+  FAN_MODE_BOOST,
+  FAN_MODE_PROGRESSIVE,
 };
 
 struct pal_key_cfg {
@@ -1254,13 +1261,10 @@ pal_get_slot_index(unsigned char payload_id)
 
 int
 pal_is_fru_prsnt(uint8_t fru, uint8_t *status) {
-  int ret = PAL_EOK;
   uint8_t bmc_location = 0;
 
-  ret = fby35_common_get_bmc_location(&bmc_location);
-  if ( ret < 0 ) {
-    syslog(LOG_WARNING, "%s() Cannot get the location of BMC", __func__);
-    return ret;
+  if (status == NULL) {
+    return -1;
   }
 
   switch (fru) {
@@ -1268,21 +1272,19 @@ pal_is_fru_prsnt(uint8_t fru, uint8_t *status) {
     case FRU_SLOT2:
     case FRU_SLOT3:
     case FRU_SLOT4:
-      if ( bmc_location == BB_BMC ) {
-        ret = fby35_common_is_fru_prsnt(fru, status);
-      } else {
-        if ( fru == FRU_SLOT1 ) {
-          *status = 1;
-        } else {
-          *status = 0;
-        }
+      if (fby35_common_is_fru_prsnt(fru, status) < 0) {
+        return -1;
       }
       break;
     case FRU_BB:
       *status = 1;
       break;
     case FRU_NICEXP:
-      *status = (bmc_location == NIC_BMC)?1:0;
+      if (fby35_common_get_bmc_location(&bmc_location) < 0) {
+        syslog(LOG_WARNING, "%s() Cannot get the location of BMC", __func__);
+        return -1;
+      }
+      *status = (bmc_location == NIC_BMC) ? 1 : 0;
       break;
     case FRU_NIC:
       *status = 1;
@@ -1293,10 +1295,10 @@ pal_is_fru_prsnt(uint8_t fru, uint8_t *status) {
     default:
       *status = 0;
       syslog(LOG_WARNING, "%s() wrong fru id 0x%02x", __func__, fru);
-      ret = PAL_ENOTSUP;
+      return PAL_ENOTSUP;
   }
 
-  return ret;
+  return 0;
 }
 
 int
@@ -2111,6 +2113,58 @@ pal_parse_vr_event(uint8_t fru, uint8_t *event_data, char *error_log) {
   return PAL_EOK;
 }
 
+/* For VR_OCP/VR_ALERT SEL */
+static int
+pal_get_vr_name(uint8_t fru, uint8_t vr_num, char *name) {
+  enum {
+    PVDDCR_CPU0 = 0x00,
+    PVDDCR_CPU1 = 0x01,
+    PVDD11_S3 = 0x02,
+  };
+
+  switch (vr_num) {
+    case PVDDCR_CPU0:
+      snprintf(name, 32, "PVDDCR_CPU0");
+      break;
+    case PVDDCR_CPU1:
+      snprintf(name, 32, "PVDDCR_CPU1");
+      break;
+    case PVDD11_S3:
+      snprintf(name, 32, "PVDD11_S3");
+      break;
+    default:
+      snprintf(name, 32, "Undefined VR");
+      break;
+  }
+
+  return PAL_EOK;
+}
+
+static int
+pal_parse_vr_ocp_event(uint8_t fru, uint8_t *event_data, char *error_log) {
+  uint8_t vr_num = event_data[0];
+  char vr_name[32] ;
+
+  pal_get_vr_name(fru, vr_num, vr_name);
+  strcat(error_log, vr_name);
+
+  return PAL_EOK;
+}
+
+static int
+pal_parse_vr_alert_event(uint8_t fru, uint8_t *event_data, char *error_log) {
+  uint8_t vr_num = event_data[0] >> 1;
+  uint8_t page = event_data[0] & 1;
+  char tmp_log[128] = {0};
+  char vr_name[32] = {0};
+
+  pal_get_vr_name(fru, vr_num, vr_name);
+  snprintf(tmp_log, 128, "%s page%d status(0x%02X%02X)", vr_name, page, event_data[2] ,event_data[1]);
+  strcat(error_log, tmp_log);
+
+  return PAL_EOK;
+}
+
 static void
 pal_sel_root_port_mapping_tbl(uint8_t fru, uint8_t *bmc_location, MAPTOSTRING **tbl, uint8_t *cnt) {
   uint8_t board_1u = TYPE_1OU_UNKNOWN;
@@ -2292,6 +2346,7 @@ pal_parse_sys_sts_event(uint8_t fru, uint8_t *event_data, char *error_log) {
     SYS_SOC_THERM_TRIP = 0x00,
     SYS_THROTTLE       = 0x02,
     SYS_PCH_THERM_TRIP = 0x03,
+    SYS_UV_DETECT      = 0x04,
     SYS_HSC_THROTTLE   = 0x05,
     SYS_OC_DETECT      = 0x06,
     SYS_MB_THROTTLE    = 0x07,
@@ -2325,6 +2380,9 @@ pal_parse_sys_sts_event(uint8_t fru, uint8_t *event_data, char *error_log) {
       break;
     case SYS_PCH_THERM_TRIP:
       strcat(error_log, "PCH thermal trip");
+      break;
+    case SYS_UV_DETECT:
+      strcat(error_log, "SYS_UV");
       break;
     case SYS_FM_THROTTLE:
       strcat(error_log, "FM_Throttle throttle");
@@ -2622,6 +2680,12 @@ pal_parse_sel(uint8_t fru, uint8_t *sel, char *error_log) {
     case BIOS_SENSOR_PMIC_ERR:
       pal_parse_pmic_err_event(fru, event_data, error_log);
       break;
+    case VR_OCP:
+      pal_parse_vr_ocp_event(fru, event_data, error_log);
+      break;
+    case VR_ALERT:
+      pal_parse_vr_alert_event(fru, event_data, error_log);
+      break;
     default:
       unknown_snr = true;
       break;
@@ -2842,11 +2906,17 @@ pal_get_uart_select_from_kv(uint8_t *uart_select) {
 }
 
 int
-pal_clear_vr_new_crc(uint8_t fru) {
+pal_clear_vr_crc(uint8_t fru) {
   char ver_key[MAX_KEY_LEN] = {0};
   for (int j = 0; j < 3; j++) {
     snprintf(ver_key, sizeof(ver_key), VR_NEW_CRC_STR, fru, pal_vr_addr_list[j]);
     kv_del(ver_key, KV_FPERSIST);
+
+    snprintf(ver_key, sizeof(ver_key), VR_CRC_STR, fru, pal_vr_addr_list[j]);
+    kv_del(ver_key, 0);
+
+    snprintf(ver_key, sizeof(ver_key), VR_1OU_CRC_STR, fru, pal_vr_1ou_addr_list[j]);
+    kv_del(ver_key, 0);
   }
   return 0;
 }
@@ -3120,13 +3190,17 @@ pal_bic_sel_handler(uint8_t fru, uint8_t snr_num, uint8_t *event_data) {
   uint8_t tbuf[16] = {0};
   uint8_t rbuf[16] = {0};
   uint8_t rlen = 0, tlen = 0;
+  uint8_t fan_mode = 0;
+  char value[MAX_VALUE_LEN] = {0};
 
   switch (snr_num) {
     case CATERR_B:
       is_cri_sel = true;
       pal_store_crashdump(fru, (event_data[3] == 0x00));  // 00h:IERR, 0Bh:MCERR
       if (event_data[3] == 0x00) { // IERR
-        fby35_common_fscd_ctrl((event_data[2] == SEL_ASSERT) ? FAN_MANUAL_MODE : FAN_AUTO_MODE);
+        fan_mode = (event_data[2] == SEL_ASSERT) ? FAN_MODE_BOOST : FAN_MODE_NORMAL;
+        snprintf(value, sizeof(value), "%d", fan_mode);
+        kv_set(KEY_FAN_MODE_EVENT, value, 0, 0);
         if (event_data[2] == SEL_ASSERT) {
           for (i = 0; i < pal_pwm_cnt; i++) {
             pal_set_fan_speed(i, 100);
@@ -3657,6 +3731,9 @@ pal_get_cpld_ver(uint8_t fru, uint8_t *ver) {
     case FRU_SLOT2:
     case FRU_SLOT3:
     case FRU_SLOT4:
+      if (fby35_common_get_slot_type(fru) == SERVER_TYPE_HD){
+        cpld_addr = HD_CPLD_FW_VER_ADDR;
+      }
       i2c_bus = fby35_common_get_bus_id(fru) + 4;
       ver_reg = SB_CPLD_VER_REG;
       break;
@@ -4235,6 +4312,9 @@ pal_gpv3_mux_select(uint8_t slot_id, uint8_t dev_id) {
 bool
 pal_is_aggregate_snr_valid(uint8_t snr_num) {
   char sys_conf[MAX_VALUE_LEN] = {0};
+  char key[MAX_KEY_LEN] = {0};
+  char value[MAX_VALUE_LEN] = {0};
+  snprintf(key, sizeof(key), "fan_fail_boost");
 
   switch(snr_num) {
     // In type 8 system, if one fan fail, show NA in airflow reading.
@@ -4247,7 +4327,7 @@ pal_is_aggregate_snr_valid(uint8_t snr_num) {
       if (strcmp(sys_conf, "Type_8") != 0) {
         return true;
       }
-      if (access(FAN_FAIL_RECORD_PATH, F_OK) == 0) {
+      if (kv_get(key, value, NULL, 0) == 0) {
         return false;
       }
       break;
@@ -4551,4 +4631,5 @@ pal_get_mrc_desc(uint8_t fru, mrc_desc_t **desc, size_t *desc_count)
 
   return 0;
 }
+
 

@@ -43,21 +43,6 @@ extern "C" {
 
 #define MAX_VER_STR_LEN 80
 
-/* IFX VR */
-enum {
-  PMBUS_STS_CML       = 0x7E,
-  IFX_MFR_AHB_ADDR    = 0xCE,
-  IFX_MFR_REG_WRITE   = 0xDE,
-  IFX_MFR_REG_READ    = 0xDF,
-  IFX_MFR_FW_CMD_DATA = 0xFD,
-  IFX_MFR_FW_CMD      = 0xFE,
-
-  OTP_PTN_RMNG  = 0x10,
-  OTP_CONF_STO  = 0x11,
-  OTP_FILE_INVD = 0x12,
-  GET_CRC       = 0x2D,
-};
-
 #define BIT_VALUE(list, index) \
            ((((uint8_t*)&list)[index/8]) >> (index % 8)) & 0x1\
 
@@ -66,26 +51,11 @@ enum {
 #define CPLD_ADDRESS 0x1E
 #define SLOT_BUS_BASE 3
 #define BB_CPLD_BOARD_REV_ID_REGISTER 0x08
-#define SB_CPLD_BOARD_REV_ID_REGISTER 0x07
 #define SB_CPLD_BOARD_ASD_STATUS_REG  0x1F
-#define CPLD_BOARD_PVT_REV 3
-#define CPLD_FLAG_REG_ADDR 0x1F
 #define CPLD_BB_BUS 0x01
 #define CPLD_SB_BUS 0x01
-#define SB_CPLD_ADDRESS_UPDATE 0x40
 #define SB_USB_VENDOR_ID  0x1D6B
 #define SB_USB_PRODUCT_ID 0x0104
-/*Revision Number:
-  BOARD_REV_EVT = 2
-  BOARD_REV_DVT = 3
-  BOARD_REV_PVT = 4
-  BOARD_REV_MP  = 5
-  FW_REV_EVT = 1
-  FW_REV_DVT = 2
-  FW_REV_PVT = 3
-  FW_REV_MP  = 4
-*/
-extern const char *board_stage[];
 
 typedef struct
 {
@@ -103,15 +73,6 @@ typedef struct
 
 
 enum {
-  VR_ISL = 0x0,
-  VR_TI  = 0x1,
-  VR_IFX = 0x2,
-  VR_VY  = 0x3,
-  IFX_DEVID_LEN = 0x2,
-  ISL_DEVID_LEN = 0x4,
-  TI_DEVID_LEN  = 0x6,
-  ISL_DEV_REV_LEN = 0x5,
-
   /*----VR ADDR-----*/
   VCCIN_ADDR = 0xC0,
   VCCD_ADDR = 0xC4,
@@ -122,10 +83,20 @@ enum {
   VR_2OU_P3V3_STBY3 = 0x30,
   VR_2OU_P1V8       = 0x36,
 
-  /*----halfdome VR ADDR-----*/
+  /*----halfdome Renesas VR ADDR-----*/
   VDDCR_CPU0_ADDR = 0xC2,
   VDDCR_CPU1_ADDR = 0xC4,
   VDD11S3_ADDR = 0xC6,
+
+  /*----halfdome Infineon VR ADDR-----*/
+  VDDCR_CPU0_IFX_ADDR = 0xC8,
+  VDDCR_CPU1_IFX_ADDR = 0xCC,
+  VDD11S3_IFX_ADDR = 0xD0,
+
+  /*----halfdome MPS VR ADDR-----*/
+  VDDCR_CPU0_MPS_ADDR = 0x9E,
+  VDDCR_CPU1_MPS_ADDR = 0x9C,
+  VDD11S3_MPS_ADDR = 0x96,
 
   /*----Rainbow Falls VR ADDR-----*/
   VR_1OU_V9_ASICA_ADDR = 0xC8,

@@ -21,7 +21,6 @@
 . /usr/local/fbpackages/utils/ast-functions
 LOGFILE="/var/log/mTerm_$1.log"
 LOGFILE_B="/var/log/mTerm_$1_backup.log"
-SLED_TYPE="/mnt/data/kv_store/sled_system_conf"
 I2CSET="/usr/sbin/i2cset -y "
 
 SB_CPLD_ADDR="0x0f"
@@ -33,9 +32,13 @@ SLOT=
 SLOT_NUM=
 I2C_NUM=
 
+IFS=" " read -r -a IANA_ARR <<< "$(echo "$IANA_ID" | tr ' ')"
+
 show_usage() {
   echo "Usage: sol-util [ slot1 | slot2 | slot3 | slot4 ]"
   echo "       sol-util [ slot1 | slot2 | slot3 | slot4 ] [sb, bb, 1ou, 2ou] bic"
+  echo "       sol-util [ slot1 | slot3 ] 1ou  cxl"
+  echo "       sol-util [ slot1 | slot3 ] sb   prot"
   echo "       sol-util [ slot1 | slot2 | slot3 | slot4 ] [1ou, 2ou] [dev0|dev1|...|devN|pesw] (baudrate)"
   echo "       sol-util [ slot1 | slot2 | slot3 | slot4 ] --history"
 }
@@ -123,7 +126,7 @@ enable_usb_hub() {
   if [ "$val" = 1 ]; then
     if [ "$cnt" = 0 ]; then
       # TODO: remove it since GPv3 BIC will initialize it to high by default
-      /usr/bin/bic-util "$fru" 0xe0 0x02 "$IANA_ID" 0x15 0xe0 0x41 "$IANA_ID" 1 96 1  > /dev/null 2>&1
+      /usr/bin/bic-util "$fru" 0xe0 0x02 "${IANA_ARR[0]}" "${IANA_ARR[1]}" "${IANA_ARR[2]}" 0x15 0xe0 0x41 "${IANA_ARR[0]}" "${IANA_ARR[1]}" "${IANA_ARR[2]}" 1 96 1  > /dev/null 2>&1
       /usr/bin/bic-util "$fru" --set_gpio 16 "$val" > /dev/null 2>&1
       echo -n "Initializing USB devs..."
       sleep 20 # BMC needs to spend about 20 sec to detect slot1 and slot3 all devs.
@@ -329,7 +332,7 @@ fi
 
 SLOT_NUM=$(get_slot_num "$SLOT")
 I2C_NUM=$(get_bus_num "$SLOT")
-SLED_TYPE=$(cat "$SLED_TYPE")
+SLED_TYPE="$(/usr/bin/kv get "sled_system_conf" persistent)"
 EXP_BOARD_TYPE=
 COMP=$2
 DEV=$3
@@ -338,13 +341,15 @@ CPLD_ADDR=
 EXP_CPLD_ADDR=
 DEV_NUM=
 
+# Set back to default 57600
+/bin/stty -F "/dev/ttyS$SLOT_NUM" 57600 >/dev/null 2>&1
+
 if [[ "$SLED_TYPE" =~ ^(Type_(8|17))$ ]]; then
   if ! [ "$SLOT" == "slot1" ]; then
     echo "$SLOT is empty"
     exit 255
   else
     # notify CPLD to set the uart src to class 2
-    echo "347here"
     set_uart_src "$I2C_NUM" "$SB_CPLD_ADDR" 0x00 0x02
   fi
 else
@@ -430,6 +435,12 @@ if [ -n "$COMP" ]; then
       DEV_NUM="0x6"
       [[ "$(is_gpv3_board "$EXP_BOARD_TYPE")" == "1" ]] && DEV_NUM="0xC"
     fi
+  elif [ "$DEV" == "prot" ] && [ "$COMP" == "sb" ] ; then
+    DEV_NUM="0x6"
+  elif [ "$DEV" == "cxl" ] && [ "$COMP" == "1ou" ] ; then
+    /bin/stty -F "/dev/ttyS$SLOT_NUM" 115200 >/dev/null 2>&1
+    CPLD_ADDR=${SB_CPLD_ADDR}
+    DEV_NUM="0x5"
   else
     echo "$DEV is not supported!"
     exit 255
@@ -441,7 +452,7 @@ if [ -n "$COMP" ]; then
       if [ "$COMP" == "sb" ]; then
         set_uart_src "$I2C_NUM" 0x0e 0x29 0x0
       else
-        SLOT_INDEX="$(/usr/bin/bic-util slot1 0xE0 0x02 "$IANA_ID" 0x10 0xC0 0xF0 | cut -d " " -f 8)"
+        SLOT_INDEX="$(/usr/bin/bic-util slot1 0xE0 0x02 "${IANA_ARR[0]}" "${IANA_ARR[1]}" "${IANA_ARR[2]}" 0x10 0xC0 0xF0 | cut -d " " -f 8)"
         if [ "$SLOT_INDEX" == "01" ]; then  #For Class2 BMC UART to BB BIC MUX slot1 0x1, slot3 0x2
           set_uart_src "$I2C_NUM" 0x0e 0x29 0x01
         else

@@ -6,6 +6,7 @@
 
 #define PMIC_ERR_INJ_REG 0x35
 #define ERR_PATTERN_LEN  6
+#define PMIC_WRITE_PROTECT_BIT 2
 
 #define STR_SWA_OV     "SWAout_OV"
 #define STR_SWB_OV     "SWBout_OV"
@@ -185,10 +186,35 @@ int
 pmic_inject_err(uint8_t fru_id, uint8_t cpu, uint8_t dimm, uint8_t option) {
   uint8_t data[8] = {0};
 
+  // Read PMIC R2F register to get write protect mode status
+  if (pmic_rdwr_with_retry(fru_id, cpu, dimm, 0x2F, 0, 1, data) != 0) {
+    return -1;
+  }
+  if ((data[0] & (1 << PMIC_WRITE_PROTECT_BIT)) == 0) {
+    printf("Inject failed! Please disable DIMM %s write protect before error injection\n", get_dimm_label(cpu, dimm));
+    return -1;
+  }
   memcpy(data, &pmic_err[option].einj_reg, 1);
   if (pmic_rdwr_with_retry(fru_id, cpu, dimm, PMIC_ERR_INJ_REG, 1, 0, data) != 0) {
     return -1;
   }
 
   return 0;
+}
+
+int
+pmic_clear_err(uint8_t fru_id, uint8_t cpu, uint8_t dimm_num) {
+  uint8_t data[1] = {0};
+  int ret = 0;
+  // Set R39 to clear registers R04 ~ R07
+  data[0] = 0x74;
+  if (pmic_rdwr_with_retry(fru_id, cpu, dimm_num, 0x39, 1, 0, data) != 0) {
+    ret = -1;
+  }
+  // Set R14 to clear registers R08 ~ R0B, R33
+  data[0] = 0x01;
+  if (pmic_rdwr_with_retry(fru_id, cpu, dimm_num, 0x14, 1, 0, data) != 0) {
+    ret = -1;
+  }
+  return ret;
 }

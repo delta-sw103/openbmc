@@ -38,6 +38,8 @@
 #define FM_CPU1_VCCD_VR_HOT      "IRQ_PVCCD_CPU0_VRHOT_LVC3_N"
 #define FM_CPU0_SKTOCC           "FM_CPU0_SKTOCC_LVT3_PLD_N"
 #define FM_CPU1_SKTOCC           "FM_CPU1_SKTOCC_LVT3_PLD_N"
+#define FM_BIOS_POST_CMPLT       "FM_BIOS_POST_CMPLT_BMC_N"
+
 
 //Power Control
 #define FM_LAST_PWRGD            "PWRGD_CPUPWRGD_LVC2_R1"
@@ -46,5 +48,8 @@
 #define FP_PWR_BTN_OUT_N         "SYS_BMC_PWRBTN_OUT"
 #define FP_RST_BTN_OUT_N         "RST_BMC_RSTBTN_OUT_R_N"
 #define PWRGD_SYS_PWROK          "PWRGD_SYS_PWROK_R"
+
+#define BIC_READY                "FM_SWB_BIC_READY_ISO_R_N"
+#define GPU_FPGA_RST_N           "GPU_FPGA_RST_N"
 
 #endif

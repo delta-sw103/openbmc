@@ -18,13 +18,6 @@
 # Boston, MA 02110-1301 USA
 #
 
-connect_uart2_3() {
-  val=$(/sbin/devmem 0x1e78909c)
-  val=$((val & 0xFE07FFFF))
-  val=$((val | 0x01A00000))
-  /sbin/devmem 0x1e78909c 32 $val
-}
-
-connect_uart2_3
+/usr/local/bin/setup-server-uart.sh
 
 exec /usr/local/bin/mTerm_server mb /dev/ttyS3

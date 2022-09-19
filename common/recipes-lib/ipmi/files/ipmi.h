@@ -203,7 +203,7 @@ typedef struct {
   unsigned char rsvd[2];
   unsigned char oem;
   unsigned char str_type_len;
-  char str[16];
+  char str[31];
 } sdr_full_t;
 
 typedef struct _ipmi_sel_sdr_info_t {
@@ -518,6 +518,7 @@ enum
   CMD_OEM_1S_BIC_RESET = 0x11,
   CMD_OEM_1S_GET_POST_BUF = 0x12,
   CMD_OEM_1S_BIC_UPDATE_MODE = 0x13,
+  CMD_OEM_1S_SET_VR_MON_ENABLE = 0x14,
   CMD_OEM_1S_READ_FW_IMAGE = 0x18,
   CMD_OEM_1S_GET_CPLD_UPDATE_PROGRESS = 0x1A,
   CMD_OEM_1S_SET_TAP_STATE = 0x21,

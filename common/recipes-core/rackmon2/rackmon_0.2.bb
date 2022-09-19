@@ -96,11 +96,13 @@ LOCAL_URI += " \
     file://schemas/registermap/integer_constraints.json \
     file://schemas/registermap/register.json \
     file://schemas/registermap/special_handlers.json \
+    file://schemas/registermap/baud_config.json \
     "
 #scripts
 LOCAL_URI += " \
     file://scripts/schema_validator.py \
     file://scripts/pyrmd.py \
+    file://scripts/rackmon-stress.py \
     "
 
 # Test sources

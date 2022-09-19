@@ -32,6 +32,10 @@ extern "C" {
 #include "pal_def.h"
 #include "pal_cfg.h"
 
+#define CMD_GET_MAIN_CPLD_VER   (0x01)
+#define MAIN_CPLD_SLV_ADDR      (0x80)
+#define MAIN_CPLD_BUS_NUM       (7)
+
 extern const char pal_fru_list[];
 
 int pal_set_id_led(uint8_t fru, uint8_t status);
@@ -48,6 +52,7 @@ int pal_get_syscfg_text(char *text);
 int pal_peer_tray_get_lan_config(uint8_t sel, uint8_t *buf, uint8_t *rlen);
 int pal_get_target_bmc_addr(uint8_t *tar_bmc_addr);
 bool pal_skip_access_me(void);
+int pal_get_pwr_btn(uint8_t *status);
 
 #ifdef __cplusplus
 } // extern "C"

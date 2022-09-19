@@ -33,11 +33,44 @@ rebind_i2c_dev() {
   fi
 }
 
+vr_sku=$(($(/usr/bin/kv get mb_sku) & 0x03))  #0x00 : RAA,
+                                              #0x01 : INF,
+                                              #0x10 : MPS,
+
 echo "Probe VR Device"
 #CPU VR
-i2c_device_add 20 0x60 isl69260
-i2c_device_add 20 0x61 isl69260
-i2c_device_add 20 0x63 isl69260
-i2c_device_add 20 0x72 isl69260
-i2c_device_add 20 0x74 isl69260
-i2c_device_add 20 0x76 isl69260
+
+if [ "$vr_sku" -eq 2 ]; then
+  i2c_device_add 20 0x60 mp2971
+  i2c_device_add 20 0x61 mp2971
+  i2c_device_add 20 0x63 mp2971
+  i2c_device_add 20 0x72 mp2971
+  i2c_device_add 20 0x74 mp2971
+  i2c_device_add 20 0x76 mp2971
+elif [ "$vr_sku" -ge 1 ]; then
+  i2c_device_add 20 0x60 xdpe152c4
+  i2c_device_add 20 0x62 xdpe152c4
+  i2c_device_add 20 0x64 xdpe152c4
+  i2c_device_add 20 0x72 xdpe152c4
+  i2c_device_add 20 0x74 xdpe152c4
+  i2c_device_add 20 0x76 xdpe152c4
+else
+  i2c_device_add 20 0x60 isl69260
+  i2c_device_add 20 0x61 isl69260
+  i2c_device_add 20 0x63 isl69260
+  i2c_device_add 20 0x72 isl69260
+  i2c_device_add 20 0x74 isl69260
+  i2c_device_add 20 0x76 isl69260
+fi
+
+HSC_MAIN_SOURCE="0"
+
+#MB HSC
+if [ "$(gpio_get FM_BOARD_BMC_SKU_ID2)" -eq "$HSC_MAIN_SOURCE" ]; then
+  i2c_device_add 2 0x20 mp5990
+else
+  i2c_device_add 21 0x4C lm75
+  i2c_device_add 2 0x41 ltc4282
+  i2c_device_add 2 0x51 24c64
+fi
+

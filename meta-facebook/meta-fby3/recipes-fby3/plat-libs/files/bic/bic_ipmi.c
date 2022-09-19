@@ -38,7 +38,7 @@
 //FRU
 #define FRUID_READ_COUNT_MAX 0x20
 #define FRUID_WRITE_COUNT_MAX 0x20
-#define FRUID_SIZE 256
+#define FRUID_SIZE 512
 
 //GPIO
 #define GPIO_LOW 0
@@ -1392,11 +1392,11 @@ ast_bic_get_vr_ver(uint8_t slot_id, uint8_t intf, uint8_t addr, char *key, char 
     switch (vr_ver->vendor) {
     case VR_ISL:
       snprintf(ver_str, MAX_VALUE_LEN, "Renesas %02X%02X%02X%02X, Remaining Writes: %d",
-        vr_ver->checksum[3], vr_ver->checksum[2], vr_ver->checksum[1], vr_ver->checksum[0], vr_ver->remaining_writes);
+        vr_ver->checksum[0], vr_ver->checksum[1], vr_ver->checksum[2], vr_ver->checksum[3], vr_ver->remaining_writes);
       break;
     case VR_IFX:
       snprintf(ver_str, MAX_VALUE_LEN, "Infineon %02X%02X%02X%02X, Remaining Writes: %d",
-        vr_ver->checksum[3], vr_ver->checksum[2], vr_ver->checksum[1], vr_ver->checksum[0], vr_ver->remaining_writes);
+        vr_ver->checksum[0], vr_ver->checksum[1], vr_ver->checksum[2], vr_ver->checksum[3], vr_ver->remaining_writes);
       break;
     default:
       syslog(LOG_ERR, "%s: unsupported vendor %x\n", __func__, vr_ver->vendor);

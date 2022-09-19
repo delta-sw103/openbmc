@@ -20,7 +20,6 @@
 //#define DEBUG
 
 #define MAX_RETRY 3
-#define MAX_SDR_LEN 64
 #define SDR_PATH "/tmp/sdr_%s.bin"
 
 #define PWM_PLAT_SET 0x80
@@ -2472,9 +2471,9 @@ pal_bic_sensor_read_raw(uint8_t fru, uint8_t sensor_num, float *value, uint8_t b
 
   if (fru == FRU_2U_TOP) {
     if (IS_DUAL_M2_PWR_SNR(sensor_num)) {
-      ret = bic_get_m2_config(&m2_config, slot, RREXP_BIC_INTF1);
+      ret = pal_get_m2_config(fru, &m2_config);
 
-      if (ret == 0 && m2_config == CONFIG_M2_DUAL) {
+      if (ret == 0 && m2_config == CONFIG_C_CWC_DUAL) {
         ret = bic_get_oem_sensor_reading(slot, DUAL_M2_SENSOR_INDEX(sensor_num), &sensor, sdr->m_val, RREXP_BIC_INTF1);
       } else {
         sensor.flags = BIC_SENSOR_READ_NA;
@@ -2484,9 +2483,9 @@ pal_bic_sensor_read_raw(uint8_t fru, uint8_t sensor_num, float *value, uint8_t b
     }
   } else if (fru == FRU_2U_BOT) {
     if (IS_DUAL_M2_PWR_SNR(sensor_num)) {
-      ret = bic_get_m2_config(&m2_config, slot, RREXP_BIC_INTF2);
+      ret = pal_get_m2_config(fru, &m2_config);
 
-      if (ret == 0 && m2_config == CONFIG_M2_DUAL) {
+      if (ret == 0 && m2_config == CONFIG_C_CWC_DUAL) {
         ret = bic_get_oem_sensor_reading(slot, DUAL_M2_SENSOR_INDEX(sensor_num), &sensor, sdr->m_val, RREXP_BIC_INTF2);
       } else {
         sensor.flags = BIC_SENSOR_READ_NA;
@@ -2517,9 +2516,9 @@ pal_bic_sensor_read_raw(uint8_t fru, uint8_t sensor_num, float *value, uint8_t b
       if ( bic_is_crit_act_ongoing(FRU_SLOT1) == true ) return READING_NA;
       ret = bic_get_sensor_reading(fru, sensor_num, &sensor, BB_BIC_INTF);
     } else if ( (config_status & PRESENT_2OU) == PRESENT_2OU && IS_DUAL_M2_PWR_SNR(sensor_num) ) {
-      ret = bic_get_m2_config(&m2_config, slot, REXP_BIC_INTF);
+      ret = pal_get_m2_config(FRU_2U, &m2_config);
 
-      if (ret == 0 && m2_config == CONFIG_M2_DUAL) {
+      if (ret == 0 && m2_config == CONFIG_C_CWC_DUAL) {
         ret = bic_get_oem_sensor_reading(slot, DUAL_M2_SENSOR_INDEX(sensor_num), &sensor, sdr->m_val, REXP_BIC_INTF);
       } else {
         sensor.flags = BIC_SENSOR_READ_NA;
@@ -3156,7 +3155,7 @@ _sdr_init(char *path, sensor_info_t *sinfo, uint8_t bmc_location, \
           const uint8_t config_status, const uint8_t board_type) {
   int fd;
   int ret = 0;
-  uint8_t buf[MAX_SDR_LEN] = {0};
+  uint8_t buf[sizeof(sdr_full_t)] = {0};
   uint8_t bytes_rd = 0;
   uint8_t snr_num = 0;
   sdr_full_t *sdr;

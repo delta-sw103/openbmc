@@ -29,7 +29,6 @@ LOCAL_URI += " \
         file://bic_vr.cpp \
         file://bic_pcie_sw.cpp \
         file://bic_pcie_sw.h \
-        file://bic_expansion_vr.cpp \
         file://usbdbg.h \
         file://usbdbg.cpp \
         file://mcu_fw.h \
@@ -38,6 +37,8 @@ LOCAL_URI += " \
         file://bic_m2_dev.h \
         file://mp5990.h \
         file://mp5990.cpp \
+        file://bic_cxl.cpp \
+        file://bic_cxl.h \
         "
 
 CXXFLAGS += "-DBIC_SUPPORT"

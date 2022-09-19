@@ -7,9 +7,6 @@
 #include "pal_hmc_sensors.h"
 #include "pal_bb_sensors.h"
 
-//Platform Name
-#define PLATFORM_NAME "GT"
-
 //CPU INFO
 #define PECI_CPU0_ADDR            (0x30)
 #define PECI_CPU1_ADDR            (0x31)
@@ -148,6 +145,13 @@ enum {
   FAN_CTRL_ID0,
   FAN_CTRL_ID1,
 };
+
+enum {
+  MAIN_SOURCE = 0,
+  SECOND_SOURCE = 1,
+  THIRD_SOURCE = 2,
+};
+
 
 int retry_skip_handle(uint8_t retry_curr, uint8_t retry_max);
 int retry_err_handle(uint8_t retry_curr, uint8_t retry_max);

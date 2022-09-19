@@ -34,6 +34,7 @@ LOCAL_URI = " \
     file://mount_data0.service \
     file://openbmc-utils.sh \
     file://shell-utils.sh \
+    file://ast-utils.sh \
     file://i2c-utils.sh \
     file://gpio-utils.sh \
     file://rc.early \
@@ -55,6 +56,8 @@ LOCAL_URI = " \
     file://create_vlan_intf \
     file://flashrom-utils.sh \
     file://cpu_monitor.py \
+    file://setup_i2c.service \
+    file://setup_gpio.service \
     ${@bb.utils.contains('PACKAGECONFIG', 'disable-watchdog', \
                          'file://disable_watchdog.sh ' + \
                          'file://disable_watchdog.service', '', d)} \
@@ -69,6 +72,7 @@ OPENBMC_UTILS_FILES = " \
     mount_data0.sh \
     openbmc-utils.sh \
     shell-utils.sh \
+    ast-utils.sh \
     i2c-utils.sh \
     gpio-utils.sh \
     rc.early \

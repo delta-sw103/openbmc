@@ -48,4 +48,8 @@ IMAGE_INSTALL += " \
   crashdump \
   attest-util \
   dimm-util \
+  fscd \
+  fpc-util \
+  ncsid-v2 \
+  name-util \
 "

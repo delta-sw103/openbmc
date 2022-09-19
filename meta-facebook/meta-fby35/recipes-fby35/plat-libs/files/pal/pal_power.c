@@ -166,12 +166,7 @@ server_power_12v_off(uint8_t fru) {
   uint8_t tlen = 0;
   int ret = 0, retry= 0;
 
-  snprintf(cmd, 64, "rm -f /tmp/cache_store/slot%d_vr*", fru);
-  if (system(cmd) != 0) {
-      syslog(LOG_WARNING, "[%s] %s failed\n", __func__, cmd);
-  }
-
-  pal_clear_vr_new_crc(fru);
+  pal_clear_vr_crc(fru);
 
   memset(cmd, 0, 64);
   snprintf(cmd, 64, FRU_ID_CPLD_NEW_VER_KEY, fru);
@@ -510,6 +505,13 @@ pal_sled_cycle(void) {
   if ( ret < 0 ) {
     syslog(LOG_WARNING, "%s() Cannot get the location of BMC", __func__);
     return POWER_STATUS_ERR;
+  }
+
+  if (bmc_location == NIC_BMC) {
+    if (bic_get_power_lock_status(&status) == 0 && (status != UNLOCK)) {
+      printf("Another slot is doing fw update, cannot do sled cycle.\n");
+      return POWER_STATUS_ERR;
+    }
   }
 
   ret = system("sv stop sensord > /dev/null 2>&1 &");
