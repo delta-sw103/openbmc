@@ -1,4 +1,6 @@
-# Copyright 2022-present Facebook. All Rights Reserved.
+#!/bin/sh
+#
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This program file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -15,17 +17,34 @@
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
-FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
-LOCAL_URI += " \
-    file://setup-sgpio.sh \
-    file://setup-cover-dev.sh \
-    file://setup-pwon-snr.sh \
-    file://sync_date.sh \
-    "
+. /usr/local/bin/openbmc-utils.sh
 
-do_install:append() {
-# setup-pwon-snr.sh
-  install -m 755 setup-pwon-snr.sh  ${D}${sysconfdir}/init.d/setup-pwon-snr.sh
-  update-rc.d -r ${D} setup-pwon-snr.sh start 68 5 .
+MAX_RETRY=30
+retry=0
+usb_pst=""
+
+gp_pst=$(gpio_get GPU_PRSNT_N_ISO_R)
+
+setup_usb_dev() {
+  if [ $gp_pst -eq 0 ]; then
+    echo "Init usbnet ethernet for HMC"
+
+    while [ $retry -lt "$MAX_RETRY" ]
+    do 
+      ifconfig usb0 192.168.31.2 netmask 255.255.0.0
+ 
+      usb_pst=$(ifconfig -a | grep usb0)
+      if [ "$usb_pst" != "" ]; then
+        echo "Setup usbnet ethernet device successfully"
+        exit 0
+      else
+        retry=$(($retry+1))
+        sleep 10
+      fi
+    done
+
+    echo "Can't setup usbnet ethernet device for HMC"
+  fi
 }
 
+setup_usb_dev &

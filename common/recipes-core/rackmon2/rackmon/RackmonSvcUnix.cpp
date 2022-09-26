@@ -96,27 +96,31 @@ void RackmonUNIXSocketService::executeJSONCommand(const json& req, json& resp) {
   } else if (cmd == "getMonitorData") {
     ModbusDeviceFilter devFilter{};
     ModbusRegisterFilter regFilter{};
-    if (req.contains("deviceFilter")) {
-      const json& j = req["deviceFilter"];
-      if (j.contains("deviceAddress")) {
-        devFilter.addrFilter = j["deviceAddress"];
-      } else if (j.contains("deviceType")) {
-        devFilter.typeFilter = j["deviceType"];
-      } else {
-        throw std::logic_error("Unknown device filter");
+    bool latestValueOnly = false;
+    if (req.contains("filter")) {
+      const json& filter = req["filter"];
+      if (filter.contains("deviceFilter")) {
+        const json& jdevFilter = filter["deviceFilter"];
+        if (jdevFilter.contains("addressFilter")) {
+          devFilter.addrFilter = jdevFilter["addressFilter"];
+        } else if (jdevFilter.contains("typeFilter")) {
+          devFilter.typeFilter = jdevFilter["typeFilter"];
+        } else {
+          throw std::logic_error("Device Filter needs at least one set");
+        }
       }
-    }
-    if (req.contains("registerFilter")) {
-      const json& j = req["registerFilter"];
-      if (j.contains("registerAddress")) {
-        regFilter.addrFilter = j["registerAddress"];
-      } else if (j.contains("registerName")) {
-        regFilter.nameFilter = j["registerName"];
-      } else {
-        throw std::logic_error("Unknown register filter");
+      if (filter.contains("registerFilter")) {
+        const json& jregFilter = filter["registerFilter"];
+        if (jregFilter.contains("addressFilter")) {
+          regFilter.addrFilter = jregFilter["addressFilter"];
+        } else if (jregFilter.contains("nameFilter")) {
+          regFilter.nameFilter = jregFilter["nameFilter"];
+        } else {
+          throw std::logic_error("Register Filter needs at least one set");
+        }
       }
+      latestValueOnly = filter.value("latestValueOnly", false);
     }
-    bool latestValueOnly = req.value("latestValueOnly", false);
     std::vector<ModbusDeviceValueData> ret;
     rackmond_.getValueData(ret, devFilter, regFilter, latestValueOnly);
     resp["data"] = ret;
@@ -157,6 +161,8 @@ void RackmonUNIXSocketService::handleJSONCommand(
   } catch (std::logic_error& e) {
     resp["status"] = "USER_ERROR";
     print_msg(e);
+  } catch (ModbusError& e) {
+    resp["status"] = e.toString(e.errorCode);
   } catch (std::runtime_error& e) {
     resp["status"] = "RUNTIME_ERROR";
     print_msg(e);
@@ -178,6 +184,7 @@ void RackmonUNIXSocketService::handleLegacyCommand(
     std::vector<char>& resp_buf) {
   struct req_hdr {
     uint16_t type;
+    uint16_t pad;
     uint16_t length;
     uint16_t expected_resp_length;
     uint32_t custom_timeout;
@@ -190,7 +197,7 @@ void RackmonUNIXSocketService::handleLegacyCommand(
         "Unsupported command: " + std::to_string(req_hdr->type));
   if (req_hdr->length < 1)
     throw std::logic_error("request needs at least 1 byte");
-  if (req_hdr->length + sizeof(req_hdr) != req_buf.size())
+  if (req_hdr->length + sizeof(*req_hdr) != req_buf.size())
     throw std::overflow_error("body");
   Request req_msg;
   std::copy(
@@ -225,7 +232,9 @@ void RackmonUNIXSocketService::handleLegacyCommand(
     logError << "Unable to handle legacy command: " << e.what() << std::endl;
   }
   try {
-    cli.send(resp_buf.data(), resp_buf.size());
+    // We are handling the size since we use the length field as a
+    // error indicator. :-/
+    cli.sendRaw(resp_buf.data(), resp_buf.size());
   } catch (std::exception& e) {
     logError << "Unable to send response: " << e.what() << std::endl;
   }
