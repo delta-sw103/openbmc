@@ -44,7 +44,7 @@ SWPLD2_VER_TYPE=$(head -n 1 "$SWPLD2_SYSFS_DIR/swpld2_ver_type" 2> /dev/null)
 SWPLD2_VER=$(head -n 1 "$SWPLD2_SYSFS_DIR/swpld2_ver" 2> /dev/null)
 SWPLD3_VER_TYPE=$(head -n 1 "$SWPLD3_SYSFS_DIR/swpld3_ver_type" 2> /dev/null)
 SWPLD3_VER=$(head -n 1 "$SWPLD3_SYSFS_DIR/swpld3_ver" 2> /dev/null)
-SYSFPGA_VER=$(head -n 1 "$SYSFPGA_SYSFS_DIR/sysfpga_ver" 2> /dev/null)
+SYSFPGA_VER=$(head -n 1 "$SYSFPGA_SYSFS_DIR/fpga_ver" 2> /dev/null)
 
 # PSU
 PSU1_PRESENT=$(head -n 1 "$SYSFPGA_SYSFS_DIR/psu1_present" 2> /dev/null)
