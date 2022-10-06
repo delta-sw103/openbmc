@@ -24,41 +24,9 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 KERNEL_VERSION=$(uname -r)
 start_of_mux_bus=16
 
-# get from swpld1
-get_board_type() {
-    reg=$(i2cget -y -f 7 0x31 0x02)
-    reg=$((reg >> 4))
-    if [ $reg -eq 0 ]; then
-        echo 0
-        return
-    elif [ $reg -eq 1 ]; then
-        echo 1
-        return
-    else
-        echo -1
-    fi
-}
-
-get_board_rev() {
-    reg=$(i2cget -y -f 7 0x31 0x02)
-    reg=$((reg & 0x3))
-    if [ $reg -eq 0 ]; then
-        echo 0
-        return
-    elif [ $reg -eq 1 ]; then
-        echo 1
-        return
-    else
-        echo -1
-    fi
-}
-
 get_mux_bus_num() {
     echo $((start_of_mux_bus + $1))
 }
-
-brd_type=$(get_board_type)
-brd_rev=$(get_board_rev)
 
 # Bus 0
 i2c_device_add 0 0x50 24c02                 # PSU1 EEPROM
@@ -67,33 +35,30 @@ i2c_device_add 0 0x51 24c02                 # PSU2 EEPROM
 i2c_device_add 0 0x59 dps_driver            # PSU2 PSU_DRIVER
 
 # Bus 1
-# i2c_device_add 1 0x49 tmp75            #Thermal RF
-# i2c_device_add 1 0x4a tmp75            #Thermal LF
-# i2c_device_add 1 0x4b tmp75            #Thermal Upper
-# i2c_device_add 1 0x4e tmp75            #Thermal Lower
+# i2c_device_add 1 0x49 tmp75               # Thermal RF
+# i2c_device_add 1 0x4a tmp75               # Thermal LF
+# i2c_device_add 1 0x4b tmp75               # Thermal Upper
+# i2c_device_add 1 0x4e tmp75               # Thermal Lower
 
 # Bus 2
-i2c_device_add 2 0x2d emc2305          #Fan Controller
-i2c_device_add 2 0x4c emc2305          #Fan Controller
-i2c_device_add 2 0x4d emc2305          #Fan Controller
-# i2c_device_add 2 0x75 pca9548          # PCA9548
+i2c_device_add 2 0x2d emc2305               # Fan Controller
+i2c_device_add 2 0x4c emc2305               # Fan Controller
+i2c_device_add 2 0x4d emc2305               # Fan Controller
+# i2c_device_add 2 0x4f tmp75               # Thermal Sensor
 
 # Bus 3
-i2c_device_add 3 0x36 sysfpga          #Fan Controller
-# i2c_device_add 3 0x4f tmp75            #Fan BD
+i2c_device_add 3 0x36 sysfpga               # sys-FPGA
 
 # Bus 4
 
 # Bus 5
-i2c_device_add 5 0x27 pca9555          #PCA9555
-# i2c_device_add 5 0x65 tps53647                   #VCC_VDD_0V8
-# i2c_device_add 5 0x10 ir35223                    #VCC_AVDD_0V9
-# i2c_device_add 5 0x64 tps53667                   #VCC_3V3
+i2c_device_add 5 0x27 pca9555               # PCA9555
+# i2c_device_add 5 0x72 pca9548             # PCA9548
 
 # Bus 6
 
 # Bus 7
-i2c_device_add 7 0x50 24c02                        #BMC EEPROM
+i2c_device_add 7 0x50 24c02                 # BMC EEPROM
 
 # i2c-mux 5-0072: child bus 16-23
 

@@ -22,7 +22,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 
 . /usr/local/bin/openbmc-utils.sh
 
-SWPLD1_DIR=$SWPLD1_SYSFS_DIR
+SYSFPGA_DIR=$SYSFPGA_SYSFS_DIR
 
 
 function usage
@@ -65,7 +65,7 @@ function get_psu_presence
 {
   for i in {1..2}; do
       key="psu${i}"
-      file="$SWPLD1_DIR/psu${i}_present"
+      file="$SYSFPGA_DIR/psu${i}_present"
       get_presence "$file" "$key"
   done
 }

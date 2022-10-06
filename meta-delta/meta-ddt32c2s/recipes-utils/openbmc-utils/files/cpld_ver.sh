@@ -20,4 +20,4 @@
 
 . /usr/local/bin/openbmc-utils.sh
 
-echo "SYSFPGA: $((SYSFPGA_VER))"
+# echo "SYSFPGA: $((SYSFPGA_VER))"

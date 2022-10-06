@@ -326,11 +326,27 @@ static const i2c_dev_attr_st sysfpga_attr_table[] = {
         0x20, 16, 1,
     },
     {
+        "psu1_pwr_ok",
+        "0: Power On\n"
+        "1: Power Off\n",
+        fpga_read,
+        NULL,
+        0x20, 17, 1,
+    },
+    {
         "psu2_present",
         present_help_str,
         fpga_read,
         NULL,
         0x20, 20, 1,
+    },
+    {
+        "psu2_pwr_ok",
+        "0: Power On\n"
+        "1: Power Off\n",
+        fpga_read,
+        NULL,
+        0x20, 21, 1,
     },
     {
         "system_pwr",

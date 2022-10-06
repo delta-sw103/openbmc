@@ -19,41 +19,21 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
 LOCAL_URI += " \
     file://board-utils.sh \
-    file://boot_info.sh \
-    file://cpld_ver.sh \
-    file://disable_watchdog.sh \
     file://eth0_mac_fixup.sh \
     file://feutil \
+    file://fpga_ver.sh \
     file://presence_util.sh \
-    file://reset_brcm.sh \
-    file://set_vdd.sh \
-    file://setup_avs.sh \
     file://setup_board.sh \
     file://setup_default_gpio.sh \
     file://setup_i2c.sh \
-    file://setup_mgmt.sh \
-    file://smbcpld_update.sh \
-    file://spi_util.sh \
-    file://switch_reset.sh \
-    file://us_console.sh \
     file://wedge_power.sh \
     "
 
 OPENBMC_UTILS_FILES += " \
     board-utils.sh \
-    boot_info.sh \
-    cpld_ver.sh \
-    disable_watchdog.sh \
     feutil \
+    fpga_ver.sh \
     presence_util.sh \
-    reset_brcm.sh \
-    set_vdd.sh \
-    setup_avs.sh \
-    setup_mgmt.sh \
-    smbcpld_update.sh \
-    spi_util.sh \
-    switch_reset.sh \
-    us_console.sh \
     wedge_power.sh \
     "
 
@@ -83,8 +63,8 @@ do_install_board() {
     install -m 755 setup_i2c.sh ${D}${sysconfdir}/init.d/setup_i2c.sh
     update-rc.d -r ${D} setup_i2c.sh start 59 S .
 
-    install -m 755 setup_avs.sh ${D}${sysconfdir}/init.d/setup_avs.sh
-    update-rc.d -r ${D} setup_avs.sh start 65 S .
+    # install -m 755 setup_avs.sh ${D}${sysconfdir}/init.d/setup_avs.sh
+    # update-rc.d -r ${D} setup_avs.sh start 65 S .
 
     # networking is done after rcS, any start level within rcS
     # for mac fixup should work
@@ -97,8 +77,8 @@ do_install_board() {
     install -m 0755 ${S}/rc.local ${D}${sysconfdir}/init.d/rc.local
     update-rc.d -r ${D} rc.local start 99 2 3 4 5 .
 
-    install -m 0755 ${S}/disable_watchdog.sh ${D}${sysconfdir}/init.d/disable_watchdog.sh
-    update-rc.d -r ${D} disable_watchdog.sh start 99 2 3 4 5 .
+    # install -m 0755 ${S}/disable_watchdog.sh ${D}${sysconfdir}/init.d/disable_watchdog.sh
+    # update-rc.d -r ${D} disable_watchdog.sh start 99 2 3 4 5 .
 
 }
 

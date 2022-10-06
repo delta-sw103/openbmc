@@ -21,53 +21,37 @@
 # Do not change this line to openbmc-utils.sh, or it will generate a source loop.
 . /usr/local/bin/i2c-utils.sh
 
-SWPLD1_SYSFS_DIR=$(i2c_device_sysfs_abspath 7-0032)
-SWPLD2_SYSFS_DIR=$(i2c_device_sysfs_abspath 7-0034)
-SWPLD3_SYSFS_DIR=$(i2c_device_sysfs_abspath 7-0035)
 SYSFPGA_SYSFS_DIR=$(i2c_device_sysfs_abspath 3-0036)
 
 # RESET
-VR_3V3_RST_SYSFS="${SWPLD1_SYSFS_DIR}/vr_3v3_rst"
-VR_0V8_RST_SYSFS="${SWPLD1_SYSFS_DIR}/vr_0v8_rst"
-MAC_RST_SYSFS="${SWPLD1_SYSFS_DIR}/mac_rst"
-BMC_RST_SYSFS="${SWPLD1_SYSFS_DIR}/bmc_rst"
-LPC_RST_SYSFS="${SWPLD1_SYSFS_DIR}/lpc_rst"
-OOB_PCIE_RST_SYSFS="${SWPLD1_SYSFS_DIR}/oob_pcie_rst"
-MAC_PCIE_RST_SYSFS="${SWPLD1_SYSFS_DIR}/mac_pcie_rst"
+# VR_3V3_RST_SYSFS="${SWPLD1_SYSFS_DIR}/vr_3v3_rst"
+
 
 # CPLD version
-SWPLD1_BOARD_ID=$(head -n 1 "$SWPLD1_SYSFS_DIR/board_id" 2> /dev/null)
-SWPLD1_BOARD_VER=$(head -n 1 "$SWPLD1_SYSFS_DIR/board_ver" 2> /dev/null)
-SWPLD1_VER_TYPE=$(head -n 1 "$SWPLD1_SYSFS_DIR/swpld1_ver_type" 2> /dev/null)
-SWPLD1_VER=$(head -n 1 "$SWPLD1_SYSFS_DIR/swpld1_ver" 2> /dev/null)
-SWPLD2_VER_TYPE=$(head -n 1 "$SWPLD2_SYSFS_DIR/swpld2_ver_type" 2> /dev/null)
-SWPLD2_VER=$(head -n 1 "$SWPLD2_SYSFS_DIR/swpld2_ver" 2> /dev/null)
-SWPLD3_VER_TYPE=$(head -n 1 "$SWPLD3_SYSFS_DIR/swpld3_ver_type" 2> /dev/null)
-SWPLD3_VER=$(head -n 1 "$SWPLD3_SYSFS_DIR/swpld3_ver" 2> /dev/null)
+# SWPLD1_BOARD_ID=$(head -n 1 "$SWPLD1_SYSFS_DIR/board_id" 2> /dev/null)
+# SWPLD1_BOARD_VER=$(head -n 1 "$SWPLD1_SYSFS_DIR/board_ver" 2> /dev/null)
 SYSFPGA_VER=$(head -n 1 "$SYSFPGA_SYSFS_DIR/fpga_ver" 2> /dev/null)
 
 # PSU
 PSU1_PRESENT=$(head -n 1 "$SYSFPGA_SYSFS_DIR/psu1_present" 2> /dev/null)
 PSU2_PRESENT=$(head -n 1 "$SYSFPGA_SYSFS_DIR/psu2_present" 2> /dev/null)
-PSU1_ENABLE=$(head -n 1 "$SWPLD1_SYSFS_DIR/psu1_en" 2> /dev/null)
-PSU2_ENABLE=$(head -n 1 "$SWPLD1_SYSFS_DIR/psu2_en" 2> /dev/null)
-PSU1_EEPROM_WP=$(head -n 1 "$SWPLD1_SYSFS_DIR/psu1_eeprom_wp" 2> /dev/null)
-PSU2_EEPROM_WP=$(head -n 1 "$SWPLD1_SYSFS_DIR/psu2_eeprom_wp" 2> /dev/null)
-PSU1_STATE=$(head -n 1 "$SWPLD1_SYSFS_DIR/psu1_state" 2> /dev/null)
-PSU2_STATE=$(head -n 1 "$SWPLD1_SYSFS_DIR/psu2_state" 2> /dev/null)
-PSU1_ALERT=$(head -n 1 "$SWPLD1_SYSFS_DIR/psu1_alert" 2> /dev/null)
-PSU2_ALERT=$(head -n 1 "$SWPLD1_SYSFS_DIR/psu2_alert" 2> /dev/null)
+PSU1_ENABLE=$(head -n 1 "$SYSFPGA_SYSFS_DIR/psu1_enable" 2> /dev/null)
+PSU2_ENABLE=$(head -n 1 "$SYSFPGA_SYSFS_DIR/psu2_enable" 2> /dev/null)
+PSU1_PWR_OK=$(head -n 1 "$SYSFPGA_SYSFS_DIR/psu1_pwr_ok" 2> /dev/null)
+PSU2_PWR_OK=$(head -n 1 "$SYSFPGA_SYSFS_DIR/psu2_pwr_ok" 2> /dev/null)
 
 
-
+# Called by power-on.sh, wedge_power.sh
 wedge_is_us_on() {
     return 0
 }
 
+# Called by setup_i2c.sh
 wedge_board_type_rev(){
     echo "DD-T32C2S"
 }
 
+# Called by setup_default_gpio.sh
 delta_board_rev() {
     echo "$SWPLD1_BOARD_VER"
 }

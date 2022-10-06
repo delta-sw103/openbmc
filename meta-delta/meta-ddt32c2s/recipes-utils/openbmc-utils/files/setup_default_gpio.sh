@@ -30,8 +30,6 @@
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 
-board_rev=$(delta_board_rev)
-
 echo -n "Setting up Default GPIOs value... "
 
 echo "None."
