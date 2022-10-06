@@ -32,7 +32,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 
 # Setup management port LED
 # /usr/local/bin/setup_mgmt.sh led &
-/usr/local/bin/setup_mgmt.sh
+# /usr/local/bin/setup_mgmt.sh
 
 # Force UART connect to BMC UART-5
 # echo 0 > "$SWPLD1_SYSFS_DIR/console_sel"
