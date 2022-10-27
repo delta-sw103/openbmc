@@ -27,7 +27,8 @@ PV = "0.1"
 
 LOCAL_URI = " \
     file://Makefile \
-    file://delta_sysfpga.c \
+    file://sysfpga.c \
+    file://sysfpga.h \
     file://COPYING \
     "
 
