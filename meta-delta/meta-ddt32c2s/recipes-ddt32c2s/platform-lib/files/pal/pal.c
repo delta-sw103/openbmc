@@ -334,14 +334,15 @@ pal_del_i2c_device(uint8_t bus, uint8_t addr) {
 }
 //For OEM command "CMD_OEM_GET_PLAT_INFO" 0x7e
 
-// SW103_TODO
+// SW101_TODO
 // LE_DEBUG: oem_get_plat_info
 // For OEM command "CMD_OEM_GET_PLAT_INFO" 0x7e
 int
 pal_get_plat_sku_id(void){
+  return 5; //DD-T32C2S
   int val;
   char path[LARGEST_DEVICE_NAME + 1];
-  snprintf(path, LARGEST_DEVICE_NAME, SWPLD1_SYSFS, SWBD_ID);
+  snprintf(path, LARGEST_DEVICE_NAME, SYSFPGA_SYSFS, SWBD_ID);
   if (read_device(path, &val)) {
     return -1;
   }
@@ -1168,24 +1169,18 @@ pal_get_cpld_fpga_fw_ver(uint8_t fru, const char *device, uint8_t* ver) {
 
   switch(fru) {
     case FRU_CPLD:
-      if (!(strncmp(device, SWPLD1, strlen(SWPLD1)))) {
-        snprintf(ver_path, sizeof(ver_path), SWPLD1_SYSFS, "swpld1_ver");
-        snprintf(sub_ver_path, sizeof(sub_ver_path), SWPLD1_SYSFS, "swpld1_ver_type");
-      } else if (!(strncmp(device, SWPLD2, strlen(SWPLD2)))) {
-        snprintf(ver_path, sizeof(ver_path), SWPLD2_SYSFS, "swpld2_ver");
-        snprintf(sub_ver_path, sizeof(sub_ver_path), SWPLD2_SYSFS, "swpld2_ver_type");
-      } else if (!(strncmp(device, SWPLD3, strlen(SWPLD3)))) {
-        snprintf(ver_path, sizeof(ver_path), SWPLD3_SYSFS, "swpld3_ver");
-        snprintf(sub_ver_path, sizeof(sub_ver_path), SWPLD3_SYSFS, "swpld3_ver_type");
+      return -1;
+      break;
+    case FRU_FPGA:
+      if (!(strncmp(device, SYSFPGA, strlen(SYSFPGA)))) {
+        snprintf(ver_path, sizeof(ver_path), SYSFPGA_SYSFS, "fpga_ver");
       } else {
         return -1;
       }
       break;
-    case FRU_FPGA:
-      return -1;
-      break;
     default:
       return -1;
+      break;
   }
 
   if (!read_device(ver_path, &val)) {

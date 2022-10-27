@@ -69,35 +69,15 @@ def set_register():
     # l_reg.set_bit(26, write_through=True)
 
 
-def agc032a_board_rev():
-    stream = os.popen("head -n 1 /sys/bus/i2c/devices/7-0032/board_id")
-    board_id = stream.read()
-    if stream.close():
-        return None
-    else:
-        return board_id
-
-
-def agc032a_board_type():
-    stream = os.popen("head -n 1 /sys/bus/i2c/devices/7-0032/board_ver")
-    board_ver = stream.read()
-    if stream.close():
-        return None
-    else:
-        return board_ver
-
-
 def main():
     print("Setting up GPIOs ... \n", end="")
     sys.stdout.flush()
     openbmc_gpio.gpio_shadow_init()
-    version = agc032a_board_rev()
-    brd_type = agc032a_board_type()
     # In order to satisy/unsatisfy conditions in setup_board_gpio()
     # modify the registers
     set_register()
 
-    print("Board version %s \nBoard type %s. \nUsing Delta GPIO table.\n" % (version, brd_type), end="")
+    print("Using Delta GPIO table.\n", end="")
     setup_board_gpio(soc_gpio_table, board_gpio_table_v1_delta)
     print("Done")
     sys.stdout.flush()

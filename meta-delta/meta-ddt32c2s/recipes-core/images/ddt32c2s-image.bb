@@ -26,6 +26,7 @@ IMAGE_INSTALL += " \
   ipmid \
   ipmitool \
   ipmi-util \
+  kcsd \
   libcpldupdate-dll-echo \
   libcpldupdate-dll-gpio \
   libcpldupdate-dll-ast-jtag \
@@ -35,7 +36,6 @@ IMAGE_INSTALL += " \
   libncsi \
   ncsi-util \
   ncsid-v2 \
-  kcsd \
   openbmc-gpio \
   openbmc-utils \
   psu-util \

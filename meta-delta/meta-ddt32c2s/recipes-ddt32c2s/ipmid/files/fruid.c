@@ -42,7 +42,7 @@
 #include <facebook/wedge_eeprom.h>
 #include "fruid.h"
 
-#define AGC032A_FRUID_SIZE 0x100
+#define DDT32C2S_FRUID_SIZE 0x100
 #define DDT32C2S_FRU_NUM 10
 
 struct fruid_dev
@@ -58,19 +58,19 @@ struct fruid_dev
 enum { FRU_STD_FORMAT, FRU_FB_FORMAT, FRU_PSU_FORMAT};
 
 // Global structures
-static unsigned char g_fruid[DDT32C2S_FRU_NUM * AGC032A_FRUID_SIZE] = {0};
+static unsigned char g_fruid[DDT32C2S_FRU_NUM * DDT32C2S_FRUID_SIZE] = {0};
 
 static struct fruid_dev fruid_list[] = {
-    {FRU_SMB, 7, 0x50, &g_fruid[0 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
-    {FRU_PSU1, 0, 0x50, &g_fruid[1 * AGC032A_FRUID_SIZE], FRU_STD_FORMAT},
-    {FRU_PSU2, 0, 0x51, &g_fruid[2 * AGC032A_FRUID_SIZE], FRU_STD_FORMAT},
-    {FRU_FAN1, 16, 0x50, &g_fruid[3 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
-    {FRU_FAN2, 17, 0x50, &g_fruid[4 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
-    {FRU_FAN3, 18, 0x50, &g_fruid[5 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
-    {FRU_FAN4, 19, 0x50, &g_fruid[6 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
-    {FRU_FAN5, 20, 0x50, &g_fruid[7 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
-    {FRU_FAN6, 21, 0x50, &g_fruid[8 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT},
-    {FRU_FAN7, 22, 0x50, &g_fruid[9 * AGC032A_FRUID_SIZE], FRU_FB_FORMAT}};
+    {FRU_SMB, 7, 0x50, &g_fruid[0 * DDT32C2S_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_PSU1, 0, 0x50, &g_fruid[1 * DDT32C2S_FRUID_SIZE], FRU_STD_FORMAT},
+    {FRU_PSU2, 0, 0x51, &g_fruid[2 * DDT32C2S_FRUID_SIZE], FRU_STD_FORMAT},
+    {FRU_FAN1, 16, 0x50, &g_fruid[3 * DDT32C2S_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_FAN2, 17, 0x50, &g_fruid[4 * DDT32C2S_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_FAN3, 18, 0x50, &g_fruid[5 * DDT32C2S_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_FAN4, 19, 0x50, &g_fruid[6 * DDT32C2S_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_FAN5, 20, 0x50, &g_fruid[7 * DDT32C2S_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_FAN6, 21, 0x50, &g_fruid[8 * DDT32C2S_FRUID_SIZE], FRU_FB_FORMAT},
+    {FRU_FAN7, 22, 0x50, &g_fruid[9 * DDT32C2S_FRUID_SIZE], FRU_FB_FORMAT}};
 
 struct fruid_dev *get_frudev(int id)
 {
@@ -113,7 +113,7 @@ typedef struct _fruid_common_hdr_t
     if (name == NULL) {                                                  \
       break;                                                             \
     }                                                                    \
-    if (strlen(name) < 1 || i + 1 + strlen(name) >= AGC032A_FRUID_SIZE)  \
+    if (strlen(name) < 1 || i + 1 + strlen(name) >= DDT32C2S_FRUID_SIZE)  \
     {                                                                    \
       break;                                                             \
     }                                                                    \
@@ -148,7 +148,7 @@ static void populate_fruid(unsigned char id)
              id, filename);
       return;
     }
-    if (fread(frumem, 1, AGC032A_FRUID_SIZE, fp) != AGC032A_FRUID_SIZE) {
+    if (fread(frumem, 1, DDT32C2S_FRUID_SIZE, fp) != DDT32C2S_FRUID_SIZE) {
       OBMC_WARN("populate_fruid: Read less than requested FRUID\n");
     }
     fclose(fp);
@@ -209,7 +209,7 @@ static void populate_fruid(unsigned char id)
     struct wedge_eeprom_st eeprom;
     // Will keep data to buffer in IPMI FRU format
     fruid_common_hdr_t *chdr = (fruid_common_hdr_t *)frumem;
-    memset(&fruid, AGC032A_FRUID_SIZE, zero_val);
+    memset(&fruid, DDT32C2S_FRUID_SIZE, zero_val);
 
     chdr->ver = COMMON_HDR_VER;
     chdr->prod_info_area_offset = PROD_INFO_AREA_OFFSET / LEN_BYTE_SIZE;
@@ -268,7 +268,7 @@ static void populate_fruid(unsigned char id)
 
 int plat_fruid_size(unsigned char payload_id)
 {
-  return AGC032A_FRUID_SIZE;
+  return DDT32C2S_FRUID_SIZE;
 }
 
 int plat_fruid_data(unsigned char payload_id, int fru_id, int offset, int count,
@@ -280,7 +280,7 @@ int plat_fruid_data(unsigned char payload_id, int fru_id, int offset, int count,
     return -1;
   unsigned char *frumem = frudev->mem;
 
-  if ((offset + count) > AGC032A_FRUID_SIZE)
+  if ((offset + count) > DDT32C2S_FRUID_SIZE)
   {
     return -1;
   }
@@ -319,8 +319,8 @@ int copy_eeprom_to_bin(int fru_id) {
     return errno;
   }
 
-  bytes_wr = write(bin, frudev->mem, AGC032A_FRUID_SIZE);
-  if (bytes_wr != AGC032A_FRUID_SIZE) {
+  bytes_wr = write(bin, frudev->mem, DDT32C2S_FRUID_SIZE);
+  if (bytes_wr != DDT32C2S_FRUID_SIZE) {
     syslog(LOG_ERR, "%s: write to %s file failed: %s",
           __func__, bin_file, strerror(errno));
     close(bin);

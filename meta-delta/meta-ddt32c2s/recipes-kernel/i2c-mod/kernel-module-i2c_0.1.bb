@@ -10,7 +10,7 @@
 # for more details.
 #
 
-SUMMARY = "AGC032A I2C module drivers"
+SUMMARY = "DDT32C2S I2C module drivers"
 LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://COPYING;md5=12f884d2ae1ff87c09e5b7ccc2c4ca7e"
 

@@ -46,7 +46,7 @@ class CsvReader:
         return line
 
 
-class AGC032AGPIO(object):
+class DDT32C2SGPIO(object):
     def __init__(self, data):
         self.data = data
         self.gpios = {}
@@ -90,7 +90,7 @@ def main():
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s: %(message)s")
 
-    gpio = AGC032AGPIO(CsvReader(args.data))
+    gpio = DDT32C2SGPIO(CsvReader(args.data))
     gpio.parse()
     gpio.print11(sys.stdout)
 

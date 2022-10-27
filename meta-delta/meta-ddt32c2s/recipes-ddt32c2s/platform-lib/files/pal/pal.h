@@ -41,10 +41,6 @@ extern "C" {
 #define I2C_DEV_DIR(bus, addr) "/sys/bus/i2c/devices/i2c-"#bus"/"#bus"-00"#addr"/"
 #define HW_MON_DIR "hwmon/hwmon*"
 
-/* AGC032A */
-#define SWPLD1 "swpld1"
-#define SWPLD2 "swpld2"
-#define SWPLD3 "swpld3"
 /* DDT32C2S */
 #define SYSFPGA "sysfpga"
 
@@ -65,10 +61,6 @@ extern "C" {
 #define FCM_SYSFS        I2C_DEV_DIR(30, 3e)"%s"
 #define DOMFPGA1_SYSFS   I2C_DEV_DIR(13, 60)"%s"
 #define DOMFPGA2_SYSFS   I2C_DEV_DIR(5, 60)"%s"
-/* AGC032A */
-#define SWPLD1_SYSFS I2C_DEV_DIR(7, 32) "%s"
-#define SWPLD2_SYSFS I2C_DEV_DIR(7, 34) "%s"
-#define SWPLD3_SYSFS I2C_DEV_DIR(7, 35) "%s"
 /* DDT32C2S */
 #define SYSFPGA_SYSFS I2C_DEV_DIR(3, 36) "%s"
 
@@ -112,7 +104,7 @@ extern "C" {
 #define SCM_OUTLET_TEMP_DEVICE I2C_DEV_DIR(15, 4d)HW_MON_DIR
 #define SCM_INLET_TEMP_DEVICE  I2C_DEV_DIR(15, 4c)HW_MON_DIR
 
-// SMB Sensor Devices
+/* SMB Sensor Devices
 #define SMB_PXE1211_DEVICE            I2C_DEV_DIR(1, 0e)HW_MON_DIR
 #define SMB_SW_SERDES_PVDD_DEVICE     I2C_DEV_DIR(1, 4d)HW_MON_DIR
 #define SMB_SW_SERDES_TRVDD_DEVICE    I2C_DEV_DIR(1, 47)HW_MON_DIR
@@ -133,15 +125,7 @@ extern "C" {
 #define SMB_FCM_TACH_DEVICE           I2C_DEV_DIR(30, 3e)
 #define SMB_FCM_LM75B_U1_DEVICE       I2C_DEV_DIR(32, 48)HW_MON_DIR
 #define SMB_FCM_LM75B_U2_DEVICE       I2C_DEV_DIR(32, 49)HW_MON_DIR
-#define SMB_FCM_HSC_DEVICE            I2C_DEV_DIR(33, 10)HW_MON_DIR
-/* AGC032A
-#define SMB_TMP75_LF_DEVICE           I2C_DEV_DIR(4, 4b)HW_MON_DIR
-#define SMB_TMP75_RF_DEVICE           I2C_DEV_DIR(4, 49)HW_MON_DIR
-#define SMB_TMP75_UPPER_MAC_DEVICE    I2C_DEV_DIR(4, 4a)HW_MON_DIR
-#define SMB_TMP75_LOWER_MAC_DEVICE    I2C_DEV_DIR(4, 4e)HW_MON_DIR
-#define SMB_FAN_CONTROLLER1_DEVICE    I2C_DEV_DIR(3, 2e)
-#define SMB_FAN_CONTROLLER2_DEVICE    I2C_DEV_DIR(3, 4c)
-#define SMB_FAN_CONTROLLER3_DEVICE    I2C_DEV_DIR(3, 2d) */
+#define SMB_FCM_HSC_DEVICE            I2C_DEV_DIR(33, 10)HW_MON_DIR*/
 /* DDT32C2S */
 #define SMB_TMP75_LF_DEVICE           I2C_DEV_DIR(1, 49)HW_MON_DIR
 #define SMB_TMP75_RF_DEVICE           I2C_DEV_DIR(1, 4a)HW_MON_DIR
