@@ -145,7 +145,7 @@ void fw_util_sig_handler(int signo)
 
 void usage()
 {
-  cout << "USAGE: " << exec_name << " all|FRU --version [all|COMPONENT]" << endl;
+  cout << "USAGE: " << exec_name << " all|FRU --version|--version-json [all|COMPONENT]" << endl;
   cout << "       " << exec_name << " FRU --update [--]COMPONENT IMAGE_PATH" << endl;
   cout << "       " << exec_name << " FRU --force --update [--]COMPONENT IMAGE_PATH" << endl;
   cout << "       " << exec_name << " FRU --dump [--]COMPONENT IMAGE_PATH" << endl;
@@ -362,7 +362,13 @@ int main(int argc, char *argv[])
             syslog(LOG_WARNING, "Error getting single_instance_lock");
           }
           if (c->is_update_ongoing()) {
-            cerr << "Upgrade aborted due to ongoing upgrade on FRU: " << c->fru() << endl;
+            if (action == "--version") {
+              cerr << "Block getting version due to ongoing upgrade on FRU: " << c->fru() << endl;
+            } else if (action == "--update") {
+              cerr << "Upgrade aborted due to ongoing upgrade on FRU: " << c->fru() << endl;
+            } else {
+              cerr << "Action " << action << "aborted due to ongoing upgrade on FRU: " << c->fru() << endl;
+            }
             single_instance_unlock(lfd);
             return -1;
           }
@@ -374,13 +380,24 @@ int main(int argc, char *argv[])
 
           if (action == "--version") {
             ret = c->print_version();
+            if (ret == FW_STATUS_NOT_SUPPORTED) {
+              json j_object = {{"FRU", c->fru()}, {"COMPONENT", c->component()}};
+              ret = c->get_version(j_object);
+              if (ret == FW_STATUS_SUCCESS) {
+                string comp = j_object.value("PRETTY_COMPONENT", c->component());
+                string vers(j_object["VERSION"]);
+                cout << comp << " Version: " << vers << std::endl;
+              }
+            }
             if (ret != FW_STATUS_SUCCESS && ret != FW_STATUS_NOT_SUPPORTED) {
               cerr << "Error getting version of " << c->component()
                 << " on fru: " << c->fru() << endl;
             }
           } else if ( action == "--version-json" ) {
             json j_object = {{"FRU", c->fru()}, {"COMPONENT", c->component()}};
-            c->get_version(j_object);
+            if (c->get_version(j_object) == FW_STATUS_NOT_SUPPORTED) {
+              j_object["VERSION"] = "not_supported";
+            }
             json_array.push_back(j_object);
           } else {  // update or dump
             if (fru == "all") {

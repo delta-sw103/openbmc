@@ -28,7 +28,7 @@ fan_mode = {"normal_mode": 0, "trans_mode": 1, "boost_mode": 2, "progressive_mod
 get_fan_mode_scenario_list = ["one_fan_failure", "sensor_hit_UCR"]
 
 lpal_hndl = CDLL("libpal.so.0")
-lbic_hndl = CDLL("libbic.so")
+lbic_hndl = CDLL("libbic.so.0")
 
 GPIO_FM_BIOS_POST_CMPLT_BMC_N = 1
 
@@ -49,6 +49,17 @@ fru_map = {
         "name": "fru4",
         "slot_num": 4,
     },
+}
+
+hd_dimm_location_name_map = {
+    "0": "_dimm0_location",
+    "1": "_dimm1_location",
+    "2": "_dimm2_location",
+    "4": "_dimm4_location",
+    "6": "_dimm6_location",
+    "7": "_dimm7_location",
+    "8": "_dimm8_location",
+    "10": "_dimm10_location",
 }
 
 dimm_location_name_map = {
@@ -144,13 +155,25 @@ def is_dev_prsnt(filename):
         return 0
 
 
+def is_halfdome():
+    try:
+        conf = kv.kv_get("sled_system_conf", kv.FPERSIST, True)
+        if conf.find(b"HD") != -1:
+            return True
+        return False
+
+    except Exception:
+        return False
+
+
 def sensor_valid_check(board, sname, check_name, attribute):
     try:
         if attribute["type"] == "power_status":
+            (board, sname) = sname.split("_", 1)
             file = "/var/run/power-util_%d.lock" % int(fru_map[board]["slot_num"])
             if os.path.exists(file):
                 return 0
-            if board.find("slot") != -1:
+            if "slot" in board:
                 if (
                     lpal_hndl.pal_is_fw_update_ongoing(int(fru_map[board]["slot_num"]))
                     == True
@@ -163,7 +186,7 @@ def sensor_valid_check(board, sname, check_name, attribute):
             if (ret != 0) or (status.value == 5):  # SERVER_12V_OFF
                 return 0
 
-            if sname.find("fio_") != -1:
+            if "fio_" in sname:
                 return 1
 
             if status.value == 1:  # power on
@@ -171,13 +194,21 @@ def sensor_valid_check(board, sname, check_name, attribute):
                 if ready != 1:
                     return 0
 
-                if sname.find("dimm") != -1:
-                    dimm_name = (
-                        "sys_config/"
-                        + fru_map[board]["name"]
-                        + dimm_location_name_map[sname[8 : sname.find("_t")]]
-                    )
-                    return is_dev_prsnt(dimm_name)
+                if "dimm" in sname:
+                    if is_halfdome():
+                        dimm_name = (
+                            "sys_config/"
+                            + fru_map[board]["name"]
+                            + hd_dimm_location_name_map[sname[8 : sname.find("_t")]]
+                        )
+                        return is_dev_prsnt(dimm_name)
+                    else:
+                        dimm_name = (
+                            "sys_config/"
+                            + fru_map[board]["name"]
+                            + dimm_location_name_map[sname[8 : sname.find("_t")]]
+                        )
+                        return is_dev_prsnt(dimm_name)
 
                 return 1
 
@@ -192,8 +223,12 @@ def sensor_valid_check(board, sname, check_name, attribute):
 
 def get_fan_mode(scenario="None"):
     if "one_fan_failure" in scenario:
-        pwm = 60
-        return fan_mode["trans_mode"], pwm
+        if is_halfdome():
+            pwm = 100
+            return fan_mode["boost_mode"], pwm
+        else:
+            pwm = 60
+            return fan_mode["trans_mode"], pwm
     elif "sensor_hit_UCR" in scenario:
         pwm = 100
         return fan_mode["boost_mode"], pwm
@@ -202,9 +237,12 @@ def get_fan_mode(scenario="None"):
 
 
 def sensor_fail_ignore_check(board, sname):
-    if "slot" not in board:
+    if "e1s_" in sname:
+        return True
+    elif "slot" not in sname:
         return False
     else:
+        (board, sname) = sname.split("_", 1)
         slot_id = fru_map[board]["slot_num"]
         pin_val = c_uint8(0)
         lbic_hndl.bic_get_one_gpio_status(

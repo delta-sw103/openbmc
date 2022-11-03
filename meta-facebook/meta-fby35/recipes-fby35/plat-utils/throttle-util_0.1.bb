@@ -6,19 +6,9 @@ PR = "r1"
 LICENSE = "GPL-2.0-or-later"
 LIC_FILES_CHKSUM = "file://throttle-util.c;beginline=4;endline=16;md5=b395943ba8a0717a83e62ca123a8d238"
 
-SRC_URI = "file://throttle-util \
-          "
-
+SRC_URI = "file://throttle-util"
 S = "${WORKDIR}/throttle-util"
 
-CFLAGS += "-Wall -Werror -lbic -D_XOPEN_SOURCE"
-LDFLAGS = " -lobmc-i2c -lbic -lpal -lfby35_common -lfby35_gpio "
-DEPENDS += " libbic libpal libfby35-common libfby35-gpio libobmc-i2c "
-RDEPENDS:${PN} += " libbic libpal libfby35-common libfby35-gpio libobmc-i2c "
+inherit meson pkgconfig
 
-do_install() {
-  install -d ${D}${bindir}
-  install -m 0755 throttle-util ${D}${bindir}/throttle-util
-}
-
-FILES:${PN} = "${bindir}"
+DEPENDS += "libobmc-i2c libpal libfby35-common"

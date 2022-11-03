@@ -21,22 +21,23 @@ pal_sources += [
     'pal_mb_sensors.c',
     'pal_swb_sensors.c',
     'pal_bb_sensors.c',
-    'pal_hmc_sensors.c'
+    'pal_hmc_sensors.c',
+    'pal_cover.c'
     ]
 
 pal_deps += [
-    cc.find_library('hal_fruid'),
+    cc.find_library('apml64'),
     cc.find_library('gpio-ctrl'),
-    cc.find_library('ncsi'),
-    cc.find_library('nl-wrapper'),
+    cc.find_library('hal_fruid'),
     cc.find_library('nm'),
     cc.find_library('obmc-i2c'),
-    cc.find_library('obmc-pmbus'),
-    cc.find_library('obmc-sensors'),
     cc.find_library('peci'),
     cc.find_library('peci_sensors'),
     cc.find_library('sensor-correction'),
-    cc.find_library('apml64'),
-    dependency('libpldm-oem'),
     dependency('libhgx'),
+    dependency('libncsi'),
+    dependency('libnl-wrapper'),
+    dependency('libobmc-pmbus'),
+    dependency('libobmc-sensors'),
+    dependency('libpldm-oem'),
     ]

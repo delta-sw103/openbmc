@@ -62,6 +62,8 @@ extern "C" {
 #define SIZE_LAST_BOOT_TIME 4
 #define SIZE_PCIE_PORT_CONFIG 2
 
+#define BLK_SYSFW_VER 2
+
 #define SIZE_SEL_REC 16
 #define SIZE_RAS_SEL 35
 
@@ -203,7 +205,7 @@ typedef struct {
   unsigned char rsvd[2];
   unsigned char oem;
   unsigned char str_type_len;
-  char str[16];
+  char str[31];
 } sdr_full_t;
 
 typedef struct _ipmi_sel_sdr_info_t {
@@ -260,7 +262,7 @@ typedef struct
 typedef struct
 {
   unsigned char set_in_prog;
-  unsigned char sysfw_ver[SIZE_SYSFW_VER];
+  unsigned char sysfw_ver[SIZE_SYSFW_VER*BLK_SYSFW_VER];
   unsigned char sys_name[SIZE_SYS_NAME];
   unsigned char pri_os_name[SIZE_OS_NAME];
   unsigned char present_os_name[SIZE_OS_NAME];

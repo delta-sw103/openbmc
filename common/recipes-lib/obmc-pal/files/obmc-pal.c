@@ -178,11 +178,149 @@ static int pal_lpc_snoop_read(uint8_t *buf, size_t max_len, size_t *rlen)
   return PAL_EOK;
 }
 
+static int pal_lpc_pcc_read(uint8_t *buf, size_t max_len, size_t *rlen)
+{
+  const char *dev_path = "/dev/aspeed-lpc-pcc";
+  const char *cache_key = "postcode";
+  uint8_t cache[MAX_VALUE_LEN * 2];
+  size_t len = 0, cache_len = 0;
+  int fd;
+  uint16_t postcode;
+
+  if (kv_get(cache_key, (char *)cache, &len, 0)) {
+    len = cache_len = 0;
+  } else {
+    cache_len = len;
+  }
+
+  fd = open(dev_path, O_RDONLY | O_NONBLOCK);
+  if (fd < 0) {
+    return PAL_ENOTREADY;
+  }
+  while (len < sizeof(cache) &&
+      read(fd, &postcode, 2) == 2) {
+    cache[len++] = postcode & 0x00FF;
+  }
+  close(fd);
+
+  if (len > cache_len) {
+    if (len > MAX_VALUE_LEN) {
+      memmove(cache, &cache[len - MAX_VALUE_LEN], MAX_VALUE_LEN);
+      len = MAX_VALUE_LEN;
+    }
+    if (kv_set(cache_key, (char *)cache, len, 0)) {
+      syslog(LOG_CRIT, "%zu postcodes dropped\n", len - cache_len);
+    }
+  }
+  len = len > max_len ? max_len : len;
+  memcpy(buf, cache, len);
+  *rlen = len;
+  return PAL_EOK;
+}
+
+static int
+parse_psb_sel(uint8_t *event_data, char *error_log) {
+  uint8_t *ed = &event_data[3];
+
+  strcpy(error_log, "");
+  switch (ed[1]) {
+    case 0x00:
+      strcat(error_log, "PSB Pass");
+      break;
+    case 0x03:
+      strcat(error_log, "Error in BIOS Directory Table - Too many directory entries");
+      break;
+    case 0x04:
+      strcat(error_log, "Internal error - Invalid parameter");
+      break;
+    case 0x05:
+      strcat(error_log, "Internal error - Invalid data length");
+      break;
+    case 0x0B:
+      strcat(error_log, "Internal error - Out of resources");
+      break;
+    case 0x10:
+      strcat(error_log, "Error in BIOS Directory Table - Reset image destination invalid");
+      break;
+    case 0x13:
+      strcat(error_log, "Error retrieving FW header during FW validation");
+      break;
+    case 0x14:
+      strcat(error_log, "Invalid key size");
+      break;
+    case 0x18:
+      strcat(error_log, "Error validating binary");
+      break;
+    case 0x22:
+      strcat(error_log, "P0: BIOS signing key entry not found");
+      break;
+    case 0x3E:
+      strcat(error_log, "P0: Error reading fuse info");
+      break;
+    case 0x62:
+      strcat(error_log, "Internal error - Error mapping fuse");
+      break;
+    case 0x64:
+      strcat(error_log, "P0: Timeout error attempting to fuse");
+      break;
+    case 0x69:
+      strcat(error_log, "BIOS OEM key revoked");
+      break;
+    case 0x6C:
+      strcat(error_log, "P0: Error in BIOS Directory Table - Reset image not found");
+      break;
+    case 0x6F:
+      strcat(error_log, "P0: OEM BIOS Signing Key Usage flag violation");
+      break;
+    case 0x78:
+      strcat(error_log, "P0: BIOS RTM Signature entry not found");
+      break;
+    case 0x79:
+      strcat(error_log, "P0: BIOS Copy to DRAM failed");
+      break;
+    case 0x7A:
+      strcat(error_log, "P0: BIOS RTM Signature verification failed");
+      break;
+    case 0x7B:
+      strcat(error_log, "P0: OEM BIOS Signing Key failed signature verification");
+      break;
+    case 0x7C:
+      strcat(error_log, "P0: Platform Vendor ID and/or Model ID binding violation");
+      break;
+    case 0x7D:
+      strcat(error_log, "P0: BIOS Copy bit is unset for reset image");
+      break;
+    case 0x7E:
+      strcat(error_log, "P0: Requested fuse is already blown, reblow will cause ASIC malfunction");
+      break;
+    case 0x7F:
+      strcat(error_log, "P0: Error with actual fusing operation");
+      break;
+    case 0x80:
+      strcat(error_log, "P1: Error reading fuse info");
+      break;
+    case 0x81:
+      strcat(error_log, "P1: Platform Vendor ID and/or Model ID binding violation");
+      break;
+    case 0x82:
+      strcat(error_log, "P1: Requested fuse is already blown, reblow will cause ASIC malfunction");
+      break;
+    case 0x83:
+      strcat(error_log, "P1: Error with actual fusing operation");
+      break;
+    case 0x92:
+      strcat(error_log, "P0: Error in BIOS Directory Table - Firmware type not found");
+      break;
+    default:
+      strcat(error_log, "Unknown");
+      break;
+  }
+  return 0;
+}
+
 int __attribute__((weak))
 pal_get_80port_record(uint8_t slot, uint8_t *buf, size_t max_len, size_t *len)
 {
-  static bool legacy = false, legacy_checked = false;
-
   if (buf == NULL || len == NULL || max_len == 0)
     return -1;
 
@@ -191,23 +329,16 @@ pal_get_80port_record(uint8_t slot, uint8_t *buf, size_t max_len, size_t *len)
     return PAL_ENOTSUP;
   }
 
-  if (legacy_checked == false) {
-    if (access("/sys/devices/platform/ast-snoop-dma.0/data_history", F_OK) == 0) {
-      legacy = true;
-      legacy_checked = true;
-    } else if (access("/dev/aspeed-lpc-snoop0", F_OK) == 0) {
-      legacy_checked = true;
-    } else {
-      return PAL_ENOTSUP;
-    }
-  }
-
-  // Support for snoop-dma on 4.1 kernel.
-  if (legacy) {
+  if (access("/sys/devices/platform/ast-snoop-dma.0/data_history", F_OK) == 0) {
+    // Support for snoop-dma on 4.1 kernel.
     return pal_lpc_snoop_read_legacy(buf, max_len, len);
+  } else if (access("/dev/aspeed-lpc-snoop0", F_OK) == 0) {
+    return pal_lpc_snoop_read(buf, max_len, len);
+  } else if (access("/dev/aspeed-lpc-pcc", F_OK) == 0) {
+    return pal_lpc_pcc_read(buf, max_len, len);
+  } else {
+    return PAL_ENOTSUP;
   }
-  return pal_lpc_snoop_read(buf, max_len, len);
-
 }
 
 int __attribute__((weak))
@@ -961,13 +1092,66 @@ pal_set_sys_guid(uint8_t fru, char *guid)
 int __attribute__((weak))
 pal_get_sysfw_ver(uint8_t slot, uint8_t *ver)
 {
+  int blk, i, j = 0;
+  char key[MAX_KEY_LEN];
+  char str[MAX_VALUE_LEN] = {0};
+  char *pstr, tstr[8] = {0};
+
+  sprintf(key, "fru%u_sysfw_ver", slot);
+  if (kv_get(key, str, NULL, KV_FPERSIST)) {
+    memset(ver, 0, SIZE_SYSFW_VER);
+    return -1;
+  }
+
+  for (blk = 0; blk < BLK_SYSFW_VER; blk++) {
+    pstr = str + blk * SIZE_SYSFW_VER*2;
+    for (i = 0; i < SIZE_SYSFW_VER*2; i += 2) {
+      if (blk > 0 && i == 0) {
+        continue;
+      }
+      memcpy(tstr, &pstr[i], 2);
+      ver[j++] = strtoul(tstr, NULL, 16);
+    }
+  }
+
   return PAL_EOK;
 }
 
 int __attribute__((weak))
 pal_set_sysfw_ver(uint8_t slot, uint8_t *ver)
 {
-  return PAL_EOK;
+  int ret, i;
+  size_t len = 0, offs = 0;
+  char key[MAX_KEY_LEN];
+  char str[MAX_VALUE_LEN] = {0};
+  char tstr[8] = {0};
+
+  if (ver[0] >= BLK_SYSFW_VER) {
+    return -1;
+  }
+  sprintf(key, "fru%u_sysfw_ver", slot);
+
+  // data length of 1st block: 14
+  //                2nd block: 16
+  if ((!ver[0] && ver[2] > 14) || (ver[0] > 0)) {
+    // using more than 1 block
+    ret = kv_get(key, str, &len, KV_FPERSIST);
+    if (ver[0] > 0) {
+      offs = ver[0] * SIZE_SYSFW_VER*2;
+      if (ret || (len < offs)) {
+        // fill '0' to the 1st block
+        memset(str, '0', offs);
+      }
+    }
+  }
+
+  for (i = 0; i < SIZE_SYSFW_VER; i++) {
+    sprintf(tstr, "%02x", ver[i]);
+    memcpy(&str[offs], tstr, 2);
+    offs += 2;
+  }
+
+  return kv_set(key, str, 0, KV_FPERSIST);
 }
 
 int __attribute__((weak))
@@ -1376,6 +1560,10 @@ pal_parse_sel_helper(uint8_t fru, uint8_t *sel, char *error_log)
       pal_add_cri_sel(temp_log);
       break;
 
+    case PSB_ERR:
+      parse_psb_sel(event_data, error_log);
+      break;
+
     case MEMORY_ECC_ERR:
     case MEMORY_ERR_LOG_DIS:
       if (snr_num == MEMORY_ECC_ERR) {
@@ -1454,30 +1642,31 @@ pal_parse_sel_helper(uint8_t fru, uint8_t *sel, char *error_log)
 
 
     case PWR_ERR:
-      switch(ed[0]){
+      switch(ed[0]) {
         case SYS_PWR_ON_FAIL:
-          sprintf(error_log, "SYS_PWROK failure, FRU:%u", fru);
+          sprintf(error_log, "SYS_PWROK failure");
           break;
         case PCH_PWR_ON_FAIL:
-          sprintf(error_log, "PCH_PWROK failure, FRU:%u", fru);
+          sprintf(error_log, "PCH_PWROK failure");
           break;
         case _1OU_EXP_PWR_ON_FAIL:
-          sprintf(error_log, "1OU EXP Power ON Failure, FRU:%u", fru);
+          sprintf(error_log, "1OU EXP Power ON Failure");
           break;
         case _1OU_EXP_PWR_OFF_FAIL:
-          sprintf(error_log, "1OU EXP Power OFF Failure, FRU:%u", fru);
+          sprintf(error_log, "1OU EXP Power OFF Failure");
           break;
         case _2OU_EXP_PWR_ON_FAIL:
-          sprintf(error_log, "2OU EXP Power ON Failure, FRU:%u", fru);
+          sprintf(error_log, "2OU EXP Power ON Failure");
           break;
         case _2OU_EXP_PWR_OFF_FAIL:
-          sprintf(error_log, "2OU EXP Power OFF Failure, FRU:%u", fru);
+          sprintf(error_log, "2OU EXP Power OFF Failure");
           break;
         default:
           strcat(error_log, "Unknown");
 
       }
-      pal_add_cri_sel(error_log);
+      sprintf(temp_log, "%s, FRU:%u", error_log, fru);
+      pal_add_cri_sel(temp_log);
       break;
 
     case CATERR_A:
@@ -3050,6 +3239,12 @@ int __attribute__((weak))
 pal_get_mrc_desc(uint8_t fru, mrc_desc_t **desc, size_t *desc_count)
 {
   return PAL_EOK;
+}
+
+bool __attribute__((weak))
+pal_is_prot_card_prsnt(uint8_t fru)
+{
+    return false;
 }
 
 int

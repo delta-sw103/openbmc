@@ -34,15 +34,10 @@ class FscdComponent : public Component {
   public:
   FscdComponent(string fru, string comp)
     : Component(fru, comp) {}
-  int print_version()
-  {
-    cout << "Fan Speed Controller Version: " << get_fsc_ver_str() << endl;;
-    return FW_STATUS_SUCCESS;
-  }
-
-  void get_version(json& j) {
+  int get_version(json& j) override {
+    j["PRETTY_COMPONENT"] = "Fan Speed Controller";
     j["VERSION"] = get_fsc_ver_str();
-    return;
+    return FW_STATUS_SUCCESS;
   }
 };
 

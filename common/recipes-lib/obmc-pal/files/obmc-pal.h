@@ -532,6 +532,7 @@ int pal_bypass_dev_card(uint8_t slot, uint8_t *req_data, uint8_t req_len, uint8_
 void pal_set_def_restart_cause(uint8_t slot);
 int pal_compare_fru_data(char *fru_out, char *fru_in, int cmp_size);
 int pal_sensor_thresh_modify(uint8_t fru,  uint8_t sensor_num, uint8_t thresh_type, float value);
+int pal_sensor_sdr_init(uint8_t fru, sensor_info_t *sinfo);
 int pal_get_all_thresh_from_file(uint8_t fru, thresh_sensor_t *sinfo, int mode);
 int pal_copy_all_thresh_to_file(uint8_t fru, thresh_sensor_t *sinfo);
 int pal_get_thresh_from_file(uint8_t fru, uint8_t snr_num, thresh_sensor_t *sinfo);
@@ -618,6 +619,7 @@ int pal_is_jumper_enable(uint8_t fru, uint8_t *status);
 int pal_register_sensor_failure_tolerance_policy(uint8_t fru);
 bool pal_is_support_vr_delay_activate(void);
 int pal_get_mrc_desc(uint8_t fru, mrc_desc_t **desc, size_t *desc_count);
+bool pal_is_prot_card_prsnt(uint8_t fru);
 int pal_file_line_split(char **dst, char *src, char *delim, int maxsz);
 int pal_bitcount(unsigned int val);
 

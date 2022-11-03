@@ -80,8 +80,6 @@ size_t server_fru_cnt = NUM_SERVER_FRU;
 size_t nic_fru_cnt  = NUM_NIC_FRU;
 size_t bmc_fru_cnt  = NUM_BMC_FRU;
 
-#define SYSFW_VER "sysfw_ver_slot"
-#define SYSFW_VER_STR SYSFW_VER "%d"
 #define BOOR_ORDER_STR "slot%d_boot_order"
 #define SEL_ERROR_STR  "slot%d_sel_error"
 #define SNR_HEALTH_STR "slot%d_sensor_health"
@@ -165,10 +163,10 @@ struct pal_key_cfg {
   int (*function)(int, void*);
 } key_cfg[] = {
   /* name, default value, function */
-  {SYSFW_VER "1", "0", NULL},
-  {SYSFW_VER "2", "0", NULL},
-  {SYSFW_VER "3", "0", NULL},
-  {SYSFW_VER "4", "0", NULL},
+  {"fru1_sysfw_ver", "0", NULL},
+  {"fru2_sysfw_ver", "0", NULL},
+  {"fru3_sysfw_ver", "0", NULL},
+  {"fru4_sysfw_ver", "0", NULL},
   {"pwr_server1_last_state", "on", key_func_pwr_last_state},
   {"pwr_server2_last_state", "on", key_func_pwr_last_state},
   {"pwr_server3_last_state", "on", key_func_pwr_last_state},
@@ -199,6 +197,10 @@ struct pal_key_cfg {
   {"slot3_sel_error", "1", NULL},
   {"slot4_sel_error", "1", NULL},
   {"ntp_server", "", NULL},
+  {"slot1_enable_pxe_sel", "0", NULL},
+  {"slot2_enable_pxe_sel", "0", NULL},
+  {"slot3_enable_pxe_sel", "0", NULL},
+  {"slot4_enable_pxe_sel", "0", NULL},
   /* Add more Keys here */
   {LAST_KEY, LAST_KEY, NULL} /* This is the last key of the list */
 };
@@ -209,8 +211,14 @@ MAPTOSTRING root_port_common_mapping[] = {
     { 0xB3, 5, 0x5E, "Class 1", "NIC"}, // root_port=0x5E, Class 1 NIC
     // MCC
     { 0xBB, 7, 0x57, "Num 0", "SB" },   // root_port=0x5G, Boot Drive
-    { 0xBB, 5, 0x5E, "Num 0", "SB" },   // root_port=0x5E, Boot Drive
-    { 0xBB, 1, 0x5A, "Class 1", "NIC"}, // root_port=0x5A, Class 1 NIC
+    // QS
+    { 0xBB, 1, 0x5A, "Num 0", "SB" },   // root_port=0x5A, Boot Drive
+    { 0xBB, 5, 0x5E, "Class 1", "NIC"}, // root_port=0x5E, Class 1 NIC
+    // Halfdome
+    { 0x00, 3, 0xFF, "Class 1", "NIC"}, //  Root port of Class 1 NIC
+    { 0x01, 0, 0xFF, "Class 1", "NIC"}, //  Endpoint of Class 1 NIC
+    { 0x00, 5, 0xFF, "Num 0", "SB" },   //  Root port of Boot Drive
+    { 0x02, 0, 0xFF, "Num 0", "SB" },   //  Endpoint of Boot Drive
 };
 
 MAPTOSTRING root_port_mapping[] = {
@@ -1042,22 +1050,6 @@ pal_is_fw_update_ongoing(uint8_t fruid) {
   return false;
 }
 
-int
-pal_set_sysfw_ver(uint8_t slot, uint8_t *ver) {
-  int i;
-  char key[MAX_KEY_LEN] = {0};
-  char str[MAX_VALUE_LEN] = {0};
-  char tstr[10] = {0};
-
-  sprintf(key, SYSFW_VER_STR, (int) slot);
-  for (i = 0; i < SIZE_SYSFW_VER; i++) {
-    sprintf(tstr, "%02x", ver[i]);
-    strcat(str, tstr);
-  }
-
-  return pal_set_key_value(key, str);
-}
-
 void
 pal_update_ts_sled()
 {
@@ -1105,7 +1097,7 @@ pal_get_fru_capability(uint8_t fru, unsigned int *caps)
 
   switch (fru) {
     case FRU_ALL:
-      *caps = FRU_CAPABILITY_SENSOR_HISTORY;
+      *caps = FRU_CAPABILITY_SENSOR_READ | FRU_CAPABILITY_SENSOR_HISTORY;
       break;
     case FRU_SLOT1:
     case FRU_SLOT2:
@@ -1129,6 +1121,9 @@ pal_get_fru_capability(uint8_t fru, unsigned int *caps)
     case FRU_BB:
       *caps = FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_READ;
       break;
+    case FRU_OPCDBG:
+      *caps = 0; //OCP debug card not support sensor/FRU
+      break;
     default:
       ret = -1;
       break;
@@ -1146,6 +1141,8 @@ pal_get_dev_capability(uint8_t fru, uint8_t dev, unsigned int *caps)
       (FRU_CAPABILITY_POWER_ALL & (~FRU_CAPABILITY_POWER_RESET));
   } else if (dev >= BOARD_1OU && dev <= BOARD_2OU_X16) {
     *caps = FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_ALL;
+  } else if (dev == BOARD_PROT) {
+    *caps = FRU_CAPABILITY_FRUID_ALL;
   } else {
     *caps = 0;
   }
@@ -1358,6 +1355,9 @@ pal_get_fru_name(uint8_t fru, char *name) {
     case FRU_NICEXP:
       sprintf(name, "nicexp");
       break;
+    case FRU_OPCDBG:
+      snprintf(name, MAX_COMPONENT_LEN, "ocpdbg");
+      break;
     case FRU_AGGREGATE:
       ret = PAL_EOK; //it's the virtual FRU.
       break;
@@ -1420,7 +1420,9 @@ pal_get_dev_fruid_eeprom_path(uint8_t fru, uint8_t dev_id, char *path, uint8_t p
     case FRU_SLOT3:
     case FRU_SLOT4:
       if (dev_id == BOARD_2OU_X8) {
-        snprintf(path, path_len, EEPROM_PATH, FRU_DPV2_X8_BUS(fru), DPV2_FRU_ADDR);
+        snprintf(path, path_len, EEPROM_PATH, FRU_DEVICE_BUS(fru), DPV2_FRU_ADDR);
+      } else if (dev_id == BOARD_PROT) {
+        snprintf(path, path_len, EEPROM_PATH, FRU_DEVICE_BUS(fru), PROT_FRU_ADDR);
       } else {
         return PAL_ENOTSUP;
       }
@@ -1552,29 +1554,84 @@ pal_is_bmc_por(void) {
 }
 
 int
-pal_get_sysfw_ver(uint8_t slot, uint8_t *ver) {
-  int i;
-  int j = 0;
+pal_get_sysfw_ver_from_bic(uint8_t slot_id, uint8_t *ver) {
   int ret = 0;
-  char key[MAX_KEY_LEN] = {0};
-  char str[MAX_VALUE_LEN] = {0};
-  char tstr[4] = {0};
+  int i, offs = 0;
+  uint8_t bios_post_complete = 0;
+  bic_gpio_t gpio = {0};
 
-  sprintf(key, SYSFW_VER_STR, (int) slot);
-  ret = pal_get_key_value(key, str);
-  if (ret) {
-    syslog(LOG_WARNING, "%s() Failed to run pal_get_key_value. key:%s", __func__, key);
-    ret = PAL_ENOTSUP;
-    goto error_exit;
+  if (ver == NULL) {
+    syslog(LOG_ERR, "%s: failed to get system firmware version due to NULL pointer\n", __func__);
+    return -1;
   }
 
-  for (i = 0; i < 2*SIZE_SYSFW_VER; i += 2) {
-    sprintf(tstr, "%c%c\n", str[i], str[i+1]);
-    ver[j++] = strtol(tstr, NULL, 16);
+  ret = bic_get_gpio(slot_id, &gpio, NONE_INTF);
+  if ( ret < 0 ) {
+    syslog(LOG_ERR, "%s() bic_get_gpio returns %d\n", __func__, ret);
+    return ret;
   }
 
-error_exit:
+  bios_post_complete = BIT_VALUE(gpio, BIC_GPIO_INDEX_POST_COMPLETE);
+  if (bios_post_complete != POST_COMPLETE) {
+    syslog(LOG_WARNING, "%s() Failed to get BIOS firmware version because BIOS is not ready", __func__);
+    return -1;
+  }
+
+  // Get BIOS firmware version from BIC if key: sysfw_ver_server is not set
+  if (bic_get_sys_fw_ver(slot_id, ver) < 0) {
+    syslog(LOG_WARNING, "%s() failed to get system firmware version from BIC", __func__);
+    return -1;
+  }
+
+  // Set BIOS firmware version to key: sysfw_ver_server
+  for (i = 0; i < BLK_SYSFW_VER; i++) {
+    if (pal_set_sysfw_ver(slot_id, &ver[offs]) < 0) {
+      syslog(LOG_WARNING, "%s() failed to set key value of system firmware version", __func__);
+      return -1;
+    }
+    offs += SIZE_SYSFW_VER;
+
+    if (ver[2] <= (14 + 16*i)) {  // data length of 1st block: 14
+      i++;                        //                2nd block: 16
+      break;
+    }
+  }
+  for (; i < BLK_SYSFW_VER; i++, offs += SIZE_SYSFW_VER) {
+    memset(&ver[offs], 0, SIZE_SYSFW_VER);
+  }
+
   return ret;
+}
+
+int
+pal_get_sysfw_ver(uint8_t slot, uint8_t *ver) {
+  int blk, i, j = 0;
+  char key[MAX_KEY_LEN];
+  char str[MAX_VALUE_LEN] = {0};
+  char *pstr, tstr[8] = {0};
+
+  sprintf(key, "fru%u_sysfw_ver", slot);
+  if (kv_get(key, str, NULL, KV_FPERSIST)) {
+    memset(ver, 0, SIZE_SYSFW_VER);
+    return -1;
+  }
+
+  if (strcmp(str, "0") == 0) {
+    return pal_get_sysfw_ver_from_bic(slot, ver);
+  }
+
+  for (blk = 0; blk < BLK_SYSFW_VER; blk++) {
+    pstr = str + blk * SIZE_SYSFW_VER*2;
+    for (i = 0; i < SIZE_SYSFW_VER*2; i += 2) {
+      if (blk > 0 && i == 0) {
+        continue;
+      }
+      memcpy(tstr, &pstr[i], 2);
+      ver[j++] = strtoul(tstr, NULL, 16);
+    }
+  }
+
+  return PAL_EOK;
 }
 
 int
@@ -2120,6 +2177,9 @@ pal_get_vr_name(uint8_t fru, uint8_t vr_num, char *name) {
     PVDDCR_CPU0 = 0x00,
     PVDDCR_CPU1 = 0x01,
     PVDD11_S3 = 0x02,
+    RF_P0V9_V8_ASICA = 0x03,
+    RF_VDDQAB = 0x04,
+    RF_VDDQCD = 0x05,
   };
 
   switch (vr_num) {
@@ -2131,6 +2191,15 @@ pal_get_vr_name(uint8_t fru, uint8_t vr_num, char *name) {
       break;
     case PVDD11_S3:
       snprintf(name, 32, "PVDD11_S3");
+      break;
+    case RF_P0V9_V8_ASICA:
+      snprintf(name, 32, "RF_P0V9/V8_ASICA");
+      break;
+    case RF_VDDQAB:
+      snprintf(name, 32, "RF_VDDQAB");
+      break;
+    case RF_VDDQCD:
+      snprintf(name, 32, "RF_VDDQCD");
       break;
     default:
       snprintf(name, 32, "Undefined VR");
@@ -2163,6 +2232,155 @@ pal_parse_vr_alert_event(uint8_t fru, uint8_t *event_data, char *error_log) {
   strcat(error_log, tmp_log);
 
   return PAL_EOK;
+}
+
+static int
+parse_bank_mapping_name(uint8_t bank_num, char *error_log) {
+
+  switch (bank_num) {
+    case 0:
+      strcpy(error_log, "LS");
+      break;
+    case 1:
+      strcpy(error_log, "IF");
+      break;
+    case 2:
+      strcpy(error_log, "L2");
+      break;
+    case 3:
+      strcpy(error_log, "DE");
+      break;
+    case 4:
+      strcpy(error_log, "RAZ");
+      break;
+    case 5:
+      strcpy(error_log, "EX");
+      break;
+    case 6:
+      strcpy(error_log, "FP");
+      break;
+    case 7:
+    case 8:
+    case 9:
+    case 10:
+    case 11:
+    case 12:
+    case 13:
+    case 14:
+      strcpy(error_log, "L3");
+      break;
+    case 15:
+      strcpy(error_log, "MP5");
+      break;
+    case 16:
+      strcpy(error_log, "PB");
+      break;
+    case 17:
+    case 18:
+      strcpy(error_log, "PCS_GMI");
+      break;
+    case 19:
+    case 20:
+      strcpy(error_log, "KPX_GMI");
+      break;
+    case 21:
+      strcpy(error_log, "UMC/PB");
+      break;
+    case 22:
+      strcpy(error_log, "UMC/PCIE");
+      break;
+    case 23:
+    case 24:
+      strcpy(error_log, "CS");
+      break;
+    case 25:
+      strcpy(error_log, "NBIO/SHUB");
+      break;
+    case 26:
+      strcpy(error_log, "PCIE/SATA");
+      break;
+    case 27:
+      strcpy(error_log, "PCIE/NBIF");
+      break;
+    case 28:
+      strcpy(error_log, "PIE/PSP/KPX_WAFL/NBIF/USB");
+      break;
+    case 29:
+      strcpy(error_log, "SMU/MPDMA");
+      break;
+    case 30:
+      strcpy(error_log, "PCS_XGMI");
+      break;
+    case 31:
+      strcpy(error_log, "KPX_SERDES");
+      break;
+    default:
+      strcpy(error_log, "UNKNOWN");
+      break;
+  }
+
+  return 0;
+}
+
+static int
+pal_parse_mce_error_sel(uint8_t fru, uint8_t *event_data, char *error_log) {
+  uint8_t bank_num;
+  uint8_t error_type = ((event_data[1] & 0x60) >> 5);
+  char temp_log[512] = {0};
+  char bank_mapping_name[32] = {0};
+
+  switch (event_data[0] & 0x0F)
+  {
+    case 0x0B: //Uncorrectable
+    {
+      switch (error_type) {
+        case 0x00:
+          strcat(error_log, "Uncorrected Recoverable Error, ");
+          break;
+        case 0x01:
+          strcat(error_log, "Uncorrected Thread Fatal Error, ");
+          break;
+        case 0x02:
+          strcat(error_log, "Uncorrected System Fatal Error, ");
+          break;
+        default:
+          strcat(error_log, "Unknown (Uncorrectable Type Event) ");
+          break;
+      }
+      break;
+    }
+
+    case 0x0C: //Correctable
+    {
+      switch (error_type) {
+        case 0x00:
+          strcat(error_log, "Correctable Error, ");
+          break;
+        case 0x01:
+          strcat(error_log, "Deferred Error, ");
+          break;
+        default:
+          strcat(error_log, "Unknown (Correctable Type Event), ");
+          break;
+      }
+      break;
+    }
+
+    default:
+    {
+      strcat(error_log, "Unknown Event Type, ");
+      break;
+    }
+  }
+  bank_num = event_data[1] & 0x1F;
+  parse_bank_mapping_name(bank_num, bank_mapping_name);
+  snprintf(temp_log, sizeof(temp_log), "Bank Number %d (%s), ", bank_num, bank_mapping_name);
+  strcat(error_log, temp_log);
+
+  snprintf(temp_log, sizeof(temp_log), "CPU %d, Core %d", ((event_data[2] & 0xF0) >> 4), (event_data[2] & 0x0F));
+  strcat(error_log, temp_log);
+
+  return 0;
 }
 
 static void
@@ -2352,7 +2570,7 @@ pal_parse_sys_sts_event(uint8_t fru, uint8_t *event_data, char *error_log) {
     SYS_MB_THROTTLE    = 0x07,
     SYS_HSC_FAULT      = 0x08,
     SYS_RSVD           = 0x09,
-    SYS_WDT_TIMEOUT    = 0x0A,
+    SYS_S0_PWR_FAILURE = 0x0A,
     SYS_M2_VPP         = 0x0B,
     SYS_M2_PGOOD       = 0x0C,
     SYS_VCCIO_FAULT    = 0x0D,
@@ -2399,8 +2617,8 @@ pal_parse_sys_sts_event(uint8_t fru, uint8_t *event_data, char *error_log) {
     case SYS_HSC_FAULT:
       strcat(error_log, "HSC fault");
       break;
-    case SYS_WDT_TIMEOUT:
-      strcat(error_log, "VR Watchdog timeout");
+    case SYS_S0_PWR_FAILURE:
+      strcat(error_log, "S0 power on failure");
       break;
     case SYS_M2_VPP:
       pal_get_m2vpp_str_name(fru, event_data[1], event_data[2], error_log);
@@ -2622,7 +2840,10 @@ pal_parse_slot_present_event(uint8_t fru, uint8_t *event_data, char *error_log) 
 
 static int
 pal_parse_pmic_err_event(uint8_t fru, uint8_t *event_data, char *error_log) {
-  static const char dimm_lable[MAX_DIMM_NUM][4] = {"A0", "A2", "A3", "A4", "A6", "A7"};
+  static const char *cl_dimm_label[] = {"A0", "A2", "A3", "A4", "A6", "A7", "Unknown"};
+  static const char *hd_dimm_label[] = {"A0", "A1", "A2", "A4", "A6", "A7", "A8", "A10", "Unknown"};
+  const char **dimm_label = cl_dimm_label;
+  uint8_t arr_size = ARRAY_SIZE(cl_dimm_label);
   uint8_t dimm_num = 0, err_type = 0;
   char tmp_log[128] = {0};
   char err_str[32] = {0};
@@ -2631,10 +2852,15 @@ pal_parse_pmic_err_event(uint8_t fru, uint8_t *event_data, char *error_log) {
     syslog(LOG_WARNING, "%s(): NULL error log", __func__);
     return -1;
   }
-  dimm_num = event_data[0];
+
+  if (fby35_common_get_slot_type(fru) == SERVER_TYPE_HD) {
+    dimm_label = hd_dimm_label;
+    arr_size = ARRAY_SIZE(hd_dimm_label);
+  }
+  dimm_num = (event_data[0] < arr_size) ? event_data[0] : (arr_size - 1);
   err_type = event_data[1];
   get_pmic_err_str(err_type, err_str, sizeof(err_str));
-  snprintf(tmp_log, sizeof(tmp_log), "DIMM %s %s", dimm_lable[dimm_num], err_str);
+  snprintf(tmp_log, sizeof(tmp_log), "DIMM %s %s", dimm_label[dimm_num], err_str);
   strcat(error_log, tmp_log);
 
   return PAL_EOK;
@@ -2679,6 +2905,9 @@ pal_parse_sel(uint8_t fru, uint8_t *sel, char *error_log) {
       break;
     case BIOS_SENSOR_PMIC_ERR:
       pal_parse_pmic_err_event(fru, event_data, error_log);
+      break;
+    case MACHINE_CHK_ERR:
+      pal_parse_mce_error_sel(fru, event_data, error_log);
       break;
     case VR_OCP:
       pal_parse_vr_ocp_event(fru, event_data, error_log);
@@ -2908,12 +3137,18 @@ pal_get_uart_select_from_kv(uint8_t *uart_select) {
 int
 pal_clear_vr_crc(uint8_t fru) {
   char ver_key[MAX_KEY_LEN] = {0};
-  for (int j = 0; j < 3; j++) {
+
+  for (int j = 0; j < ARRAY_SIZE(pal_vr_addr_list); j++) {
     snprintf(ver_key, sizeof(ver_key), VR_NEW_CRC_STR, fru, pal_vr_addr_list[j]);
     kv_del(ver_key, KV_FPERSIST);
 
     snprintf(ver_key, sizeof(ver_key), VR_CRC_STR, fru, pal_vr_addr_list[j]);
     kv_del(ver_key, 0);
+  }
+
+  for (int j = 0; j < ARRAY_SIZE(pal_vr_1ou_addr_list); j++) {
+    snprintf(ver_key, sizeof(ver_key), VR_1OU_NEW_CRC_STR, fru, pal_vr_1ou_addr_list[j]);
+    kv_del(ver_key, KV_FPERSIST);
 
     snprintf(ver_key, sizeof(ver_key), VR_1OU_CRC_STR, fru, pal_vr_1ou_addr_list[j]);
     kv_del(ver_key, 0);
@@ -2921,37 +3156,38 @@ pal_clear_vr_crc(uint8_t fru) {
   return 0;
 }
 
+static void
+pal_move_kv(char* key, uint8_t action) {
+  int ret = 0;
+  char value[MAX_VALUE_LEN] = {0};
+  unsigned int src,dst;
+
+  src = (action == PERSIST_TO_TEMP) ? KV_FPERSIST : 0;
+  dst = (action == PERSIST_TO_TEMP) ? 0 : KV_FPERSIST;
+
+  if (kv_get(key, value, NULL, src) == 0) {
+    ret = kv_set(key, value, 0, dst);
+    if (ret < 0) {
+      syslog(LOG_WARNING, "%s() Fail to set the key \"%s\"", __func__, key);
+    }
+    kv_del(key, src);
+  }
+}
+
 int
 pal_move_vr_new_crc(uint8_t fru, uint8_t action) {
-  int ret = 0;
   char ver_key[MAX_KEY_LEN] = {0};
-  char value[MAX_VALUE_LEN] = {0};
 
-  for (int j = 0; j < 3; j++) {
-    if (action == PERSIST_TO_TEMP) {
-      snprintf(ver_key, sizeof(ver_key), VR_NEW_CRC_STR, fru, pal_vr_addr_list[j]);
-      if (kv_get(ver_key, value, NULL, KV_FPERSIST) == 0) {
-        ret = kv_set(ver_key, value, 0, 0);
-        if (ret < 0) {
-          syslog(LOG_WARNING, "%s() Fail to set the key \"%s\"", __func__, ver_key);
-        }
-        kv_del(ver_key, KV_FPERSIST);
-      }
-    } else if (action == TEMP_TO_PERSIST) {
-      snprintf(ver_key, sizeof(ver_key), VR_NEW_CRC_STR, fru, pal_vr_addr_list[j]);
-      if (kv_get(ver_key, value, NULL, 0) == 0) {
-        ret = kv_set(ver_key, value, 0, KV_FPERSIST);
-        if (ret < 0) {
-          syslog(LOG_WARNING, "%s() Fail to set the key \"%s\"", __func__, ver_key);
-        }
-        kv_del(ver_key, 0);
-      }
-    } else {
-      syslog(LOG_WARNING, "%s() moving action is not support", __func__);
-    }
+  for (int j = 0; j < ARRAY_SIZE(pal_vr_addr_list); j++) {
+    snprintf(ver_key, sizeof(ver_key), VR_NEW_CRC_STR, fru, pal_vr_addr_list[j]);
+    pal_move_kv(ver_key, action);
   }
 
-  return ret;
+  for (int j = 0; j < ARRAY_SIZE(pal_vr_1ou_addr_list); j++) {
+    snprintf(ver_key, sizeof(ver_key), VR_1OU_NEW_CRC_STR, fru, pal_vr_1ou_addr_list[j]);
+    pal_move_kv(ver_key, action);
+  }
+  return 0;
 }
 
 int
@@ -4632,4 +4868,142 @@ pal_get_mrc_desc(uint8_t fru, mrc_desc_t **desc, size_t *desc_count)
   return 0;
 }
 
+bool
+pal_is_prot_card_prsnt(uint8_t fru)
+{
+    return fby35_common_is_prot_card_prsnt(fru);
+}
+
+int
+pal_set_last_postcode(uint8_t slot, uint32_t postcode) {
+  char key[MAX_KEY_LEN] = {0};
+  char str[MAX_VALUE_LEN] = {0};
+
+  snprintf(key,MAX_KEY_LEN, "slot%u_last_postcode", slot);
+  snprintf(str,MAX_VALUE_LEN, "%08X", postcode);
+  return kv_set(key, str, 0, 0);
+}
+
+int
+pal_get_last_postcode(uint8_t slot, char* postcode) {
+  int ret;
+  char key[MAX_KEY_LEN] = {0};
+  sprintf(key, "slot%u_last_postcode", slot);
+
+  ret = kv_get(key, postcode,NULL,0);
+  if (ret) {
+    syslog(LOG_WARNING,"pal_get_last_postcode failed");
+    return -1;
+  }
+  return 0;
+}
+
+#ifdef CONFIG_HALFDOME
+int
+pal_get_80port_page_record(uint8_t slot, uint8_t page_num, uint8_t *res_data, size_t max_len, size_t *res_len) {
+
+  int ret;
+  uint8_t status;
+  uint8_t len;
+
+  if (slot < FRU_SLOT1 || slot > FRU_SLOT4) {
+    return PAL_ENOTSUP;
+  }
+
+  ret = pal_is_fru_prsnt(slot, &status);
+  if (ret < 0) {
+     return -1;
+  }
+  if (status == 0) {
+    return PAL_ENOTREADY;
+  }
+
+  ret = pal_get_server_12v_power(slot, &status);
+  if(ret < 0 || status == SERVER_12V_OFF) {
+    return PAL_ENOTREADY;
+  }
+
+  if(!pal_is_slot_server(slot)) {
+    return PAL_ENOTSUP;
+  }
+
+  // Send command to get 80 port record from Bridge IC
+  ret = bic_request_post_buffer_page_data(slot, page_num, res_data, &len);
+  if (ret == 0)
+    *res_len = (size_t)len;
+
+  return ret;
+}
+
+int
+pal_display_4byte_post_code(uint8_t slot, uint32_t postcode_dw) {
+
+  // update current post code to debug card's SYS Info page
+  pal_set_last_postcode(slot, postcode_dw);
+
+  return 0;
+}
+#endif
+
+int
+pal_oem_bios_extra_setup(uint8_t slot, uint8_t *req_data, uint8_t req_len, uint8_t *res_data, uint8_t *res_len) {
+  char key[MAX_KEY_LEN] = {0};
+  char cvalue[MAX_VALUE_LEN] = {0};
+  int ret;
+  uint8_t fun, cmd;
+  uint8_t value;
+
+  if (req_len < 5) { // at least byte[0] function byte[1] cmommand
+    syslog(LOG_WARNING, "%s: slot%d req_len:%d < 5", __func__, slot,req_len);
+    return CC_UNSPECIFIED_ERROR;
+  }
+
+  fun = req_data[0];
+
+  if (fun == 0x1) { // PXE SEL ENABLE/DISABLE
+    switch(slot) {
+      case FRU_SLOT1:
+      case FRU_SLOT2:
+      case FRU_SLOT3:
+      case FRU_SLOT4:
+        sprintf(key, "slot%d_enable_pxe_sel", slot);
+        break;
+
+      default:
+        syslog(LOG_WARNING, "%s: invalid slot id %d", __func__, slot);
+        return CC_PARAM_OUT_OF_RANGE;
+    }
+
+    cmd = req_data[1];
+    if (cmd == 0x1) { // GET
+      *res_len = 1;
+      ret = pal_get_key_value(key, cvalue);
+      if (ret) {
+        syslog(LOG_WARNING, "%s: slot%d get %s failed", __func__, slot,key);
+        return CC_UNSPECIFIED_ERROR;
+      }
+      res_data[0] = strtol(cvalue,NULL,10);
+      syslog(LOG_WARNING, "%s: slot%d GET PXE SEL ENABLE/DISABLE %d", __func__, slot, res_data[0]);
+    } else if (cmd == 0x2) { // SET
+      if (req_len < 6) {
+        syslog(LOG_WARNING, "%s: slot%d SET no value to PXE SEL ENABLE/DISABLE", __func__, slot);
+      }
+      *res_len = 0;
+      value = req_data[2];
+      syslog(LOG_WARNING, "%s: slot%d SET %d to PXE SEL ENABLE/DISABLE", __func__, slot,value);
+      sprintf(cvalue, (value > 0) ? "1": "0");
+      ret = pal_set_key_value(key, cvalue);
+      if (ret) {
+        syslog(LOG_WARNING, "%s: slot%d set %s failed", __func__, slot,key);
+        return CC_UNSPECIFIED_ERROR;
+      }
+    } else {
+      syslog(LOG_WARNING, "%s: slot%d wrong command:%d", __func__, slot,cmd);
+    }
+    return CC_SUCCESS;
+  } else {
+    syslog(LOG_WARNING, "%s: slot%d wrong function:%d", __func__, slot,fun);
+    return CC_UNSPECIFIED_ERROR;
+  }
+}
 

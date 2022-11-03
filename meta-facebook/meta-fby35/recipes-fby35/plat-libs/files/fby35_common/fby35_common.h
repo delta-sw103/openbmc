@@ -64,9 +64,11 @@ extern "C" {
 #define NICEXP_FRU_ADDR 0x51
 #define NIC_FRU_ADDR 0x50
 #define DPV2_FRU_ADDR 0x51
+#define PROT_FRU_ADDR 0x50
 #define I2C_PATH "/sys/class/i2c-dev/i2c-%d/device/new_device"
 #define EEPROM_PATH "/sys/bus/i2c/devices/%d-00%X/eeprom"
 #define MAX_FRU_PATH_LEN 128
+#define FRU_SIZE        512
 
 #define CPLD_REG_SB_CLASS           0x00
 #define CPLD_REG_UART_MUX           0x01
@@ -78,12 +80,13 @@ extern "C" {
 #define CPLD_REG_SB_BIC_BOOT_STRAP  0x10
 #define CPLD_REG_BOARD              0x11
 #define CPLD_REG_1OU_BIC_BOOT_STRAP 0x22
+#define CPLD_REG_PROT               0x23
 
 #define SLOT_SENSOR_LOCK "/var/run/slot%d_sensor.lock"
 
 extern const char *slot_usage;
 
-#define MAX_NUM_FRUS 8
+#define MAX_NUM_FRUS 9
 
 #define MAX_SYS_REQ_LEN  128  //include the string terminal
 #define MAX_SYS_RESP_LEN 128  //include the string terminal
@@ -120,7 +123,7 @@ extern const char *slot_usage;
 #define BOARD_ID(x)     (x & 0x0f)
 #define COMPONENT_ID(x) (x >> 7)
 
-#define FRU_DPV2_X8_BUS(fru) ((fru) + 3)
+#define FRU_DEVICE_BUS(fru) ((fru) + 3)
 
 #define KEY_BB_HSC_TYPE "bb_hsc_type"
 
@@ -140,6 +143,7 @@ enum {
   FRU_NIC       = 6,
   FRU_BMC       = 7,
   FRU_NICEXP    = 8, //the fru is used when bmc is located on class 2
+  FRU_OPCDBG    = 9,
   FRU_AGGREGATE = 0xff, //sensor-util will call pal_get_fru_name(). Add this virtual fru for sensor-util.
 };
 
@@ -174,6 +178,7 @@ enum {
   BOARD_2OU,
   BOARD_2OU_X8,
   BOARD_2OU_X16,
+  BOARD_PROT,
 
   MAX_NUM_DEVS,
 };
@@ -206,6 +211,7 @@ enum {
   FRU_ID_2OU_DEV13  = 24,
   FRU_ID_2OU_X8     = 25,
   FRU_ID_2OU_X16    = 26,
+  FRU_ID_PROT       = 27,
 };
 
 enum {
@@ -364,6 +370,7 @@ enum {
   FW_VR_VDD11S3,       //10
   FW_VR,
   FW_BIOS,
+  FW_PROT,
   FW_1OU_BIC,
   FW_1OU_BIC_RCVY,
   FW_1OU_CPLD,         //15
@@ -372,6 +379,7 @@ enum {
   FW_BB_BIC,
   FW_BB_CPLD,
   FW_1OU_CXL,          //20
+  FW_1OU_VR,
   FW_1OU_VR_V9_ASICA,
   FW_1OU_VR_VDDQAB,
   FW_1OU_VR_VDDQCD,
@@ -440,7 +448,7 @@ typedef enum {
   SLOT_PRESENT,
 } PRESENT_STATUS;
 
-const static char *gpio_server_prsnt[] =
+static const char *gpio_server_prsnt[] =
 {
   "",
   "PRSNT_MB_BMC_SLOT1_BB_N",
@@ -449,7 +457,7 @@ const static char *gpio_server_prsnt[] =
   "PRSNT_MB_SLOT4_BB_N"
 };
 
-const static char *gpio_server_stby_pwr_sts[] =
+static const char *gpio_server_stby_pwr_sts[] =
 {
   "",
   "PWROK_STBY_BMC_SLOT1_R",
@@ -458,7 +466,7 @@ const static char *gpio_server_stby_pwr_sts[] =
   "PWROK_STBY_BMC_SLOT4"
 };
 
-const static char *gpio_server_i2c_isolated[] =
+static const char *gpio_server_i2c_isolated[] =
 {
   "",
   "FM_BMC_SLOT1_ISOLATED_EN_R",
@@ -540,6 +548,8 @@ int fby35_common_get_img_ver(const char* image_path, char* ver, uint8_t comp);
 int fby35_common_check_image_md5(const char* image_path, int cal_size, uint8_t *data, bool is_first, uint8_t comp);
 bool fby35_common_is_valid_img(const char* img_path, uint8_t comp, uint8_t board_id, uint8_t rev_id);
 int fby35_common_get_bb_hsc_type(uint8_t* type);
+bool fby35_common_is_prot_card_prsnt(uint8_t fru) ;
+int copy_eeprom_to_bin(const char *eeprom_file, const char *bin_file);
 
 #ifdef __cplusplus
 } // extern "C"

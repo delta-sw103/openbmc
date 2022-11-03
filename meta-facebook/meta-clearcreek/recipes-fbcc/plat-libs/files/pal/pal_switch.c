@@ -314,16 +314,25 @@ int pal_get_pex_therm(uint8_t pax_id, float *value) {
   fd_lock = pax_lock();
   //Send cmd to Axis reg
   for (int i = 0; i < 6; i++) {
-    i2c_rdwr_msg_transfer(fd, addr, tbuf[i], 8, NULL, 0);
+    if (i2c_rdwr_msg_transfer(fd, addr, tbuf[i], 8, NULL, 0) != 0) {
+      syslog(LOG_WARNING, "PEX THERM: sending cmd%d to axis reg of pex %d failed\n", i, pax_id);
+      close(fd);
+      pax_unlock(fd_lock);
+      return ERR_SENSOR_NA;
+    }
   }
   //Get response
-  i2c_rdwr_msg_transfer(fd, addr, tbuf[6], 4, rbuf, 4);
+  int ret = i2c_rdwr_msg_transfer(fd, addr, tbuf[6], 4, rbuf, 4);
+  if (ret != 0) {
+    syslog(LOG_WARNING, "PEX THERM: getting response to axis reg of pex %d failed\n", pax_id);
+    ret = ERR_SENSOR_NA;
+  }
   temp128 = (rbuf[2] << 8) | rbuf[3];
   *value = (float)temp128/128;
   close(fd);
   pax_unlock(fd_lock);
 
-  return 0;
+  return ret;
 }
 
 int pal_paxid_to_brcm_bus(uint8_t paxid) {
@@ -355,6 +364,9 @@ int pal_print_pex_ver(uint8_t paxid) {
   char sbr_ver[MAX_VALUE_LEN] = {0};
   char cfg_ver[MAX_VALUE_LEN] = {0};
   char main_ver[MAX_VALUE_LEN] = {0};
+  char sbr_ver_key[MAX_VALUE_LEN] = {0};
+  char cfg_ver_key[MAX_VALUE_LEN] = {0};
+  char main_ver_key[MAX_VALUE_LEN] = {0};
 
   if (pal_is_server_off()) {
     printf("PEX%d SBR UTP Version: NA\n", paxid);
@@ -365,24 +377,46 @@ int pal_print_pex_ver(uint8_t paxid) {
 
   bus = pal_paxid_to_brcm_bus(paxid);
 
+  snprintf(sbr_ver_key, sizeof(sbr_ver_key), "sbr_version_%d", paxid);
+  snprintf(cfg_ver_key, sizeof(cfg_ver_key), "mfg_version_%d", paxid);
+  snprintf(main_ver_key, sizeof(main_ver_key), "main_version_%d", paxid);
+
   fd = pax_lock();
-  ret = pex88000_get_sbr_version(bus, sbr_ver);
-  if (ret < 0)
-    printf("PEX%d SBR UTP Version: NA\n", paxid);
-  else
+  if (kv_get(sbr_ver_key, sbr_ver, NULL, 0)) {
+    ret = pex88000_get_sbr_version(bus, sbr_ver);
+    if (ret < 0) {
+      printf("PEX%d SBR UTP Version: NA\n", paxid);
+    } else {
+      printf("PEX%d SBR UTP Version: %s\n", paxid, sbr_ver);
+      kv_set(sbr_ver_key, sbr_ver, 0, 0);
+    }
+  } else {
     printf("PEX%d SBR UTP Version: %s\n", paxid, sbr_ver);
+  }
 
-  ret = pex88000_get_MFG_config_version(bus, cfg_ver);
-  if (ret < 0)
-    printf("PEX%x MFG CFG Version: NA\n", paxid);
-  else
+  if (kv_get(cfg_ver_key, cfg_ver, NULL, 0)) {
+    ret = pex88000_get_MFG_config_version(bus, cfg_ver);
+    if (ret < 0) {
+      printf("PEX%x MFG CFG Version: NA\n", paxid);
+    } else {
+      printf("PEX%x MFG CFG Version: %s\n", paxid, cfg_ver);
+      kv_set(cfg_ver_key, cfg_ver, 0, 0);
+    }
+  } else {
     printf("PEX%x MFG CFG Version: %s\n", paxid, cfg_ver);
+  }
 
-  ret = pex88000_get_main_version(bus, main_ver);
-  if (ret < 0)
-    printf("PEX%x Main FW Version: NA\n", paxid);
-  else
+  if (kv_get(main_ver_key, main_ver, NULL, 0)) {
+    ret = pex88000_get_main_version(bus, main_ver);
+    if (ret < 0) {
+      printf("PEX%x Main FW Version: NA\n", paxid);
+    } else {
+      printf("PEX%x Main FW Version: %s\n", paxid, main_ver);
+      kv_set(main_ver_key, main_ver, 0, 0);
+    }
+  } else {
     printf("PEX%x Main FW Version: %s\n", paxid, main_ver);
+  }
   pax_unlock(fd);
 
   return 0;

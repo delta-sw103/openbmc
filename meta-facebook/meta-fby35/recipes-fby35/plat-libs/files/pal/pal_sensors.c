@@ -31,9 +31,11 @@
 #define DUAL_FAN_UCR 13500
 #define DUAL_FAN_UNC 10200
 
-#define FAN_15K_LCR  1500
+#define FAN_15K_LCR  1200
 #define FAN_15K_UNC  13000
 #define FAN_15K_UCR  17000
+
+#define BB_CPU_VDELTA_48V_UCR 41.8
 
 #define BB_HSC_SENSOR_CNT 7
 
@@ -1077,7 +1079,7 @@ PAL_SENSOR_MAP sensor_map[] = {
   {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xC5
   {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xC6
   {NULL, 0, NULL, 0, {0, 0, 0, 0, 0, 0, 0, 0}, 0}, //0xC7
-//{                SensorName,      ID,     FUNCTION, PWR_STATUS, {   LNR,    LCR,   LNC,    UNC,    UCR,     UNR,  Pos, Neg}, Unit}
+//{                      SensorName,      ID,     FUNCTION, PWR_STATUS, {   LNR,    LCR,   LNC,    UNC,    UCR,     UNR,  Pos, Neg}, Unit}
   {"BB_HSC_PEAK_OUTPUT_CURR_A"     , HSC_ID0, read_hsc_peak_iout,    0, {     0,      0,     0,      0,      0,       0,    0,   0}, CURR}, //0xC8
   {"BB_HSC_PEAK_INPUT_PWR_W"       , HSC_ID0, read_hsc_peak_pin ,    0, {     0,      0,     0,      0,      0,       0,    0,   0}, POWER}, //0xC9
   {"BB_FAN_PWR_W"                  ,    0xCA, read_cached_val   , true, {     0,      0,     0,      0,201.465,  544.88,    0,   0}, POWER}, //0xCA
@@ -1377,12 +1379,15 @@ pal_get_fru_sensor_list(uint8_t fru, uint8_t **sensor_list, int *cnt) {
       } else if (board_type == GPV3_MCHP_BOARD || board_type == GPV3_BRCM_BOARD) {
         memcpy(&bic_dynamic_sensor_list[fru-1][current_cnt], bic_2ou_gpv3_sensor_list, bic_2ou_gpv3_sensor_cnt);
         current_cnt += bic_2ou_gpv3_sensor_cnt;
-      } else if ((board_type & DPV2_X8_BOARD) == DPV2_X8_BOARD) {
-        memcpy(&bic_dynamic_sensor_list[fru-1][current_cnt], bmc_dpv2_x8_sensor_list, bmc_dpv2_x8_sensor_cnt);
-        current_cnt += bmc_dpv2_x8_sensor_cnt;
-      } else if ((board_type & DPV2_X16_BOARD) == DPV2_X16_BOARD) {
-        memcpy(&bic_dynamic_sensor_list[fru-1][current_cnt], bic_dpv2_x16_sensor_list, bic_dpv2_x16_sensor_cnt);
-        current_cnt += bic_dpv2_x16_sensor_cnt;
+      } else if ((board_type & DPV2_X8_BOARD) == DPV2_X8_BOARD || (board_type & DPV2_X16_BOARD) == DPV2_X16_BOARD) {
+        if ((board_type & DPV2_X8_BOARD) == DPV2_X8_BOARD) {
+          memcpy(&bic_dynamic_sensor_list[fru-1][current_cnt], bmc_dpv2_x8_sensor_list, bmc_dpv2_x8_sensor_cnt);
+          current_cnt += bmc_dpv2_x8_sensor_cnt;
+        }
+        if ((board_type & DPV2_X16_BOARD) == DPV2_X16_BOARD) {
+          memcpy(&bic_dynamic_sensor_list[fru-1][current_cnt], bic_dpv2_x16_sensor_list, bic_dpv2_x16_sensor_cnt);
+          current_cnt += bic_dpv2_x16_sensor_cnt;
+        }
       } else {
         memcpy(&bic_dynamic_sensor_list[fru-1][current_cnt], bic_2ou_sensor_list, bic_2ou_sensor_cnt);
         current_cnt += bic_2ou_sensor_cnt;
@@ -2004,7 +2009,7 @@ read_cached_val(uint8_t snr_number, float *value) {
 
   switch (snr_number) {
     case BMC_SENSOR_FAN_PWR:
-        snr1_num = BMC_SENSOR_MEDUSA_VOUT;
+        snr1_num = BMC_SENSOR_P12V;
         snr2_num = BMC_SENSOR_FAN_IOUT;
       break;
     case BMC_SENSOR_NIC_PWR:
@@ -2476,9 +2481,9 @@ read_dpv2_efuse(uint8_t info, float *value) {
   type = snr_info->type;
   offset = dpv2_efuse_info_list[type].offset;
   if (fd < 0) { // open first time
-    fd = i2c_cdev_slave_open(FRU_DPV2_X8_BUS(fru), DPV2_EFUSE_SLAVE_ADDR, I2C_SLAVE_FORCE_CLAIM);
+    fd = i2c_cdev_slave_open(FRU_DEVICE_BUS(fru), DPV2_EFUSE_SLAVE_ADDR, I2C_SLAVE_FORCE_CLAIM);
     if (fd < 0) {
-      syslog(LOG_WARNING, "Failed to open bus %d", FRU_DPV2_X8_BUS(fru));
+      syslog(LOG_WARNING, "Failed to open bus %d", FRU_DEVICE_BUS(fru));
       return READING_NA;
     }
   }
@@ -2685,16 +2690,32 @@ pal_bic_sensor_read_raw(uint8_t fru, uint8_t sensor_num, float *value, uint8_t b
   if(sensor.read_type == ACCURATE_CMD_4BYTE) {
     *value = ((int16_t)((sensor.value & 0xFFFF0000) >> 16)) * 0.001 + ((int16_t)(sensor.value & 0x0000FFFF)) ;
 
-    //  Apply value correction for Crater Lake
-    if (fby35_common_get_slot_type(fru) == SERVER_TYPE_CL) {
+    if (fby35_common_get_slot_type(fru) == SERVER_TYPE_HD) {
+      //Apply value correction for Half Dome
+      switch (sensor_num) {
+        case BIC_HD_SENSOR_FIO_TEMP:
+          apply_frontIO_correction(fru, sensor_num, value, bmc_location);
+          break;
+
+        default:
+          break;
+      }
+    } else if (fby35_common_get_slot_type(fru) == SERVER_TYPE_CL) {
+      //Apply value correction for Crater Lake
       switch (sensor_num) {
         case BIC_SENSOR_FIO_TEMP:
           apply_frontIO_correction(fru, sensor_num, value, bmc_location);
           break;
+
         case BIC_SENSOR_CPU_THERM_MARGIN:
           if ( *value > 0 ) *value = -(*value);
           break;
+
+        default:
+          break;
       }
+    } else {
+      syslog(LOG_WARNING, "%s()  fru%x, unknown slot type 0x%x", __func__, fru, fby35_common_get_slot_type(fru));
     }
     return 0;
   } else if ( sensor.read_type == ACCURATE_CMD) {
@@ -3068,6 +3089,30 @@ pal_medusa_hsc_threshold_init() {
   return 0;
 }
 
+static int
+pal_vpdb_threshold_init() {
+  static bool is_inited = false;
+  bool is_48v_medusa = false;
+  char hsc_type[MAX_VALUE_LEN] = {0};
+
+  if (is_inited == true) {
+    return 0;
+  }
+  if (kv_get("bb_hsc_conf", hsc_type, NULL, KV_FPERSIST) < 0) {
+    return -1;
+  } else {
+    // 12V medusa: LTC4282
+    // 48V medusa: ADM1272, LTC4287
+    is_48v_medusa = strncmp(hsc_type, "ltc4282", sizeof(hsc_type)) ? true : false;
+  }
+  if (is_48v_medusa == true) {
+    sensor_map[BMC_SENSOR_PDB_CL_VDELTA].snr_thresh.ucr_thresh = BB_CPU_VDELTA_48V_UCR;
+    sensor_map[BMC_SENSOR_PDB_BB_VDELTA].snr_thresh.ucr_thresh = BB_CPU_VDELTA_48V_UCR;
+  }
+  is_inited = true;
+  return 0;
+}
+
 int
 pal_get_sensor_threshold(uint8_t fru, uint8_t sensor_num, uint8_t thresh, void *value) {
   static bool is_fan_threshold_init = false;
@@ -3081,7 +3126,7 @@ pal_get_sensor_threshold(uint8_t fru, uint8_t sensor_num, uint8_t thresh, void *
     }
   }
   if (fru == FRU_BMC) {
-    if (pal_medusa_hsc_threshold_init() < 0) {
+    if ((pal_medusa_hsc_threshold_init() < 0) || (pal_vpdb_threshold_init() < 0)) {
       return -1;
     }
   }

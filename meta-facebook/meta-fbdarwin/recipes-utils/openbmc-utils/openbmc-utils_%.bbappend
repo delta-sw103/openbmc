@@ -20,7 +20,6 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 LOCAL_URI += "\
     file://board-utils.sh \
     file://dump_gpios.sh \
-    file://find_serfmon.sh \
     file://meta_info.sh \
     file://oob-eeprom-util.sh \
     file://oob-mdio-util.sh \
@@ -32,7 +31,6 @@ LOCAL_URI += "\
 
 OPENBMC_UTILS_FILES += " \
     dump_gpios.sh \
-    find_serfmon.sh \
     meta_info.sh \
     oob-eeprom-util.sh \
     oob-mdio-util.sh \

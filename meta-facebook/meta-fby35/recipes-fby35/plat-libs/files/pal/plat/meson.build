@@ -10,15 +10,14 @@ pal_sources += [
     ]
 
 pal_deps += [
-    cc.find_library('bic'),
-    cc.find_library('fby35_common'),
-    cc.find_library('fby35_fruid'),
-    cc.find_library('gpio-ctrl'),
-    cc.find_library('m'),
-    cc.find_library('ncsi'),
-    cc.find_library('nl-wrapper'),
-    cc.find_library('obmc-i2c'),
-    cc.find_library('obmc-sensors'),
+    dependency('libfby35-common'),
     cc.find_library('sensor-correction'),
-    cc.find_library('misc-utils'),
+    dependency('libbic'),
+    dependency('libfby35-fruid'),
+    dependency('libgpio-ctrl'),
+    dependency('libmisc-utils'),
+    dependency('libncsi'),
+    dependency('libnl-wrapper'),
+    dependency('libobmc-i2c'),
+    dependency('libobmc-sensors'),
     ]

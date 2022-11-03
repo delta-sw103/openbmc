@@ -1118,7 +1118,8 @@ is_valid_ast_bic_image(uint8_t slot_id, uint8_t comp, uint8_t intf, char *img_pa
     return BIC_STATUS_FAILURE;
   }
 
-  if (err_proof_board_id != BOARD_ID_SB) {
+  if ( ((intf == NONE_INTF) && (err_proof_board_id != BOARD_ID_SB)) ||
+       ((intf == FEXP_BIC_INTF) && (err_proof_board_id != BOARD_ID_VF)) ) {
     printf("Wrong firmware image component.\n");
     return BIC_STATUS_FAILURE;
   }
@@ -1286,7 +1287,8 @@ get_sb_bic_solution(uint8_t slot_id, bool *is_ast1030) {
       return -1;
     }
 
-    if (board_rev == BOARD_TYPE_AST1030) {
+    if (board_rev == BOARD_TYPE_AST1030_LTC4282 ||
+        board_rev == BOARD_TYPE_AST1030_MPS5990 ) {
       *is_ast1030 = true;
     }
   }
@@ -1313,20 +1315,22 @@ update_bic_runtime_fw(uint8_t slot_id, uint8_t comp,uint8_t intf, char *path, ui
 
   if (intf == FEXP_BIC_INTF) {
     bic_get_card_type(slot_id, GET_1OU, &type);
-    if (type == VERNAL_FALLS_AST1030) {
-      force = 1;  //there is no signature in AST BIC IMAGE currently
-    }
   }
 
   if (intf == NONE_INTF) {
     if (get_sb_bic_solution(slot_id, &is_sb_ast1030) < 0) {
-      ret = BIC_STATUS_FAILURE;
-      goto exit;
+      syslog(LOG_WARNING, "%s() Failed to get SB_BIC solution", __func__);
+      is_sb_ast1030 = false;
     }
   }
 
   //check the content of the image
   if (is_sb_ast1030 == true) {
+    if ( !force && ( is_valid_ast_bic_image(slot_id, comp, intf, path, fd, file_size) < 0) ) {
+      printf("Invalid BIC file!\n");
+      goto exit;
+    }
+  } else if (type == VERNAL_FALLS_AST1030) {
     if ( !force && ( is_valid_ast_bic_image(slot_id, comp, intf, path, fd, file_size) < 0) ) {
       printf("Invalid BIC file!\n");
       goto exit;

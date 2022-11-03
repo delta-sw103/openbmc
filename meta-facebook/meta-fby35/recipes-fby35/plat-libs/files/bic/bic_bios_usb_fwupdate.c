@@ -25,9 +25,11 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/time.h>
 #include <openssl/sha.h>
 #include "bic_bios_fwupdate.h"
+#include "bic_ipmi.h"
 
 #define USB_PKT_SIZE 0x200
 #define USB_DAT_SIZE (USB_PKT_SIZE - USB_PKT_HDR_SIZE)
@@ -41,6 +43,10 @@
 #define BIOS_UPDATE_IMG_SIZE (32*1024*1024)
 #define SIMPLE_DIGEST_LENGTH 4
 #define STRONG_DIGEST_LENGTH SHA256_DIGEST_LENGTH
+
+//PRoT update
+#define XFR_STAGING_OFFSET (48*1024*1024)
+#define XFR_WORKING_OFFSET (56*1024*1024)
 
 #define CL_BIC_USB_PORT 4
 #define HD_BIC_USB_PORT 3
@@ -120,9 +126,8 @@ int active_config(struct libusb_device *dev,struct libusb_device_handle *handle)
 }
 
 int
-send_bic_usb_packet(usb_dev* udev, bic_usb_packet *pkt)
+send_bic_usb_packet(usb_dev* udev, uint8_t* pkt, const int transferlen)
 {
-  const int transferlen = pkt->length + USB_PKT_HDR_SIZE;
   int transferred = 0;
   int retries = 3;
   int ret;
@@ -130,7 +135,7 @@ send_bic_usb_packet(usb_dev* udev, bic_usb_packet *pkt)
   // _debug_bic_usb_packet(pkt);
   while(true)
   {
-    ret = libusb_bulk_transfer(udev->handle, udev->epaddr, (uint8_t*)pkt, transferlen, &transferred, 3000);
+    ret = libusb_bulk_transfer(udev->handle, udev->epaddr, pkt, transferlen, &transferred, 3000);
     if(((ret != 0) || (transferlen != transferred))) {
       printf("Error in transferring data! err = %d and transferred = %d(expected data length %d)\n",ret ,transferred, transferlen);
       printf("Retry since  %s\n", libusb_error_name(ret));
@@ -146,17 +151,18 @@ send_bic_usb_packet(usb_dev* udev, bic_usb_packet *pkt)
 }
 
 int
-receive_bic_usb_packet(usb_dev* udev, bic_usb_packet *pkt)
+receive_bic_usb_packet(usb_dev* udev, uint8_t* pkt, const int receivelen)
 {
-  const int receivelen = USB_PKT_SIZE;
   int received = 0;
+  int total_received = 0;
   int retries = 3;
   int ret;
+  bic_usb_res_packet* res_hdr = (bic_usb_res_packet*)pkt;
 
   // _debug_bic_usb_packet(pkt);
   while(true)
   {
-    ret = libusb_bulk_transfer(udev->handle, udev->epaddr, (uint8_t*)pkt, receivelen, &received, 3000);
+    ret = libusb_bulk_transfer(udev->handle, udev->epaddr, pkt, receivelen, &received, 0);
     if(ret != 0) {
       printf("Error in receiving data! err = %d (%s)\n", ret, libusb_error_name(ret));
       retries--;
@@ -164,12 +170,22 @@ receive_bic_usb_packet(usb_dev* udev, bic_usb_packet *pkt)
         return -1;
       }
       msleep(100);
-    } else
+      continue;
+    }
+
+    total_received += received;
+    if (total_received >= receivelen) {
       break;
+    }
+
+    //Expected data may not received completely in one bulk transfer
+    //continue to get remaining data
+    pkt += received;
+
   }
 
   // Return CC code
-  return pkt->iana[0];
+  return res_hdr->cc;
 }
 
 int
@@ -240,6 +256,12 @@ bic_init_usb_dev(uint8_t slot_id, uint8_t comp, usb_dev* udev, const uint16_t pr
           switch (comp) {
             case FW_BIOS:
               if ( udev->path[2] != CL_BIC_USB_PORT && udev->path[2] != HD_BIC_USB_PORT) {
+                continue;
+              }
+              break;
+             case FW_PROT:
+              //Only Halfdome support PRoT
+              if (udev->path[2] != HD_BIC_USB_PORT) {
                 continue;
               }
               break;
@@ -397,12 +419,29 @@ bic_update_fw_usb(uint8_t slot_id, uint8_t comp, int fd, usb_dev* udev)
   uint8_t *buf = NULL;
   size_t write_offset = 0;
   int write_target = 0;
+  size_t image_size = 0;
+  bool last_block = false;
+  struct stat finfo;
+  fstat(fd,&finfo);
+  image_size = finfo.st_size;
 
   const char *what = NULL;
   switch (comp) {
     case FW_BIOS:
       what = "BIOS";
       write_offset = 0;
+      write_target = UPDATE_BIOS;
+      break;
+
+    case FW_PROT:
+      what = "PRoT";
+      if(bic_is_prot_bypass(slot_id)) {
+        printf("PRoT is Bypass mode, updating to offset : 0x%08X \n",XFR_WORKING_OFFSET);
+        write_offset = XFR_WORKING_OFFSET;
+      } else {
+        printf("PRoT is PFR mode, updating to offset : 0x%08X \n",XFR_STAGING_OFFSET);
+        write_offset = XFR_STAGING_OFFSET;
+      }
       write_target = UPDATE_BIOS;
       break;
 
@@ -470,6 +509,11 @@ bic_update_fw_usb(uint8_t slot_id, uint8_t comp, int fd, usb_dev* udev)
     if (file_buf_num_bytes == 0) {
       break;
     }
+
+    if ((num_blocks_written * BIOS_UPDATE_BLK_SIZE + file_buf_num_bytes) >= image_size) {
+      last_block = true;
+    }
+
     // Pad to 64K with 0xff, if needed.
     for (size_t i = file_buf_num_bytes; i < BIOS_UPDATE_BLK_SIZE; i++) {
       file_buf[i] = '\xff';
@@ -506,6 +550,14 @@ bic_update_fw_usb(uint8_t slot_id, uint8_t comp, int fd, usb_dev* udev)
       // so if we have SHA256 checksum, we can use big packets as well.
       size_t limit = (cs_len == STRONG_DIGEST_LENGTH ? USB_DAT_SIZE_BIG : USB_DAT_SIZE);
       if (count > limit) count = limit;
+
+      if( last_block && (file_buf_pos + count >= file_buf_num_bytes)) {
+        if (comp == FW_1OU_CXL) {
+          //Enable update end flag for last packet
+          write_target |= 0x80;
+         }
+       }
+
       bic_usb_packet *pkt = (bic_usb_packet *) (file_buf + file_buf_pos - sizeof(bic_usb_packet));
       pkt->netfn = NETFN_OEM_1S_REQ << 2;
       pkt->cmd = CMD_OEM_1S_UPDATE_FW;
@@ -515,7 +567,7 @@ bic_update_fw_usb(uint8_t slot_id, uint8_t comp, int fd, usb_dev* udev)
       pkt->offset = write_offset + file_buf_pos;
       pkt->length = count;
       udev->epaddr = USB_INPUT_PORT;
-      rc = send_bic_usb_packet(udev, pkt);
+      rc = send_bic_usb_packet(udev, (uint8_t *)pkt, pkt->length + USB_PKT_HDR_SIZE);
       if (rc < 0) {
         fprintf(stderr, "failed to write %zu bytes @ %zu: %d\n", count, write_offset, rc);
         send_packet_fail = true;
@@ -523,8 +575,8 @@ bic_update_fw_usb(uint8_t slot_id, uint8_t comp, int fd, usb_dev* udev)
       }
 
       udev->epaddr = USB_OUTPUT_PORT;
-      rc = receive_bic_usb_packet(udev, pkt);
-      if (rc < 0) {
+      rc = receive_bic_usb_packet(udev, (uint8_t *)pkt, USB_PKT_RES_HDR_SIZE);
+      if (rc != 0) {
         fprintf(stderr, "Return code : %d\n", rc);
         send_packet_fail = true;
         break;  //prevent the endless while loop.
@@ -573,6 +625,108 @@ out:
 }
 
 int
+bic_dump_fw_usb(uint8_t slot_id, uint8_t comp, char *path, usb_dev* udev) {
+  int ret = -1, rc = -1, fd = -1;
+  uint32_t offset = 0, next_doffset;
+  uint32_t dsize;
+  uint32_t img_size = 0;
+  uint8_t read_count;
+  uint8_t buf[256];
+  bic_usb_dump_req_packet *pkt = (bic_usb_dump_req_packet *)malloc(sizeof(bic_usb_dump_req_packet));
+  bic_usb_dump_res_packet *res = (bic_usb_dump_res_packet*)buf;
+  uint8_t res_packet_size = udev->desc.bMaxPacketSize0;
+  uint8_t res_header_size = &(res->data[0]) - &(res->netfn);
+  uint8_t res_payload_max_size = res_packet_size - res_header_size;
+
+  switch (fby35_common_get_slot_type(slot_id)) {
+    case SERVER_TYPE_HD:
+      img_size = 0x1000000;
+      break;
+    case SERVER_TYPE_CL:
+      img_size = 0x2000000;
+      break;
+    default:
+      syslog(LOG_WARNING, "%s() Unknown slot type, dmup full flash(64MB)", __func__);
+      img_size = 0x4000000;
+  }
+
+  if (comp != FW_BIOS) {
+    printf("ERROR: only support dump BIOS image!\n");
+    goto error_exit;
+  }
+  printf("dumping fw on slot %d:\n", slot_id);
+
+  fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  if (fd < 0) {
+    printf("ERROR: invalid file path!\n");
+    goto error_exit;
+  }
+
+  // Write chunks of binary data in a loop
+  dsize = img_size / 100;
+  next_doffset = offset + dsize;
+  while (1) {
+    read_count = ((offset + res_payload_max_size) <= img_size) ? res_payload_max_size : (img_size - offset);
+
+    // read image from Bridge-IC
+    pkt->netfn = NETFN_OEM_1S_REQ << 2;
+    pkt->cmd = CMD_OEM_1S_READ_FW_IMAGE;
+    // Fill the IANA ID
+    memcpy(pkt->iana, (uint8_t *)&IANA_ID, IANA_ID_SIZE);
+    pkt->target = DUMP_BIOS;
+    pkt->offset = offset;
+    pkt->length = read_count;
+    udev->epaddr = USB_INPUT_PORT;
+    rc = send_bic_usb_packet(udev, (uint8_t *)pkt, sizeof(bic_usb_dump_req_packet));
+    if (rc != 0) {
+      fprintf(stderr, "failed to write %u bytes @ %u: %d\n", read_count, offset, rc);
+      goto error_exit;
+    }
+
+    memset(buf, 0xFF, 256);
+    udev->epaddr = USB_OUTPUT_PORT;
+    rc = receive_bic_usb_packet(udev, buf, read_count + res_header_size);
+    if (rc != 0) {
+      fprintf(stderr, "Return code : %d\n", rc);
+      goto error_exit;
+    }
+
+    // Write to file
+    rc = write(fd, res->data, read_count);
+    if (rc <= 0) {
+      goto error_exit;
+    }
+
+    // Update counter
+    offset += rc;
+    if (offset >= next_doffset) {
+      switch (comp) {
+        case FW_BIOS:
+          _set_fw_update_ongoing(slot_id, 60);
+          printf("\rdumped bios: %u %%", offset/dsize);
+          break;
+      }
+      fflush(stdout);
+      next_doffset += dsize;
+    }
+
+    if (offset >= img_size)
+      break;
+  }
+
+  ret = 0;
+
+error_exit:
+  printf("\n");
+  if (fd > 0 ) {
+    close(fd);
+  }
+  free(pkt);
+
+  return ret;
+}
+
+int
 bic_close_usb_dev(usb_dev* udev)
 {
   if (libusb_release_interface(udev->handle, udev->ci) < 0) {
@@ -613,6 +767,46 @@ update_bic_usb_bios(uint8_t slot_id, uint8_t comp, int fd)
 
   gettimeofday(&end, NULL);
   if (comp == FW_BIOS || comp == FW_1OU_CXL) {
+    fprintf(stderr, "Elapsed time:  %d   sec.\n", (int)(end.tv_sec - start.tv_sec));
+  }
+
+  ret = 0;
+error_exit:
+  sprintf(key, "fru%u_fwupd", slot_id);
+  remove(key);
+
+  // close usb device
+  bic_close_usb_dev(udev);
+  return ret;
+}
+
+int
+dump_bic_usb_bios(uint8_t slot_id, uint8_t comp, char *path)
+{
+  struct timeval start, end;
+  char key[64];
+  int ret = -1;
+  usb_dev   bic_udev;
+  usb_dev*  udev = &bic_udev;
+
+  udev->ci = 1;
+  udev->epaddr = USB_INPUT_PORT;
+
+  // init usb device
+  ret = bic_init_usb_dev(slot_id, comp, udev, SB_USB_PRODUCT_ID, SB_USB_VENDOR_ID);
+  if (ret < 0) {
+    goto error_exit;
+  }
+
+  gettimeofday(&start, NULL);
+
+  // dump into file
+  ret = bic_dump_fw_usb(slot_id, comp, path, udev);
+  if (ret < 0)
+    goto error_exit;
+
+  gettimeofday(&end, NULL);
+  if (comp == FW_BIOS) {
     fprintf(stderr, "Elapsed time:  %d   sec.\n", (int)(end.tv_sec - start.tv_sec));
   }
 

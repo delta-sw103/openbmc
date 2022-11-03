@@ -31,11 +31,12 @@ static map<uint8_t, map<uint8_t, string>> rainbow_falls_vr_list = {
 };
 
 bool VrComponent::vr_printed = false;
+bool VrComponent::rbf_vr_printed = false;
 
 int VrComponent::update_internal(const string& image, bool force) {
   int ret = 0;
 
-  if (fw_comp == FW_VR) {
+  if (fw_comp == FW_VR || fw_comp == FW_1OU_VR) {
     return FW_STATUS_NOT_SUPPORTED;
   }
 
@@ -104,17 +105,34 @@ int VrComponent::print_version() {
   char value[MAX_VALUE_LEN] = {0};
   auto& list = get_vr_list();
 
-  if (fw_comp == FW_VR) {
-    vr_printed = true;
-    iter = list.begin();
-  } else {
-    if (vr_printed == true) {
-      // "vr" is prior to "vr_xxx",
-      // so "vr_xxx" does not need to print version
-      return FW_STATUS_SUCCESS;
-    }
-    iter = list.find(fw_comp);
+  switch (fw_comp) {
+    case FW_VR:
+      vr_printed = true;
+      iter = list.begin();
+      break;
+    case FW_1OU_VR:
+      rbf_vr_printed = true;
+      iter = list.begin();
+      break;
+    case FW_1OU_VR_V9_ASICA:
+    case FW_1OU_VR_VDDQAB:
+    case FW_1OU_VR_VDDQCD:
+      if (rbf_vr_printed) {
+        // "1ou_vr" is prior to "1ou_vr_xxx",
+        // so "1ou_vr_xxx" does not need to print version
+        return FW_STATUS_SUCCESS;
+      }
+      iter = list.find(fw_comp);
+      break;
+    default:
+      if (vr_printed) {
+        // "vr" is prior to "vr_xxx",
+        // so "vr_xxx" does not need to print version
+        return FW_STATUS_SUCCESS;
+      }
+      iter = list.find(fw_comp);
   }
+
   for (; iter != list.end(); ++iter) {
     auto vr = iter->second.begin();  // <addr, name>
     try {
@@ -133,7 +151,7 @@ int VrComponent::print_version() {
     } catch (string& err) {
       printf("%s Version : NA (%s)\n", vr->second.c_str(), err.c_str());
     }
-    if (fw_comp != FW_VR) {
+    if (fw_comp != FW_VR && fw_comp != FW_1OU_VR) {
       break;
     }
   }
@@ -141,12 +159,12 @@ int VrComponent::print_version() {
   return FW_STATUS_SUCCESS;
 }
 
-void VrComponent::get_version(json& j) {
+int VrComponent::get_version(json& j) {
   string ver("");
   map<uint8_t, map<uint8_t, string>>::iterator iter;
   auto& list = get_vr_list();
 
-  iter = (fw_comp == FW_VR) ? list.begin() : list.find(fw_comp);
+  iter = (fw_comp == FW_VR || fw_comp == FW_1OU_VR) ? list.begin() : list.find(fw_comp);
   for (; iter != list.end(); ++iter) {
     auto vr = iter->second.begin();  // <addr, name>
     try {
@@ -177,7 +195,7 @@ void VrComponent::get_version(json& j) {
       transform(tmp_str.begin(), tmp_str.end(), tmp_str.begin(), ::tolower);
       j["VERSION"][vr->second]["version"] = tmp_str;
       if (is_TI_VR == true) {
-        return;
+        return FW_STATUS_SUCCESS;
       }
 
       start = ver.rfind(' ');
@@ -192,15 +210,16 @@ void VrComponent::get_version(json& j) {
         j["VERSION"] = "error_returned";
       }
     }
-    if (fw_comp != FW_VR) {
+    if (fw_comp != FW_VR && fw_comp != FW_1OU_VR) {
       break;
     }
   }
+  return FW_STATUS_SUCCESS;
 }
 
 map<uint8_t, map<uint8_t, string>>&  VrComponent::get_vr_list() {
 
-  if(rainbow_falls_vr_list.count(fw_comp) > 0) {
+  if( fw_comp == FW_1OU_VR || rainbow_falls_vr_list.count(fw_comp) > 0) {
       return rainbow_falls_vr_list;
   }
 

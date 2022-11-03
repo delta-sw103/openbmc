@@ -22,7 +22,7 @@ const auto HMC_UPDATE_SERVICE = HMC_URL + "UpdateService";
 const auto HMC_TASK_SERVICE = HMC_URL + "TaskService/Tasks/";
 const auto HMC_FW_INVENTORY = HMC_URL + "UpdateService/FirmwareInventory/";
 
-constexpr auto TIME_OUT = 2;
+constexpr auto TIME_OUT = 6;
 
 using nlohmann::json;
 
@@ -147,6 +147,17 @@ float sensor(const std::string& component, const std::string& name) {
 int get_hmc_sensor(const char* component, const char* snr_name, float* value) {
   try {
     *value = hgx::sensor(component, snr_name);
+  } catch (std::exception& e) {
+    return -1;
+  }
+  return 0;
+}
+
+int get_hmc_ver(const char* component, char *version) {
+  try {
+    std::string resStr;
+    resStr = hgx::version(component, 0);
+    strcpy(version, resStr.c_str());
   } catch (std::exception& e) {
     return -1;
   }

@@ -115,13 +115,17 @@ bic_get_oem_sensor_reading(uint8_t slot_id, uint8_t index, ipmi_sensor_reading_t
   uint8_t rlen = 0;
   uint32_t val = 0;
   int ret = bic_ipmb_send(slot_id, NETFN_OEM_1S_REQ, BIC_CMD_GPV3_GET_DUAL_M2_PWR, tbuf, 4, rbuf, &rlen, intf);
-  if (ret == 0 && rlen == 5) {
+
+  // rbuf[0 - 2] IANA Data
+  // rbuf[3 - 4] Dual Sensor Value
+  // rbuf[5] Sensor Flag
+  if (ret == 0 && rlen == 6) {
     if (mul > 0) {
       val = (rbuf[3] + rbuf[4]) / mul;
     } else {
       val = (rbuf[3] + rbuf[4]);
     }
-    sensor->flags = 0;
+    sensor->flags = rbuf[5];
     sensor->status = 0;
     sensor->ext_status = 0;
 
@@ -1018,6 +1022,18 @@ bic_enable_vr_fault_monitor(uint8_t slot_id, bool enable, uint8_t intf) {
   uint8_t rbuf[24] = {0};
   uint8_t rlen = 0;
   return bic_ipmb_send(slot_id, NETFN_OEM_1S_REQ, BIC_CMD_OEM_BIC_VR_MONITOR, tbuf, tlen, rbuf, &rlen, intf);
+}
+
+int
+bic_set_vr_monitor_enable(uint8_t slot_id, bool enable, uint8_t intf) {
+  uint8_t tbuf[SIZE_IANA_ID + 1] = {0};
+  uint8_t rbuf[MAX_IPMB_RES_LEN] = {0};
+  uint8_t rlen = 0;
+
+  memcpy(tbuf, (uint8_t *)&IANA_ID, SIZE_IANA_ID);
+  tbuf[3] = (uint8_t)enable;  // 1: enable vr monitor; 0: disable vr monitor
+
+  return bic_ipmb_send(slot_id, NETFN_OEM_1S_REQ, CMD_OEM_1S_SET_VR_MON_ENABLE, tbuf, (uint8_t)sizeof(tbuf), rbuf, &rlen, intf);
 }
 
 int

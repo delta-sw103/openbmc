@@ -73,6 +73,8 @@ const char pal_m2_dual_list[] = "";
 
 static char sel_error_record[NUM_SERVER_FRU] = {0};
 
+static bool cycle_thread_is_running[NUM_SERVER_FRU + 1] = {0};
+
 const char pal_fru_list[] = "all, slot1, slot2, slot3, slot4, bmc, nic, slot1-2U-exp, slot1-2U-top, slot1-2U-bot";
 
 #define SYSFW_VER "sysfw_ver_slot"
@@ -82,6 +84,7 @@ const char pal_fru_list[] = "all, slot1, slot2, slot3, slot4, bmc, nic, slot1-2U
 #define SNR_HEALTH_STR "slot%d_sensor_health"
 #define GPIO_OCP_DEBUG_BMC_PRSNT_N "OCP_DEBUG_BMC_PRSNT_N"
 #define PCIE_CONFIG "slot%d_fru%d_config"
+#define DEBUG_CARD_PRSNT_KEY "DEBUG_CARD_PRSNT"
 
 #define SLOT1_POSTCODE_OFFSET 0x02
 #define SLOT2_POSTCODE_OFFSET 0x03
@@ -391,6 +394,26 @@ MAPTOSTRING root_port_mapping_2u_sgl_m2_gpv3[] = {
     { 0x69, 0, 0x0C, "Num 11", "2OU"},
     { 0x20, 0, 0x0D, "E1S 0",  "2OU"},
     { 0x6A, 0, 0x0E, "E1S 1",  "2OU"},
+};
+
+// single M2 for BRCM 2U
+MAPTOSTRING root_port_mapping_2u_sgl_m2_gpv3_brcm[] = {
+    // bus, device, port, silk screen, location
+    // Down Stream Ports
+    { 0x17, 8, 0x01, "Num 0",  "2OU"},
+    { 0x17, 7, 0x02, "Num 1",  "2OU"},
+    { 0x17, 1, 0x03, "Num 2",  "2OU"},
+    { 0x17, 2, 0x04, "Num 3",  "2OU"},
+    { 0x17, 3, 0x05, "Num 4",  "2OU"},
+    { 0x17, 4, 0x06, "Num 5",  "2OU"},
+    { 0x17, 6, 0x07, "Num 6",  "2OU"},
+    { 0x17, 5, 0x08, "Num 7",  "2OU"},
+    { 0x65, 3, 0x09, "Num 8",  "2OU"},
+    { 0x65, 4, 0x0A, "Num 9",  "2OU"},
+    { 0x65, 1, 0x0B, "Num 10", "2OU"},
+    { 0x65, 0, 0x0C, "Num 11", "2OU"},
+    { 0x17, 0, 0x0D, "E1S 0",  "2OU"},
+    { 0x65, 2, 0x0E, "E1S 1",  "2OU"},
 };
 
 MAPTOSTRING root_port_mapping_e1s[] = {
@@ -2179,7 +2202,7 @@ pal_sel_root_port_mapping_tbl(uint8_t fru, uint8_t *bmc_location, MAPTOSTRING **
     // case 1/2OU E1S
     *tbl = root_port_mapping_e1s;
     tbl_size = sizeof(root_port_mapping_e1s);
-  } else if ( (board_2u == GPV3_MCHP_BOARD || board_2u == GPV3_BRCM_BOARD)) {
+  } else if ( board_2u == GPV3_MCHP_BOARD ) {
     // case Config C and Config D GPv3
     if ( config_status == GPV3_84CH_DUAL || config_status == GPV3_100CH_DUAL ) {
       *tbl = root_port_mapping_2u_dual_m2_gpv3;
@@ -2188,6 +2211,10 @@ pal_sel_root_port_mapping_tbl(uint8_t fru, uint8_t *bmc_location, MAPTOSTRING **
       *tbl = root_port_mapping_2u_sgl_m2_gpv3;
       tbl_size = sizeof(root_port_mapping_2u_sgl_m2_gpv3);
     }
+  } else if ( board_2u == GPV3_BRCM_BOARD) {
+    // case BRCM GPv3
+    *tbl = root_port_mapping_2u_sgl_m2_gpv3_brcm;
+    tbl_size = sizeof(root_port_mapping_2u_sgl_m2_gpv3_brcm);
   } else if ( board_2u == CWC_MCHP_BOARD ) {
     if ( config_status == GPV3_84CH_DUAL ||config_status == GPV3_100CH_DUAL ) {
       *tbl = root_port_mapping_4u_dual_m2_gpv3;
@@ -2608,6 +2635,9 @@ pal_parse_sys_sts_event(uint8_t fru, uint8_t *sel, char *error_log) {
       snprintf(log_msg, sizeof(log_msg), "E1S 1OU M.2 dev%d present", event_data[2]);
       strcat(error_log, log_msg);
       break;
+    case SYS_EVENT_HOST_STALL:
+      strcat(error_log, "BIOS stalled");
+      break;
     default:
       strcat(error_log, "Undefined system event");
       break;
@@ -2876,10 +2906,12 @@ pal_log_clear(char *fru) {
 }
 
 int
-pal_is_debug_card_prsnt(uint8_t *status) {
+pal_is_debug_card_prsnt(uint8_t *status, uint8_t read_flag) {
   int ret = -1;
   uint8_t bmc_location = 0;
   int retry = 0;
+  char key[MAX_KEY_LEN] = {0};
+  char value[MAX_VALUE_LEN] = {0};
 
   ret = fby3_common_get_bmc_location(&bmc_location);
   if ( ret < 0 ) {
@@ -2891,6 +2923,16 @@ pal_is_debug_card_prsnt(uint8_t *status) {
     // when updating firmware, front-paneld should pend to avoid the invalid access
     if ( pal_is_fw_update_ongoing(FRU_SLOT1) == true || \
          bic_is_crit_act_ongoing(FRU_SLOT1) == true ) return PAL_ENOTSUP;
+
+    snprintf(key, sizeof(key), DEBUG_CARD_PRSNT_KEY);
+    if (read_flag == READ_FROM_CACHE) {
+      if (kv_get(key, value, NULL, 0) == 0) {
+        *status = atoi(value);
+        return 0;
+      } else {
+        return pal_is_debug_card_prsnt(status, READ_FROM_BIC);
+      }
+    }
 
     uint8_t tbuf[3] = {0x9c, 0x9c, 0x00};
     uint8_t rbuf[16] = {0x00};
@@ -2913,6 +2955,8 @@ pal_is_debug_card_prsnt(uint8_t *status) {
     } else {
       *status = 0;
     }
+    snprintf(value, sizeof(value), "%d", *status);
+    kv_set(key, value, 0, 0);
   }
   else {
     gpio_value_t value;
@@ -3192,7 +3236,7 @@ pal_post_handle(uint8_t slot, uint8_t postcode) {
   int ret = -1;
 
   // Check for debug card presence
-  ret = pal_is_debug_card_prsnt(&prsnt);
+  ret = pal_is_debug_card_prsnt(&prsnt, READ_FROM_CACHE);
   if (ret) {
     return ret;
   }
@@ -3283,6 +3327,43 @@ pal_caterr_handler(uint8_t fru, bool ierr) {
   return fby3_common_crashdump(fru, ierr, false, CRASHDUMP_NO_POWER_CONTROL);
 }
 
+static void *
+pal_cycle_host_after_acd_dump(void *arg) {
+    char path[PATH_MAX] = {0};
+    uint8_t fru = (uint8_t)(uintptr_t)arg;
+
+    cycle_thread_is_running[fru] = true;
+    syslog(LOG_CRIT, "%s: FRU %u", __func__, fru);
+    snprintf(path, sizeof(path), "/var/run/autodump%d.pid", fru);
+
+    // wait crash dump finished
+    while(access(path, F_OK) == 0) {
+        sleep(1);
+    }
+
+    syslog(LOG_CRIT, "%s: power cycle FRU %u", __func__, fru);
+    pal_set_server_power(fru, SERVER_POWER_CYCLE);
+
+    pthread_detach(pthread_self());
+    cycle_thread_is_running[fru] = false;
+    pthread_exit(NULL);
+}
+
+static void
+pal_host_stall_handler(uint8_t fru) {
+  pthread_t tid;
+
+  syslog(LOG_CRIT, "%s: FRU %u", __func__, fru);
+
+  if (cycle_thread_is_running[fru] == false) {
+    if (pthread_create(&tid, NULL, pal_cycle_host_after_acd_dump, (void*)(uintptr_t)fru) < 0) {
+      syslog(LOG_WARNING, "%s Create thread failed!\n", __func__);
+    }
+  }
+
+  return;
+}
+
 static int
 pal_bic_sel_handler(uint8_t fru, uint8_t snr_num, uint8_t *event_data) {
   int ret = PAL_EOK;
@@ -3311,6 +3392,9 @@ pal_bic_sel_handler(uint8_t fru, uint8_t snr_num, uint8_t *event_data) {
         case 0x11: //SYS_SLOT_PRSNT
         case 0x0B: //SYS_M2_VPP
         case 0x07: //SYS_FW_TRIGGER
+          break;
+        case SYS_EVENT_HOST_STALL:
+          pal_host_stall_handler(fru);
           break;
         default:
           is_cri_sel = true;

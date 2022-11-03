@@ -29,6 +29,7 @@
 #include <openbmc/ipmb.h>
 #include <openbmc/ipmi.h>
 #include <openbmc/obmc-i2c.h>
+#include <openbmc/misc-utils.h>
 #include <openbmc/kv.h>
 #include <openbmc/pal.h>
 #include "mcu.h"
@@ -76,7 +77,7 @@ mcu_ipmb_wrapper(uint8_t bus, uint8_t addr, uint8_t netfn, uint8_t cmd,
   req->cmd = cmd;
 
   // Copy the data to be sent
-  if (txlen) {
+  if (txlen && txbuf) {
     memcpy(req->data, txbuf, txlen);
   }
 
@@ -150,7 +151,7 @@ mcu_enable_update(uint8_t bus, uint8_t addr) {
 }
 
 int
-mcu_update_firmware(uint8_t bus, uint8_t addr, const char *path, const char *key, uint8_t is_signed ) {
+mcu_update_firmware(uint8_t bus, uint8_t addr, const char *path, const char *key, bool is_signed, bool force ) {
   char cmd[100] = {0};
   uint8_t tbuf[256] = {0};
   uint8_t rbuf[16] = {0};
@@ -178,14 +179,17 @@ mcu_update_firmware(uint8_t bus, uint8_t addr, const char *path, const char *key
     if (read(fd, sbuf, MCU_SIGNED_DATA_SIZE) == MCU_SIGNED_DATA_SIZE ) {
       if(strstr(sbuf, str) == NULL) {
         printf("Error, Signed Key not Match\n");
-        return -1;
+        if (!force) {
+          return -1;
+        }
+      } else {
+        printf("Signed Key Match\n");
       }
     } else {
       printf("File Read Fail\n");
       return -1;
     }
     lseek(fd, 0 ,SEEK_SET);
-    printf("Signed Key Match\n");
   }
 
   fstat(fd, &buf);
@@ -248,7 +252,7 @@ mcu_update_firmware(uint8_t bus, uint8_t addr, const char *path, const char *key
 
     if (mcu_enable_update(bus, addr)) {
       syslog(LOG_CRIT, "Set mcu_enable_update(bus:%d, addr:%d) failed!\n", bus, addr);
-      goto error_exit;
+      // the mcu may already be in bootloader, so continue the update procedure
     }
 
     // Kill ipmbd "--enable-bic-update" for this slot
@@ -369,10 +373,10 @@ mcu_update_firmware(uint8_t bus, uint8_t addr, const char *path, const char *key
 
     offset += xcount;
 #ifdef DEBUG
-    printf("offset =%d\n", offset);
+    printf("offset = %u\n", offset);
 #endif
     if ((last_offset + dsize) <= offset) {
-       printf("\rupdated fw: %d %%", offset/dsize*5);
+       printf("\rupdated fw: %u %%", offset/dsize*5);
        fflush(stdout);
        last_offset += dsize;
     }
@@ -386,17 +390,14 @@ mcu_update_firmware(uint8_t bus, uint8_t addr, const char *path, const char *key
 
     tcount = tbuf[0];
     rcount = 0;
-    rc = i2c_rdwr_msg_transfer(ifd, addr, tbuf, tcount, rbuf, rcount);
-    if (rc) {
+    if (retry_cond((rc = i2c_rdwr_msg_transfer(ifd, addr, tbuf, tcount, rbuf, rcount)) == 0, 4, 10)) {
       printf("i2c_rdwr_msg_transfer failed send data\n");
       goto error_exit;
     }
-
     msleep(10);
     tcount = 0;
     rcount = 2;
-    rc = i2c_rdwr_msg_transfer(ifd, addr, tbuf, tcount, rbuf, rcount);
-    if (rc) {
+    if (retry_cond((rc = i2c_rdwr_msg_transfer(ifd, addr, tbuf, tcount, rbuf, rcount)) == 0, 4, 10)) {
       printf("i2c_rdwr_msg_transfer failed send data ack\n");
       goto error_exit;
     }
@@ -482,7 +483,7 @@ mcu_update_fw(uint8_t bus, uint8_t addr, uint8_t target, uint32_t offset, uint16
 
     if (retries) {
       sleep(1);
-      printf("\n%s: %d[%02x], target %d, offset %d, len %d retrying...\n", __func__ , bus, addr, target, offset, len);
+      printf("\n%s: %d[%02x], target %d, offset %u, len %d retrying...\n", __func__ , bus, addr, target, offset, len);
     }
   }
 
@@ -525,10 +526,11 @@ mcu_update_bootloader(uint8_t bus, uint8_t addr, uint8_t target, const char *pat
 
   while (1) {
     // Read from file
-    count = read(fd, buf, read_count);
-    if (count <= 0) {
+    ret = read(fd, buf, read_count);
+    if (ret <= 0) {
       break;
     }
+    count = ret;
 
     if ((offset + count) >= st.st_size) {
       target |= 0x80;

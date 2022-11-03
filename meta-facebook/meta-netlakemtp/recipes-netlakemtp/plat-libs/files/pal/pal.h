@@ -59,6 +59,11 @@ extern "C" {
 #define ERR_CODE_DISABLE                 0
 
 #define PATH_POWER_ON_RESET "/tmp/ast_power_on_reset"
+#define MAX31790_BIND_PATH "/sys/bus/i2c/drivers/max31790/bind"
+#define MAX31790_UNBIND_PATH "/sys/bus/i2c/drivers/max31790/unbind"
+#define MAX31790_STAT_PATH "/sys/bus/i2c/drivers/max31790/21-0021"
+#define MAX31790_BUS_ADDR "21-0021"
+#define MAX31790_PROBE_RETRY 5
 
 // Define SENSOR_NA to distinguish whether sensor reading fail or not
 #define SENSOR_NA    (-4)
@@ -97,14 +102,6 @@ enum {
   DEBUG_CARD_ABSENT,
 };
 
-/*
-TODO: Temporary. Error code needs to modify later on
-*/
-enum {
-  ERR_CODE_FRU_SERVER_HEALTH = 0x05,
-  ERR_CODE_FRU_PDB_HEALTH = 0x09,
-};
-
 enum {
   EVT = 0,
   EVT2 = 1,
@@ -128,6 +125,7 @@ void pal_set_error_code(unsigned char error_num, uint8_t error_code_status);
 int8_t pal_set_uart_routing(uint8_t routing);
 
 int pal_get_sensor_util_timeout(uint8_t fru);
+int pal_hwmon_probe(char *path, char *dev);
 
 #ifdef __cplusplus
 } // extern "C"

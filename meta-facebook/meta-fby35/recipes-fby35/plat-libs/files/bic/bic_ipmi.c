@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <openbmc/obmc-i2c.h>
+#include <openbmc/misc-utils.h>
 #include <openbmc/kv.h>
 #include "bic_ipmi.h"
 #include "bic_xfer.h"
@@ -58,6 +59,8 @@ typedef struct _sdr_rec_hdr_t {
 
 #define MAX_SLOT_NUM    4
 #define MAX_SENSOR_NUM  0xFF
+
+#define GET_SYS_FW_VER_CMD_LEN   3
 
 enum {
   M2_PWR_OFF = 0x00,
@@ -223,7 +226,7 @@ bic_get_self_test_result(uint8_t slot_id, uint8_t *self_test_result, uint8_t int
 // Storage - Get FRUID info
 // Netfn: 0x0A, Cmd: 0x10
 int
-bic_get_fruid_info(uint8_t slot_id, uint8_t fru_id, ipmi_fruid_info_t *info, uint8_t intf) {
+bic_get_fruid_info(uint8_t slot_id, uint8_t fru_id __attribute__((unused)), ipmi_fruid_info_t *info, uint8_t intf) {
   uint8_t rlen = 0;
   uint8_t fruid = 0;
   return bic_ipmb_send(slot_id, NETFN_STORAGE_REQ, CMD_STORAGE_GET_FRUID_INFO, &fruid, 1, (uint8_t *) info, &rlen, intf);
@@ -244,7 +247,7 @@ _get_sdr(uint8_t slot_id, ipmi_sel_sdr_req_t *req, ipmi_sel_sdr_res_t *res, uint
   int ret = 0;
   uint8_t tbuf[MAX_IPMB_REQ_LEN] = {0};
   uint8_t rbuf[MAX_IPMB_RES_LEN] = {0};
-  uint8_t tlen = IANA_ID_SIZE + sizeof(ipmi_sel_sdr_req_t);  
+  uint8_t tlen = IANA_ID_SIZE + sizeof(ipmi_sel_sdr_req_t);
 
   memcpy(tbuf, (uint8_t *)&IANA_ID, IANA_ID_SIZE);
   memcpy(&tbuf[IANA_ID_SIZE], (uint8_t *)req, sizeof(ipmi_sel_sdr_req_t));
@@ -820,7 +823,7 @@ bic_get_80port_record(uint8_t slot_id, uint8_t *rbuf, uint8_t *rlen, uint8_t int
 
 // Custom Command for getting cpld version
 int
-bic_get_cpld_ver(uint8_t slot_id, uint8_t comp, uint8_t *ver, uint8_t bus, uint8_t addr, uint8_t intf) {
+bic_get_cpld_ver(uint8_t slot_id, uint8_t comp __attribute__((unused)), uint8_t *ver, uint8_t bus, uint8_t addr, uint8_t intf) {
   uint8_t tbuf[32] = {0};
   uint8_t rbuf[4] = {0};
   uint8_t tlen = 0;
@@ -875,7 +878,7 @@ bic_get_vr_device_id(uint8_t slot_id, uint8_t *devid, uint8_t *id_len, uint8_t b
 }
 
 int
-bic_get_exp_cpld_ver(uint8_t slot_id, uint8_t comp, uint8_t *ver, uint8_t bus, uint8_t addr, uint8_t intf) {
+bic_get_exp_cpld_ver(uint8_t slot_id, uint8_t comp __attribute__((unused)), uint8_t *ver, uint8_t bus, uint8_t addr, uint8_t intf) {
   uint8_t tbuf[32] = {0};
   uint8_t rbuf[4] = {0};
   uint8_t tlen = 0;
@@ -1940,7 +1943,7 @@ bic_get_mb_index(uint8_t *index) {
 
 // For class 2 system, bypass command to another slot BMC
 int
-bic_bypass_to_another_bmc(uint8_t* data, uint8_t len) {
+bic_bypass_to_another_bmc(uint8_t* data, size_t len) {
   uint8_t tlen = 0;
   uint8_t rlen = 0;
   uint8_t rbuf[MAX_IPMB_RES_LEN] = {0};
@@ -2091,17 +2094,42 @@ bic_get_card_type(uint8_t slot_id, uint8_t card_config, uint8_t *type) {
 }
 
 int
-bic_request_post_buffer_dword_data(uint8_t slot_id, uint32_t *port_buff, uint32_t input_len, uint32_t *output_len) {
-  int ret = 0;
-  uint8_t tbuf[4] = {0x15, 0xA0, 0x00}; // IANA ID
+bic_request_post_buffer_page_data(uint8_t slot_id, uint8_t page_num, uint8_t *port_buff, uint8_t *len) {
+  int ret;
+  uint8_t tbuf[4] = {0};
   uint8_t rbuf[MAX_IPMB_RES_LEN]={0x00};
   uint8_t rlen = 0;
-  int totol_length = 0;
+
+  memcpy(tbuf, (uint8_t *)&IANA_ID, IANA_ID_SIZE);
+
+  tbuf[3] = page_num & 0xFF;
+  ret = bic_ipmb_wrapper(slot_id, NETFN_OEM_1S_REQ, CMD_OEM_1S_GET_POST_CODE_BUF, tbuf, sizeof(tbuf), rbuf, &rlen);
+
+  if(0 != ret)
+    goto exit_done;
+
+  // Ignore first 3 bytes of IANA ID
+  memcpy(port_buff, &rbuf[3], rlen - 3);
+  *len = rlen - 3;
+
+exit_done:
+  return ret;
+}
+
+int
+bic_request_post_buffer_dword_data(uint8_t slot_id, uint32_t *port_buff, uint32_t input_len, uint32_t *output_len) {
+  int ret = 0;
+  uint8_t tbuf[4] = {0};
+  uint8_t rbuf[MAX_IPMB_RES_LEN]={0x00};
+  uint8_t rlen = 0;
+  size_t totol_length = 0;
+
+  memcpy(tbuf, (uint8_t *)&IANA_ID, IANA_ID_SIZE);
 
   for(int i = 0; i <= MAX_POST_CODE_PAGE; i++)
   {
     tbuf[3] = i & 0xFF;
-    ret = bic_ipmb_wrapper(slot_id, NETFN_OEM_1S_REQ, CMD_OEM_1S_GET_POST_CODE_BUF, tbuf, 0x04, rbuf, &rlen);
+    ret = bic_ipmb_wrapper(slot_id, NETFN_OEM_1S_REQ, CMD_OEM_1S_GET_POST_CODE_BUF, tbuf, sizeof(tbuf), rbuf, &rlen);
 
     if(0 != ret) {
       #ifdef DEBUG
@@ -2121,6 +2149,72 @@ bic_request_post_buffer_dword_data(uint8_t slot_id, uint32_t *port_buff, uint32_
   }
 
   *output_len = totol_length;
+
+  return ret;
+}
+
+int
+bic_get_prot_spare_pins(uint8_t slot_id, uint8_t* value) {
+  uint8_t tbuf[4] = {0};
+  uint8_t rbuf[8] = {0};
+  uint8_t tlen = 4;
+  uint8_t rlen = 1;
+
+  tbuf[0] = 0x01; //bus id
+  tbuf[1] = 0x42; //slave addr
+  tbuf[2] = 0x01; //read 1 byte
+  tbuf[3] = 0x0f; //register offset
+
+  if (retry_cond(!bic_ipmb_wrapper(slot_id, NETFN_APP_REQ, CMD_APP_MASTER_WRITE_READ, tbuf, tlen, rbuf, &rlen), 3, 50)) {
+    return -1;
+  }
+
+  *value = rbuf[0];
+
+  return 0;
+}
+
+bool
+bic_is_prot_bypass(uint8_t fru)
+{
+  uint8_t spare_status = 0xFF;
+  int ret = bic_get_prot_spare_pins(fru, &spare_status);
+  if(ret < 0) {
+    syslog(LOG_WARNING, "%s() bic_get_prot_spare_pins fail, returns %d\n", __func__, ret);
+    return false;
+  }
+  //bit1:AUTH_SPARE_46_R, low: bypass
+  return (spare_status & 0x02) ? false:true;
+}
+
+int
+bic_get_sys_fw_ver(uint8_t slot_id, uint8_t *ver) {
+  int ret = 0;
+  uint8_t tlen = 0, rlen = 0;
+  uint8_t tbuf[MAX_IPMB_REQ_LEN] = {0};
+  uint8_t rbuf[MAX_IPMB_RES_LEN] = {0};
+
+  tlen = GET_SYS_FW_VER_CMD_LEN;
+
+  if (ver == NULL) {
+    syslog(LOG_ERR, "%s: failed to get system firmware version due to NULL pointer\n", __func__);
+    return BIC_STATUS_FAILURE;
+  }
+
+  memcpy(tbuf, (uint8_t *)&IANA_ID, IANA_ID_SIZE);
+
+  ret = bic_ipmb_wrapper(slot_id, NETFN_OEM_1S_REQ, BIC_CMD_OEM_BIOS_VER, tbuf, tlen, rbuf, &rlen);
+  if (ret != 0) {
+    syslog(LOG_WARNING, "%s: fail to get BIOS version at slot%d", __func__, slot_id);
+    return -1;
+  }
+
+  if ((rlen < (IANA_ID_SIZE + SIZE_SYSFW_VER)) ||
+      (rlen > (IANA_ID_SIZE + SIZE_SYSFW_VER*BLK_SYSFW_VER))) {
+    syslog(LOG_WARNING, "%s: invalid rlen %u at slot%d", __func__, rlen, slot_id);
+    return -1;
+  }
+  memcpy(ver, &rbuf[IANA_ID_SIZE], rlen - IANA_ID_SIZE);
 
   return ret;
 }
