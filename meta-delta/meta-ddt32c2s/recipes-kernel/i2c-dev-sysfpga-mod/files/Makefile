@@ -17,7 +17,7 @@
 
 MODULE_NAME       = delta_sysfpga
 obj-m 			 := ${MODULE_NAME}.o
-${MODULE_NAME}-y := sysfpga.o
+${MODULE_NAME}-y := sysfpga.o sysfpga_i2c.o
 
 ccflags-y += -I$(KERNEL_EXTRA_HEADER_PATH)
 

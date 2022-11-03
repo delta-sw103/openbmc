@@ -178,6 +178,11 @@
 
 &i2c3 {
 	status = "okay";
+
+	sysfpga@36 {
+		compatible = "delta,sysfpga-i2c";
+		reg = <0x36>;
+	};
 };
 
 &i2c4 {

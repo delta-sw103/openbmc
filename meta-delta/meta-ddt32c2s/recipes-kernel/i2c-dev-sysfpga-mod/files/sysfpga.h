@@ -10,9 +10,12 @@
 #define CPU_WRITE_CTRL	0x00000010
 #define WRITE_CTRL_SEL	0x00000001
 
-struct sysfpga_data_s {
-    i2c_dev_data_st *i2c_dev_data;
-    struct i2c_adapter adap;
+struct fpga_i2c_bus_s {
+    struct i2c_adapter *adap;
+    int offset;
 };
+
+ssize_t i2c_fpga_read(struct device *dev, const int reg, uint32_t *reg_val);
+ssize_t i2c_fpga_write(struct device *dev, const int reg, uint32_t result);
 
 #endif /* __SYSFPGA_H__ */

@@ -29,6 +29,8 @@ LOCAL_URI = " \
     file://Makefile \
     file://sysfpga.c \
     file://sysfpga.h \
+    file://sysfpga_i2c.c \
+    file://sysfpga_i2c.h \
     file://COPYING \
     "
 
