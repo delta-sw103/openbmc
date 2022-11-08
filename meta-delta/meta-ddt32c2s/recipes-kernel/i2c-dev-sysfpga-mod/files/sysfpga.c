@@ -92,8 +92,6 @@ ssize_t i2c_fpga_write(struct device *dev, const int reg, uint32_t result)
     msg[0].addr   = client->addr;
     msg[0].buf    = xfer;
     msg[0].len    = 8;
-    /*SYSFPGA_DEBUG("xfer[0-3] = 0x%2X, 0x%2X, 0x%2X, 0x%2X", xfer[0], xfer[1], xfer[2], xfer[3]);
-    SYSFPGA_DEBUG("xfer[4-7] = 0x%2X, 0x%2X, 0x%2X, 0x%2X", xfer[4], xfer[5], xfer[6], xfer[7]);*/
 
     mutex_lock(&data->idd_lock);
     ret = i2c_transfer(client->adapter, msg, 1);
@@ -140,7 +138,6 @@ static ssize_t fpga_write(struct device *dev,
 
     /* Read the original data and store in result */
     ret = i2c_fpga_read(dev, dev_attr->ida_reg, &result);
-    SYSFPGA_DEBUG("\t1. Result = 0x%8X", result);
 
     /* Get the write data from buf */
     if (sscanf(buf, "%i", &val) <= 0) {
@@ -155,13 +152,9 @@ static ssize_t fpga_write(struct device *dev,
     /* Clear the bits and replace the original data with new value */
     result &= ~(mask << dev_attr->ida_bit_offset);
     result |= val << dev_attr->ida_bit_offset;
-    SYSFPGA_DEBUG("\t2. Result = 0x%8X", result);
 
     /* Write back the new result */
     ret = i2c_fpga_write(dev, dev_attr->ida_reg, result);
-    /* Read the original data and store in result */
-    ret = i2c_fpga_read(dev, dev_attr->ida_reg, &result);
-    SYSFPGA_DEBUG("\t3. Result = 0x%8X, count = %d", result, count);
 
     return count;
 }
@@ -437,7 +430,6 @@ static int sysfpga_probe(struct i2c_client* client, const struct i2c_device_id* 
     if (!i2c_data) {
         return -ENOMEM;
     }
-    SYSFPGA_DEBUG("Allocated i2c_data.");
 
     ret = i2c_dev_sysfs_data_init(client, sysfpga_data, sysfpga_attr_table, n_attrs);
     if (ret) {
@@ -464,7 +456,7 @@ static struct i2c_driver sysfpga_driver = {
     .driver =
         {
             .name = "sysfpga",
-            .of_match_table = sysfpga_of_match,
+            //.of_match_table = sysfpga_of_match,
         },
     .probe = sysfpga_probe,
     .remove = sysfpga_remove,

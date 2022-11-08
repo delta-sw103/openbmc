@@ -25,11 +25,10 @@ enum {
 /* Register bit offset */
 /* Control register */
 #define SYSFPGA_I2C_DEVICE_ADDR_OFFSET      25
-#define SYSFPGA_I2C_RED_LENGTH_OFFSET       15
+#define SYSFPGA_I2C_DATA_LENGTH_OFFSET      15
 #define SYSFPGA_I2C_954X_ENABLE_OFFSET      13
 #define SYSFPGA_I2C_954X_CH_SEL_OFFSET      10
 #define SYSFPGA_I2C_REGADDR_LENGTH_OFFSET   8
-#define SYSFPGA_I2C_FAIL_DETAIL_MASK        0xF0
 #define SYSFPGA_I2C_RW_OFFSET               3
 #define SYSFPGA_I2C_READY_MASK              0x4
 #define SYSFPGA_I2C_FAIL_STATUS_MASK        0x2
@@ -39,18 +38,18 @@ enum {
 #define SYSFPGA_I2C_UPPER_REGADDR           8
 #define SYSFPGA_I2C_LOWER_REGADDR           0
 
+/* timeout */
+#define SYSFPGA_I2C_TIMEOUT                 100000  /* 100000us = 100ms */
+
+/* data length */
+#define SYSFPGA_I2C_MAX_DATA_LENGTH         256
+
 struct sysfpga_i2c_s {
     char name[48];
     int bus;
     int offset;
 };
 
-/*
-ssize_t fpga_read(struct device *dev, struct device_attribute *attr, char *buf);
-ssize_t fpga_write(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
-ssize_t fpga_protect_write(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
-ssize_t i2c_fpga_read(struct device *dev, const int reg, uint32_t *reg_val);
-ssize_t i2c_fpga_write(struct device *dev, const int reg, uint32_t result);*/
 int delta_sysfpga_i2c_adapter_init(struct i2c_client *client, struct fpga_i2c_bus_s *fpga_data);
 int delta_sysfpga_i2c_adapter_exit(struct fpga_i2c_bus_s *fpga_data);
 

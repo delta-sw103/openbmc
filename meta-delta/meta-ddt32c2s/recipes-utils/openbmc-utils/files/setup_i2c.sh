@@ -47,7 +47,7 @@ i2c_device_add 2 0x4d emc2305               # Fan Controller
 # i2c_device_add 2 0x4f tmp75               # Thermal Sensor
 
 # Bus 3
-# i2c_device_add 3 0x36 sysfpga               # sys-FPGA
+i2c_device_add 3 0x36 sysfpga               # sys-FPGA
 
 # Bus 4
 
