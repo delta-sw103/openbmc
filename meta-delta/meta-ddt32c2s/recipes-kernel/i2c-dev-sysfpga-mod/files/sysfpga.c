@@ -214,8 +214,7 @@ static const i2c_dev_attr_st sysfpga_attr_table[] = {
     {
         "fpga_ver",
         NULL,
-        fpga_read,
-        NULL,
+        fpga_read, NULL,
         0x04, 0, 8,
     },
     {
@@ -223,8 +222,7 @@ static const i2c_dev_attr_st sysfpga_attr_table[] = {
         "0/3: None\n"
         "1: Golden Image\n"
         "2: Application Image\n",
-        fpga_read,
-        NULL,
+        fpga_read, NULL,
         0x04, 14, 2,
     },
     {
@@ -233,16 +231,14 @@ static const i2c_dev_attr_st sysfpga_attr_table[] = {
         "[23:16]Code Released Month\n"
         "[15: 8]Code Released Day\n"
         "[ 7: 0]Code revision for RD test purpose\n",
-        fpga_read,
-        NULL,
+        fpga_read, NULL,
         0x08, 0, 32,
     },
     {
         "write_ctrl",
         "0: Write particular registers by CPU\n"
         "1: Write particular registers by BMC\n",
-        fpga_read,
-        NULL,
+        fpga_read, NULL,
         0x10, 0, 1,
     },
     {
@@ -250,8 +246,7 @@ static const i2c_dev_attr_st sysfpga_attr_table[] = {
         "CPU request the write control\n"
         "0: CPU discard\n"
         "1: CPU request\n",
-        fpga_read,
-        NULL,
+        fpga_read, NULL,
         0x10, 4, 1,
     },
     {
@@ -259,24 +254,21 @@ static const i2c_dev_attr_st sysfpga_attr_table[] = {
         "BMC request the write control\n"
         "0: BMC discard\n"
         "1: BMC request\n",
-        fpga_read,
-        fpga_write,
+        fpga_read, fpga_write,
         0x10, 8, 1,
     },
     {
         "bmc_sku",
         "0: BMC absent (nonBMC)\n"
         "1: BMC present\n",
-        fpga_read,
-        NULL,
+        fpga_read, NULL,
         0x10, 30, 1,
     },
     {
         "bmc_ready",
         "0: BMC isn't ready\n"
         "1: BMC is ready\n",
-        fpga_read,
-        NULL,
+        fpga_read, NULL,
         0x10, 31, 1,
     },
     {
@@ -291,97 +283,84 @@ static const i2c_dev_attr_st sysfpga_attr_table[] = {
         "psu2_enable",
         "0: Disable\n"
         "1: Enable(Default)\n",
-        fpga_read,
-        fpga_write,
+        fpga_read, fpga_write,
         0x1C, 1, 1,
     },
     {
         "mb_pwr_enable",
         "0: Disable\n"
         "1: Enable(Default)\n",
-        fpga_read,
-        fpga_write,
+        fpga_read, fpga_write,
         0x1C, 4, 1,
     },
     {
         "cpu_disable",
         "0: None(Default)\n"
         "1: Disable power\n",
-        fpga_read,
-        fpga_write,
+        fpga_read, fpga_write,
         0x1C, 8, 1,
     },
     {
         "psu1_present",
         present_help_str,
-        fpga_read,
-        NULL,
+        fpga_read, NULL,
         0x20, 16, 1,
     },
     {
         "psu1_pwr_ok",
         "0: Power On\n"
         "1: Power Off\n",
-        fpga_read,
-        NULL,
+        fpga_read, NULL,
         0x20, 17, 1,
     },
     {
         "psu2_present",
         present_help_str,
-        fpga_read,
-        NULL,
+        fpga_read, NULL,
         0x20, 20, 1,
     },
     {
         "psu2_pwr_ok",
         "0: Power On\n"
         "1: Power Off\n",
-        fpga_read,
-        NULL,
+        fpga_read, NULL,
         0x20, 21, 1,
     },
     {
         "system_pwr",
         "0: System off\n"
         "1: System on\n",
-        fpga_read,
-        fpga_protect_write,
+        fpga_read, fpga_protect_write,
         0x30, 8, 1,
     },
     {
         "test_reg",
         "Test register for BMC, read/Write in MSB.\n",
-        fpga_read,
-        fpga_write,
+        fpga_read, fpga_write,
         0xF0, 0, 32,
     },
     {
         "jtag_mux_ctrl",
         "Control JTAG MUX.\n",
-        fpga_read,
-        fpga_protect_write,
+        fpga_read, fpga_protect_write,
         0x100, 0, 10,
     },
     {
         "pld_control",
         "Set pld.\n",
-        fpga_read,
-        fpga_protect_write,
+        fpga_read, fpga_protect_write,
         0x1004, 0, 32,
     },
     {
         "pld_address",
         "Set pld register address.\n",
-        fpga_read,
-        fpga_protect_write,
+        fpga_read, fpga_protect_write,
         0x1008, 0, 32,
     },
     {
         "pld_data_0",
         "Set pld data.\n",
-        fpga_read,
-        fpga_protect_write,
+        fpga_read, fpga_protect_write,
         0x1100, 0, 32,
     },
 };
@@ -424,7 +403,6 @@ static int sysfpga_probe(struct i2c_client* client, const struct i2c_device_id* 
     if (!sysfpga_data) {
         return -ENOMEM;
     }
-    SYSFPGA_DEBUG("client->name %s", &client->name);
 
     i2c_data = devm_kzalloc(dev, sizeof(struct fpga_i2c_bus_s), GFP_KERNEL);
     if (!i2c_data) {
@@ -435,7 +413,6 @@ static int sysfpga_probe(struct i2c_client* client, const struct i2c_device_id* 
     if (ret) {
         return ret;
     }
-    SYSFPGA_DEBUG("i2c_dev_sysfs_data_init OK");
 
     /* Add i2c adapter */
     delta_sysfpga_i2c_adapter_init(client, i2c_data);
@@ -466,12 +443,10 @@ static struct i2c_driver sysfpga_driver = {
 };
 
 static int __init sysfpga_mod_init(void) {
-    SYSFPGA_DEBUG("sysfpga_mod_init");
     return i2c_add_driver(&sysfpga_driver);
 }
 
 static void __exit sysfpga_mod_exit(void) {
-    SYSFPGA_DEBUG("sysfpga_mod_exit");
     i2c_del_driver(&sysfpga_driver);
 }
 
