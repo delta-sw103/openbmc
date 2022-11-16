@@ -4,45 +4,50 @@
 #include <linux/i2c.h>
 #include "sysfpga.h"
 
-/* Register offset */
-#define SYSFPGA_1588_DPLL_I2C_BASE_OFFSET   0x300
-#define SYSFPGA_1588_FPGA_I2C_BASE_OFFSET   0x600
-#define SYSFPGA_I2C_BASE_OFFSET(n)          (0x1000 + (0x300 * n))
-
+/* Bus number */
 enum {
     I2C_PLD_CH = 0,
-    I2C_MON_CH,
-    I2C_PORT_CH0,
-    I2C_PORT_CH1,
-    I2C_PORT_CH2,
-    I2C_PORT_CH3,
 };
 
-#define CTRL_REG(n) (n + 0x4)
-#define ADDR_REG(n) (n + 0x8)
-#define DATA_REG(n) (n + 0x100)
+/*
+* n is bus number
+* b is base register offset = SYSFPGA_I2C_BASE_REG(n)
+*/
 
-/* Register bit offset */
-/* Control register */
-#define SYSFPGA_I2C_DEVICE_ADDR_OFFSET      25
-#define SYSFPGA_I2C_DATA_LENGTH_OFFSET      15
-#define SYSFPGA_I2C_954X_ENABLE_OFFSET      13
-#define SYSFPGA_I2C_954X_CH_SEL_OFFSET      10
-#define SYSFPGA_I2C_REGADDR_LENGTH_OFFSET   8
-#define SYSFPGA_I2C_RW_OFFSET               3
-#define SYSFPGA_I2C_READY_MASK              0x4
-#define SYSFPGA_I2C_FAIL_STATUS_MASK        0x2
-#define SYSFPGA_I2C_START_OFFSET            0
-/* Address register */
-#define SYSFPGA_I2C_954X_DEVICE_ADDR        25
-#define SYSFPGA_I2C_UPPER_REGADDR           8
-#define SYSFPGA_I2C_LOWER_REGADDR           0
+/* Base register offset */
+//#define SYSFPGA_1588_DPLL_BASE_REG   0x300
+//#define SYSFPGA_1588_FPGA_BASE_REG   0x600
+#define SYSFPGA_I2C_BASE_REG(n)     (0x1200 + (0x300 * n))
+
+/* Register (Only for PLD) */
+#define GRAB_ENABLE(b)              (b)
+#define GRAB_FAIL_STATUS_0(b)       (b + 0x4)
+#define GRAB_FAIL_STATUS_1(b)       (b + 0x8)
+#define GRAB_CTRL(b)                (b + 0x10)
+#define GRAB_ADDR(b)                (b + 0x14)
+#define GRAB_DATA(b)                (b + 0x18)
+
+/**** Bit offset ****/
+// Enable register
+#define GRABBER_READY_MASK                  BIT(16)
+#define GRABBER_ENABLE_MASK                 BIT(0)
+// Fail status register 1
+#define GRABBER_FAIL_MASK                   BIT(16)
+// Control register
+#define CTRL_DEVICE_ADDR_OFFSET             25
+#define CTRL_DATA_LENGTH_OFFSET             15
+#define CTRL_REGADDR_LENGTH_OFFSET          8
+#define CTRL_RW_MASK                        BIT(3)
+// Address register
+#define ADDR_954X_DEVICE_ADDR_MASK(a)       (a << 25)
+#define ADDR_UPPER_REGADDR_MASK(a)          (a << 8)
+#define ADDR_LOWER_REGADDR_MASK(a)          (a)
 
 /* timeout */
 #define SYSFPGA_I2C_TIMEOUT                 100000  /* 100000us = 100ms */
 
 /* data length */
-#define SYSFPGA_I2C_MAX_DATA_LENGTH         256
+#define SYSFPGA_I2C_MAX_DATA_LENGTH         8
 
 struct sysfpga_i2c_s {
     char name[48];
