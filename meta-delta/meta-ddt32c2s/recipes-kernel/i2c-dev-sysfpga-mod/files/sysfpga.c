@@ -218,14 +218,6 @@ static const i2c_dev_attr_st sysfpga_attr_table[] = {
         0x04, 0, 8,
     },
     {
-        "image_boot_block",
-        "0/3: None\n"
-        "1: Golden Image\n"
-        "2: Application Image\n",
-        fpga_read, NULL,
-        0x04, 14, 2,
-    },
-    {
         "code_revision_date",
         "[31:24]Code Released Year\n"
         "[23:16]Code Released Month\n"
@@ -345,48 +337,6 @@ static const i2c_dev_attr_st sysfpga_attr_table[] = {
         fpga_read, fpga_protect_write,
         0x100, 0, 10,
     },
-    {
-        "grab-enable",
-        NULL,
-        fpga_read, fpga_protect_write,
-        0x1200, 0, 32,
-    },
-    {
-        "grab-fail-0",
-        NULL,
-        fpga_read, NULL,
-        0x1204, 0, 32,
-    },
-    {
-        "grab-fail-1",
-        NULL,
-        fpga_read, NULL,
-        0x1208, 0, 32,
-    },
-    {
-        "grab-ctrl",
-        NULL,
-        fpga_read, fpga_protect_write,
-        0x1210, 0, 32,
-    },
-    {
-        "grab-addr",
-        NULL,
-        fpga_read, fpga_protect_write,
-        0x1214, 0, 32,
-    },
-    {
-        "grab-data-0",
-        NULL,
-        fpga_read, fpga_protect_write,
-        0x1218, 0, 32,
-    },
-    {
-        "grab-data-1",
-        NULL,
-        fpga_read, fpga_protect_write,
-        0x121c, 0, 32,
-    },
 };
 
 /* SYSFPGA i2c addresses. */
@@ -394,17 +344,10 @@ static const unsigned short normal_i2c[] = {0x36, I2C_CLIENT_END};
 
 /* SYSFPGA id */
 static const struct i2c_device_id sysfpga_id[] = {
-    {"sysfpga", 0},
+    { "sysfpga", 0 },
     {},
 };
 MODULE_DEVICE_TABLE(i2c, sysfpga_id);
-
-/* SYSFPGA dts */
-static const struct of_device_id sysfpga_of_match[] = {
-	{.compatible = "delta,sysfpga-i2c"},
-	{}
-};
-MODULE_DEVICE_TABLE(of, sysfpga_of_match);
 
 /* Return 0 if detection is successful, -ENODEV otherwise */
 static int sysfpga_detect(struct i2c_client* client, struct i2c_board_info* info)
@@ -457,7 +400,7 @@ static struct i2c_driver sysfpga_driver = {
     .driver =
         {
             .name = "sysfpga",
-            //.of_match_table = sysfpga_of_match,
+            .owner = THIS_MODULE,
         },
     .probe = sysfpga_probe,
     .remove = sysfpga_remove,
@@ -466,17 +409,8 @@ static struct i2c_driver sysfpga_driver = {
     .address_list = normal_i2c,
 };
 
-static int __init sysfpga_mod_init(void) {
-    return i2c_add_driver(&sysfpga_driver);
-}
-
-static void __exit sysfpga_mod_exit(void) {
-    i2c_del_driver(&sysfpga_driver);
-}
+module_i2c_driver(sysfpga_driver);
 
 MODULE_AUTHOR("Samantha Chu");
 MODULE_DESCRIPTION("Delta SYSFPGA Driver");
 MODULE_LICENSE("GPL");
-
-module_init(sysfpga_mod_init);
-module_exit(sysfpga_mod_exit);
