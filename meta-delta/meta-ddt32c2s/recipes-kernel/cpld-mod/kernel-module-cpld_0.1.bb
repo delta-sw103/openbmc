@@ -26,18 +26,12 @@ PV = "0.1"
 
 LOCAL_URI = " \
     file://Makefile \
-    file://delta_swpld1.c \
-    file://delta_swpld2.c \
-    file://delta_swpld3.c \
+    file://portpld.c \
     file://COPYING \
     "
 
-DEPENDS += "kernel-module-i2c-dev-sysfs"
+DEPENDS += "kernel-module-i2c-dev-sysfs kernel-module-i2c-dev-sysfpga"
 
-RDEPENDS:${PN} += "kernel-module-i2c-dev-sysfs"
+RDEPENDS:${PN} += "kernel-module-i2c-dev-sysfs kernel-module-i2c-dev-sysfpga"
 
-KERNEL_MODULE_AUTOLOAD += "    \
- delta_swpld1                  \
- delta_swpld2                  \
- delta_swpld3                  \
-"
+KERNEL_MODULE_AUTOLOAD += "delta_portpld"

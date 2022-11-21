@@ -49,33 +49,31 @@ i2c_device_add 2 0x4d emc2305               # Fan Controller
 # Bus 3
 i2c_device_add 3 0x36 sysfpga               # sys-FPGA
 
-# Bus 4
-
 # Bus 5
 i2c_device_add 5 0x27 pca9555               # PCA9555
-# i2c_device_add 5 0x72 pca9548             # PCA9548
-
-# Bus 6
 
 # Bus 7
 i2c_device_add 7 0x50 24c02                 # BMC EEPROM
 
 # i2c-mux 5-0072: child bus 16-23
-
 # i2c-mux 5, channel 1
-i2c_device_add 16 0x50 24c64     #FAN1 Tray
+i2c_device_add 16 0x50 24c64                # FAN1 Tray
 # i2c-mux 5, channel 2
-i2c_device_add 17 0x50 24c64     #FAN2 Tray
+i2c_device_add 17 0x50 24c64                # FAN2 Tray
 # i2c-mux 5, channel 3
-i2c_device_add 18 0x50 24c64     #FAN3 Tray
+i2c_device_add 18 0x50 24c64                # FAN3 Tray
 # i2c-mux 5, channel 4
-i2c_device_add 19 0x50 24c64     #FAN4 Tray
+i2c_device_add 19 0x50 24c64                # FAN4 Tray
 # i2c-mux 5, channel 5
-i2c_device_add 20 0x50 24c64     #FAN5 Tray
+i2c_device_add 20 0x50 24c64                # FAN5 Tray
 # i2c-mux 5, channel 6
-i2c_device_add 21 0x50 24c64     #FAN6 Tray
+i2c_device_add 21 0x50 24c64                # FAN6 Tray
 # i2c-mux 5, channel 7
-i2c_device_add 22 0x50 24c64     #FAN7 Tray
+i2c_device_add 22 0x50 24c64                # FAN7 Tray
+
+# i2c adapter from i2c-3: Bus 24
+i2c_device_add 24 0x41 portpldA             # Port-pldA
+i2c_device_add 24 0x45 portpldB             # Port-pldB
 
 
 #

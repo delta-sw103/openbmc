@@ -15,14 +15,16 @@
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
-obj-m := delta_swpld1.o delta_swpld2.o delta_swpld3.o
+MODULE_NAME       = delta_portpld
+obj-m 			 := ${MODULE_NAME}.o
+${MODULE_NAME}-y := portpld.o
 
 ccflags-y += -I$(KERNEL_EXTRA_HEADER_PATH)
 
 SRC := $(shell pwd)
 
 all:
-	$(MAKE) -C $(KERNEL_SRC) M=$(SRC)
+	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) modules
 
 modules_install:
 	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) modules_install
