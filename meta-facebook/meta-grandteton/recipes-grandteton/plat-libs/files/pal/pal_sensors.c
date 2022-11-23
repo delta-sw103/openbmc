@@ -18,32 +18,36 @@ extern PAL_SENSOR_MAP swb_sensor_map[];
 extern PAL_SENSOR_MAP bb_sensor_map[];
 
 extern const uint8_t mb_sensor_list[];
+extern const uint8_t mb_discrete_sensor_list[];
 extern const uint8_t swb_sensor_list[];
+extern const uint8_t swb_discrete_sensor_list[];
 extern const uint8_t hmc_sensor_list[];
 extern const uint8_t nic0_sensor_list[];
 extern const uint8_t nic1_sensor_list[];
-extern const uint8_t mb_discrete_sensor_list[];
 extern const uint8_t vpdb_sensor_list[];
-extern const uint8_t vpdb_discrete_sensor_list[];
+extern const uint8_t vpdb_1brick_sensor_list[];
+extern const uint8_t vpdb_3brick_sensor_list[];
 extern const uint8_t hpdb_sensor_list[];
-extern const uint8_t bp0_sensor_list[];
-extern const uint8_t bp1_sensor_list[];
+extern const uint8_t fan_bp0_sensor_list[];
+extern const uint8_t fan_bp1_sensor_list[];
 extern const uint8_t scm_sensor_list[];
 extern const uint8_t hsc_sensor_list[];
 extern const uint8_t shsc_sensor_list[];
 
 
 extern size_t mb_sensor_cnt;
-extern size_t swb_sensor_cnt;
-extern size_t hmc_sensor_cnt;
 extern size_t mb_discrete_sensor_cnt;
+extern size_t swb_sensor_cnt;
+extern size_t swb_discrete_sensor_cnt;
+extern size_t hmc_sensor_cnt;
 extern size_t nic0_sensor_cnt;
 extern size_t nic1_sensor_cnt;
 extern size_t vpdb_sensor_cnt;
-extern size_t vpdb_discrete_sensor_cnt;
+extern size_t vpdb_1brick_sensor_cnt;
+extern size_t vpdb_3brick_sensor_cnt;
 extern size_t hpdb_sensor_cnt;
-extern size_t bp0_sensor_cnt;
-extern size_t bp1_sensor_cnt;
+extern size_t fan_bp0_sensor_cnt;
+extern size_t fan_bp1_sensor_cnt;
 extern size_t scm_sensor_cnt;
 extern size_t hsc_sensor_cnt;
 extern size_t shsc_sensor_cnt;
@@ -59,10 +63,10 @@ struct snr_map sensor_map[] = {
   { FRU_DBG,  NULL,           false },
   { FRU_BMC,  NULL,           false },
   { FRU_SCM,  bb_sensor_map,  true },
-  { FRU_PDBV, bb_sensor_map,  true },
-  { FRU_PDBH, bb_sensor_map,  true },
-  { FRU_BP0,  bb_sensor_map,  true },
-  { FRU_BP1,  bb_sensor_map,  true },
+  { FRU_VPDB, bb_sensor_map,  true },
+  { FRU_HPDB, bb_sensor_map,  true },
+  { FRU_FAN_BP0,  bb_sensor_map,  true },
+  { FRU_FAN_BP1,  bb_sensor_map,  true },
   { FRU_FIO,  NULL,           false },
   { FRU_HSC,  mb_sensor_map,  true },
   { FRU_SHSC, swb_sensor_map, true }
@@ -76,6 +80,7 @@ pal_get_fru_sensor_list(uint8_t fru, uint8_t **sensor_list, int *cnt) {
   uint8_t id;
   static uint8_t snr_mb_tmp[255]={0};
   static uint8_t snr_swb_tmp[255]={0};
+  static uint8_t snr_vpdb_tmp[64]={0};
   bool module = is_mb_hsc_module();
   bool smodule = is_swb_hsc_module();
 
@@ -98,24 +103,28 @@ pal_get_fru_sensor_list(uint8_t fru, uint8_t **sensor_list, int *cnt) {
   } else if (fru == FRU_HMC) {
     *sensor_list = (uint8_t *) hmc_sensor_list;
     *cnt = hmc_sensor_cnt;
-  } else if (fru == FRU_PDBV) {
+  } else if (fru == FRU_VPDB) {
     get_comp_source(fru, VPDB_BRICK_SOURCE, &id);
-    if(id == THIRD_SOURCE) {
-      *sensor_list = (uint8_t *) vpdb_discrete_sensor_list;
-      *cnt = vpdb_discrete_sensor_cnt;
+    if (id == THIRD_SOURCE) {
+      memcpy(snr_vpdb_tmp, vpdb_sensor_list, vpdb_sensor_cnt);
+      memcpy(&snr_vpdb_tmp[vpdb_sensor_cnt], vpdb_1brick_sensor_list, vpdb_1brick_sensor_cnt);
+      *sensor_list = snr_vpdb_tmp;
+      *cnt = vpdb_sensor_cnt + vpdb_1brick_sensor_cnt;
     } else {
-      *sensor_list = (uint8_t *) vpdb_sensor_list;
-      *cnt = vpdb_sensor_cnt;
+      memcpy(snr_vpdb_tmp, vpdb_sensor_list, vpdb_sensor_cnt);
+      memcpy(&snr_vpdb_tmp[vpdb_sensor_cnt], vpdb_3brick_sensor_list, vpdb_3brick_sensor_cnt);
+      *sensor_list = snr_vpdb_tmp;
+      *cnt = vpdb_sensor_cnt + vpdb_3brick_sensor_cnt;
     }
-  } else if (fru == FRU_PDBH) {
+  } else if (fru == FRU_HPDB) {
     *sensor_list = (uint8_t *) hpdb_sensor_list;
     *cnt = hpdb_sensor_cnt;
-  } else if (fru == FRU_BP0) {
-    *sensor_list = (uint8_t *) bp0_sensor_list;
-    *cnt = bp0_sensor_cnt;
-  } else if (fru == FRU_BP1) {
-    *sensor_list = (uint8_t *) bp1_sensor_list;
-    *cnt = bp1_sensor_cnt;
+  } else if (fru == FRU_FAN_BP0) {
+    *sensor_list = (uint8_t *) fan_bp0_sensor_list;
+    *cnt = fan_bp0_sensor_cnt;
+  } else if (fru == FRU_FAN_BP1) {
+    *sensor_list = (uint8_t *) fan_bp1_sensor_list;
+    *cnt = fan_bp1_sensor_cnt;
   } else if (fru == FRU_SCM) {
     *sensor_list = (uint8_t *) scm_sensor_list;
     *cnt = scm_sensor_cnt;
@@ -153,6 +162,9 @@ pal_get_fru_discrete_list(uint8_t fru, uint8_t **sensor_list, int *cnt) {
   if (fru == FRU_MB) {
     *sensor_list = (uint8_t *) mb_discrete_sensor_list;
     *cnt = mb_discrete_sensor_cnt;
+  } else if (fru == FRU_SWB) {
+    *sensor_list = (uint8_t *) swb_discrete_sensor_list;
+    *cnt = swb_discrete_sensor_cnt;
   } else if (fru > MAX_NUM_FRUS) {
       return -1;
   } else {
@@ -282,17 +294,16 @@ pal_sensor_read_raw(uint8_t fru, uint8_t sensor_num, void *value) {
 
 int
 pal_get_sensor_name(uint8_t fru, uint8_t sensor_num, char *name) {
-  char fru_name[32];
-  char units_name[8];
+  char fru_name[32] = {0};
+  char units_name[8] = {0};
   uint8_t scale = sensor_map[fru].map[sensor_num].units;
 
 
-  if(sensor_map[fru].polling) {
-    pal_get_fru_name(fru, fru_name);
-    if (fru_name != NULL)
+  if (sensor_map[fru].polling) {
+    if (pal_get_fru_name(fru, fru_name) == 0) {
       for (int i = 0; i < strlen(fru_name); i++)
         fru_name[i] = toupper(fru_name[i]);
-
+    }
 
     switch(scale) {
       case TEMP:
@@ -309,6 +320,12 @@ pal_get_sensor_name(uint8_t fru, uint8_t sensor_num, char *name) {
         break;
       case POWER:
         sprintf(units_name, "_W");
+        break;
+      case ENRGY:
+        sprintf(units_name, "_J");
+        break;
+      case PRESS:
+        sprintf(units_name, "_P");
         break;
     }
 
@@ -382,6 +399,12 @@ pal_get_sensor_units(uint8_t fru, uint8_t sensor_num, char *units) {
         break;
       case POWER:
         sprintf(units, "Watts");
+        break;
+      case ENRGY:
+        sprintf(units, "Joules");
+        break;
+      case PRESS:
+        sprintf(units, "Pa");
         break;
       default:
         return -1;
@@ -499,41 +522,41 @@ pal_sensor_assert_handle(uint8_t fru, uint8_t snr_num, float val, uint8_t thresh
       pal_get_sensor_name(fru, snr_num, sensor_name);
       sprintf(cmd, "%s %s %.2fVolts - Assert", sensor_name, thresh_name, val);
       break;
-    case BP0_SNR_FAN0_INLET_SPEED:
-    case BP0_SNR_FAN1_INLET_SPEED:
-    case BP1_SNR_FAN2_INLET_SPEED:
-    case BP1_SNR_FAN3_INLET_SPEED:
-    case BP0_SNR_FAN4_INLET_SPEED:
-    case BP0_SNR_FAN5_INLET_SPEED:
-    case BP1_SNR_FAN6_INLET_SPEED:
-    case BP1_SNR_FAN7_INLET_SPEED:
-    case BP0_SNR_FAN8_INLET_SPEED:
-    case BP0_SNR_FAN9_INLET_SPEED:
-    case BP1_SNR_FAN10_INLET_SPEED:
-    case BP1_SNR_FAN11_INLET_SPEED:
-    case BP0_SNR_FAN12_INLET_SPEED:
-    case BP0_SNR_FAN13_INLET_SPEED:
-    case BP1_SNR_FAN14_INLET_SPEED:
-    case BP1_SNR_FAN15_INLET_SPEED:
+    case FAN_BP0_SNR_FAN0_INLET_SPEED:
+    case FAN_BP0_SNR_FAN1_INLET_SPEED:
+    case FAN_BP1_SNR_FAN2_INLET_SPEED:
+    case FAN_BP1_SNR_FAN3_INLET_SPEED:
+    case FAN_BP0_SNR_FAN4_INLET_SPEED:
+    case FAN_BP0_SNR_FAN5_INLET_SPEED:
+    case FAN_BP1_SNR_FAN6_INLET_SPEED:
+    case FAN_BP1_SNR_FAN7_INLET_SPEED:
+    case FAN_BP0_SNR_FAN8_INLET_SPEED:
+    case FAN_BP0_SNR_FAN9_INLET_SPEED:
+    case FAN_BP1_SNR_FAN10_INLET_SPEED:
+    case FAN_BP1_SNR_FAN11_INLET_SPEED:
+    case FAN_BP0_SNR_FAN12_INLET_SPEED:
+    case FAN_BP0_SNR_FAN13_INLET_SPEED:
+    case FAN_BP1_SNR_FAN14_INLET_SPEED:
+    case FAN_BP1_SNR_FAN15_INLET_SPEED:
       fan_id = snr_num-FAN_SNR_START_INDEX;
       sprintf(cmd, "FAN%d %s %dRPM - Assert",fan_id ,thresh_name, (int)val);
       break;
-    case BP0_SNR_FAN0_OUTLET_SPEED:
-    case BP0_SNR_FAN1_OUTLET_SPEED:
-    case BP1_SNR_FAN2_OUTLET_SPEED:
-    case BP1_SNR_FAN3_OUTLET_SPEED:
-    case BP0_SNR_FAN4_OUTLET_SPEED:
-    case BP0_SNR_FAN5_OUTLET_SPEED:
-    case BP1_SNR_FAN6_OUTLET_SPEED:
-    case BP1_SNR_FAN7_OUTLET_SPEED:
-    case BP0_SNR_FAN8_OUTLET_SPEED:
-    case BP0_SNR_FAN9_OUTLET_SPEED:
-    case BP1_SNR_FAN10_OUTLET_SPEED:
-    case BP1_SNR_FAN11_OUTLET_SPEED:
-    case BP0_SNR_FAN12_OUTLET_SPEED:
-    case BP0_SNR_FAN13_OUTLET_SPEED:
-    case BP1_SNR_FAN14_OUTLET_SPEED:
-    case BP1_SNR_FAN15_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN0_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN1_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN2_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN3_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN4_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN5_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN6_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN7_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN8_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN9_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN10_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN11_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN12_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN13_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN14_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN15_OUTLET_SPEED:
       fan_id = snr_num-FAN_SNR_START_INDEX;
       sprintf(cmd, "FAN%d %s %dRPM - Assert",fan_id ,thresh_name, (int)val);
       break;
@@ -609,41 +632,41 @@ pal_sensor_deassert_handle(uint8_t fru, uint8_t snr_num, float val, uint8_t thre
       pal_get_sensor_name(fru, snr_num, sensor_name);
       sprintf(cmd, "%s %s %.2fVolts - Deassert", sensor_name, thresh_name, val);
       break;
-    case BP0_SNR_FAN0_INLET_SPEED:
-    case BP0_SNR_FAN1_INLET_SPEED:
-    case BP1_SNR_FAN2_INLET_SPEED:
-    case BP1_SNR_FAN3_INLET_SPEED:
-    case BP0_SNR_FAN4_INLET_SPEED:
-    case BP0_SNR_FAN5_INLET_SPEED:
-    case BP1_SNR_FAN6_INLET_SPEED:
-    case BP1_SNR_FAN7_INLET_SPEED:
-    case BP0_SNR_FAN8_INLET_SPEED:
-    case BP0_SNR_FAN9_INLET_SPEED:
-    case BP1_SNR_FAN10_INLET_SPEED:
-    case BP1_SNR_FAN11_INLET_SPEED:
-    case BP0_SNR_FAN12_INLET_SPEED:
-    case BP0_SNR_FAN13_INLET_SPEED:
-    case BP1_SNR_FAN14_INLET_SPEED:
-    case BP1_SNR_FAN15_INLET_SPEED:
+    case FAN_BP0_SNR_FAN0_INLET_SPEED:
+    case FAN_BP0_SNR_FAN1_INLET_SPEED:
+    case FAN_BP1_SNR_FAN2_INLET_SPEED:
+    case FAN_BP1_SNR_FAN3_INLET_SPEED:
+    case FAN_BP0_SNR_FAN4_INLET_SPEED:
+    case FAN_BP0_SNR_FAN5_INLET_SPEED:
+    case FAN_BP1_SNR_FAN6_INLET_SPEED:
+    case FAN_BP1_SNR_FAN7_INLET_SPEED:
+    case FAN_BP0_SNR_FAN8_INLET_SPEED:
+    case FAN_BP0_SNR_FAN9_INLET_SPEED:
+    case FAN_BP1_SNR_FAN10_INLET_SPEED:
+    case FAN_BP1_SNR_FAN11_INLET_SPEED:
+    case FAN_BP0_SNR_FAN12_INLET_SPEED:
+    case FAN_BP0_SNR_FAN13_INLET_SPEED:
+    case FAN_BP1_SNR_FAN14_INLET_SPEED:
+    case FAN_BP1_SNR_FAN15_INLET_SPEED:
       fan_id= snr_num-FAN_SNR_START_INDEX;
       sprintf(cmd, "FAN%d %s %dRPM - Deassert",fan_id ,thresh_name, (int)val);
       break;
-    case BP0_SNR_FAN0_OUTLET_SPEED:
-    case BP0_SNR_FAN1_OUTLET_SPEED:
-    case BP1_SNR_FAN2_OUTLET_SPEED:
-    case BP1_SNR_FAN3_OUTLET_SPEED:
-    case BP0_SNR_FAN4_OUTLET_SPEED:
-    case BP0_SNR_FAN5_OUTLET_SPEED:
-    case BP1_SNR_FAN6_OUTLET_SPEED:
-    case BP1_SNR_FAN7_OUTLET_SPEED:
-    case BP0_SNR_FAN8_OUTLET_SPEED:
-    case BP0_SNR_FAN9_OUTLET_SPEED:
-    case BP1_SNR_FAN10_OUTLET_SPEED:
-    case BP1_SNR_FAN11_OUTLET_SPEED:
-    case BP0_SNR_FAN12_OUTLET_SPEED:
-    case BP0_SNR_FAN13_OUTLET_SPEED:
-    case BP1_SNR_FAN14_OUTLET_SPEED:
-    case BP1_SNR_FAN15_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN0_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN1_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN2_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN3_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN4_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN5_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN6_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN7_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN8_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN9_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN10_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN11_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN12_OUTLET_SPEED:
+    case FAN_BP0_SNR_FAN13_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN14_OUTLET_SPEED:
+    case FAN_BP1_SNR_FAN15_OUTLET_SPEED:
       fan_id = snr_num-FAN_SNR_START_INDEX;
       sprintf(cmd, "FAN%d %s %dRPM - Deassert",fan_id ,thresh_name, (int)val);
       break;
@@ -652,6 +675,23 @@ pal_sensor_deassert_handle(uint8_t fru, uint8_t snr_num, float val, uint8_t thre
   }
   pal_add_cri_sel(cmd);
 
+}
+
+int
+pal_sensor_discrete_check(uint8_t fru,
+                          uint8_t snr_num,
+                          char *snr_name,
+                          uint8_t o_val,
+                          uint8_t n_val) {
+  char name[64];
+
+  pal_get_sensor_name(fru, snr_num, name);
+  if (!GETBIT(n_val, 0)) {
+    syslog(LOG_CRIT, "ASSERT: %s - FRU: %d", name, fru);
+  } else {
+    syslog(LOG_CRIT, "DEASSERT: %s - FRU: %d", name, fru);
+  }
+  return 0;
 }
 
 int pal_sensor_monitor_initial(void) {

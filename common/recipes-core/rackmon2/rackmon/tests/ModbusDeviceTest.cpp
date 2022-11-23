@@ -50,7 +50,7 @@ class ModbusDeviceTest : public ::testing::Test {
         "begin": 0,
         "length": 2,
         "keep": 2,
-        "format": "string",
+        "format": "STRING",
         "name": "MFG_MODEL"
       }
     ]
@@ -312,11 +312,11 @@ TEST_F(ModbusDeviceTest, DeviceStatus) {
   EXPECT_EQ(status.miscErrors, 0);
   EXPECT_EQ(status.timeouts, 0);
   EXPECT_EQ(status.mode, ModbusDeviceMode::ACTIVE);
-  EXPECT_EQ(j["addr"], 0x32);
-  EXPECT_EQ(j["crc_fails"], 0);
-  EXPECT_EQ(j["misc_fails"], 0);
+  EXPECT_EQ(j["devAddress"], 0x32);
+  EXPECT_EQ(j["crcErrors"], 0);
+  EXPECT_EQ(j["miscErrors"], 0);
   EXPECT_EQ(j["timeouts"], 0);
-  EXPECT_EQ(j["mode"], "active");
+  EXPECT_EQ(j["mode"], "ACTIVE");
   EXPECT_EQ(j["baudrate"], 19200);
 }
 
@@ -448,24 +448,23 @@ TEST_F(ModbusDeviceTest, MonitorDataValue) {
   EXPECT_EQ(
       std::get<std::string>(data3.registerList[0].history[0].value), "cdef");
   nlohmann::json j = data3;
-  EXPECT_EQ(j["deviceAddress"], 0x32);
-  EXPECT_EQ(j["crcErrors"], 0);
-  EXPECT_EQ(j["timeouts"], 0);
-  EXPECT_EQ(j["miscErrors"], 0);
-  EXPECT_EQ(j["mode"], "active");
-  EXPECT_NEAR(j["now"], std::time(0), 10);
-  EXPECT_TRUE(j["registers"].is_array() && j["registers"].size() == 1);
-  EXPECT_EQ(j["registers"][0]["regAddress"], 0);
-  EXPECT_EQ(j["registers"][0]["name"], "MFG_MODEL");
+  EXPECT_EQ(j["devInfo"]["devAddress"], 0x32);
+  EXPECT_EQ(j["devInfo"]["crcErrors"], 0);
+  EXPECT_EQ(j["devInfo"]["timeouts"], 0);
+  EXPECT_EQ(j["devInfo"]["miscErrors"], 0);
+  EXPECT_EQ(j["devInfo"]["mode"], "ACTIVE");
+  EXPECT_TRUE(j["regList"].is_array() && j["regList"].size() == 1);
+  EXPECT_EQ(j["regList"][0]["regAddress"], 0);
+  EXPECT_EQ(j["regList"][0]["name"], "MFG_MODEL");
   EXPECT_TRUE(
-      j["registers"][0]["readings"].is_array() &&
-      j["registers"][0]["readings"].size() == 2);
-  EXPECT_NEAR(j["registers"][0]["readings"][0]["time"], std::time(0), 10);
-  EXPECT_EQ(j["registers"][0]["readings"][0]["value"], "cdef");
-  EXPECT_EQ(j["registers"][0]["readings"][0]["type"], "string");
-  EXPECT_NEAR(j["registers"][0]["readings"][1]["time"], std::time(0), 10);
-  EXPECT_EQ(j["registers"][0]["readings"][1]["value"], "bcde");
-  EXPECT_EQ(j["registers"][0]["readings"][1]["type"], "string");
+      j["regList"][0]["history"].is_array() &&
+      j["regList"][0]["history"].size() == 2);
+  EXPECT_NEAR(j["regList"][0]["history"][0]["timestamp"], std::time(0), 10);
+  EXPECT_EQ(j["regList"][0]["history"][0]["value"]["strValue"], "cdef");
+  EXPECT_EQ(j["regList"][0]["history"][0]["type"], "STRING");
+  EXPECT_NEAR(j["regList"][0]["history"][1]["timestamp"], std::time(0), 10);
+  EXPECT_EQ(j["regList"][0]["history"][1]["value"]["strValue"], "bcde");
+  EXPECT_EQ(j["regList"][0]["history"][1]["type"], "STRING");
 
   ModbusDeviceValueData data4 = dev.getValueData({}, true);
   EXPECT_EQ(data4.registerList[0].history.size(), 1);
@@ -502,7 +501,7 @@ TEST_F(ModbusDeviceTest, MonitorRawData) {
   EXPECT_EQ(data["crc_fails"], 0);
   EXPECT_EQ(data["timeouts"], 0);
   EXPECT_EQ(data["misc_fails"], 0);
-  EXPECT_EQ(data["mode"], "active");
+  EXPECT_EQ(data["mode"], "ACTIVE");
   EXPECT_NEAR(data["now"], std::time(0), 10);
   EXPECT_TRUE(data["ranges"].is_array() && data["ranges"].size() == 1);
   EXPECT_EQ(data["ranges"][0]["begin"], 0);
@@ -518,7 +517,7 @@ TEST_F(ModbusDeviceTest, MonitorRawData) {
   EXPECT_EQ(data2["crc_fails"], 0);
   EXPECT_EQ(data2["timeouts"], 0);
   EXPECT_EQ(data2["misc_fails"], 0);
-  EXPECT_EQ(data2["mode"], "active");
+  EXPECT_EQ(data2["mode"], "ACTIVE");
   EXPECT_NEAR(data2["now"], std::time(0), 10);
   EXPECT_TRUE(data2["ranges"].is_array() && data2["ranges"].size() == 1);
   EXPECT_EQ(data2["ranges"][0]["begin"], 0);
@@ -601,7 +600,7 @@ TEST(ModbusSpecialHandler, BasicHandlingStringValuePeriodic) {
     "period": 10,
     "action": "write",
     "info": {
-      "interpret": "string",
+      "interpret": "STRING",
       "value": "0123"
     }
   })"_json;
@@ -659,7 +658,7 @@ TEST(ModbusSpecialHandler, BasicHandlingIntegerOneShot) {
     "period": -1,
     "action": "write",
     "info": {
-      "interpret": "integer",
+      "interpret": "INTEGER",
       "shell": "echo 12345678"
     }
   })"_json;
@@ -697,7 +696,7 @@ static nlohmann::json getBaudrateRegmap() {
         "begin": 0,
         "length": 2,
         "keep": 2,
-        "format": "string",
+        "format": "STRING",
         "name": "MFG_MODEL"
       }
     ]

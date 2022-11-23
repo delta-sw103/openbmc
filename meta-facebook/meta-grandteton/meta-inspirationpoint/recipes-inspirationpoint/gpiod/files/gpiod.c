@@ -34,7 +34,7 @@
 #include <openbmc/obmc-i2c.h>
 #include <openbmc/misc-utils.h>
 #include <openbmc/peci_sensors.h>
-#include <openbmc/pal_gpio.h>
+#include <openbmc/pal_def.h>
 
 #define POLL_TIMEOUT -1
 #define POWER_ON_STR        "on"
@@ -70,9 +70,28 @@ enum {
   PS_ON_3S,
 };
 
+static bool
+sgpio_valid_check() {
+  int bit1 = gpio_get_value_by_shadow("CPLD_SGPIO_READY_ID0");
+  int bit2 = gpio_get_value_by_shadow("CPLD_SGPIO_READY_ID1");
+  int bit3 = gpio_get_value_by_shadow("CPLD_SGPIO_READY_ID2");
+  int bit4 = gpio_get_value_by_shadow("CPLD_SGPIO_READY_ID3");
+  if (
+    bit1 ==  1 &&
+    bit2 ==  0 &&
+    bit3 ==  1 &&
+    bit4 ==  0
+  ) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 static void
 log_gpio_change(gpiopoll_pin_t *desc, gpio_value_t value, useconds_t log_delay) {
   const struct gpiopoll_config *cfg = gpio_poll_get_config(desc);
+  if (!sgpio_valid_check()) return;
   assert(cfg);
   syslog(LOG_CRIT, "FRU: %d %s: %s - %s\n", FRU_MB, value ? "DEASSERT": "ASSERT",
          cfg->description, cfg->shadow);
@@ -98,18 +117,21 @@ void cpu_skt_init(gpiopoll_pin_t *desc, gpio_value_t value) {
 
 static
 void sml1_pmbus_alert_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_value_t curr) {
+  if (!sgpio_valid_check()) return;
   syslog(LOG_CRIT, "FRU: %d HSC OC Warning %s\n", FRU_MB,
          curr ? "Deassertion": "Assertion");
 }
 
 static
 void oc_detect_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_value_t curr) {
+  if (!sgpio_valid_check()) return;
   syslog(LOG_CRIT, "FRU: %d HSC Surge Current Warning %s\n", FRU_MB,
          curr ? "Deassertion": "Assertion");
 }
 
 static
 void uv_detect_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_value_t curr) {
+  if (!sgpio_valid_check()) return;
   syslog(LOG_CRIT, "FRU: %d HSC Under Voltage Warning %s\n", FRU_MB,
          curr ? "Deassertion": "Assertion");
 }
@@ -138,21 +160,11 @@ decrease_timer(long int *val) {
   return *val;
 }
 
-//PROCHOT Handler
-static void prochot_reason(char *reason)
-{
-  if (gpio_get_value_by_shadow(IRQ_UV_DETECT_N) == GPIO_VALUE_LOW)
-    strcpy(reason, "UV");
-  if (gpio_get_value_by_shadow(IRQ_OC_DETECT_N) == GPIO_VALUE_LOW)
-    strcpy(reason, "OC");
-  if (gpio_get_value_by_shadow(IRQ_HSC_ALERT_N) == GPIO_VALUE_LOW)
-    strcpy(reason, "HSC PMBus alert");
-}
-
 static void cpu_prochot_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_value_t curr)
 {
   char cmd[128] = {0};
   const struct gpiopoll_config *cfg = gpio_poll_get_config(desc);
+  if (!sgpio_valid_check()) return;
   assert(cfg);
   SERVER_POWER_CHECK(3);
   //LCD debug card critical SEL support
@@ -161,13 +173,8 @@ static void cpu_prochot_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_va
     strcat(cmd, " DEASSERT");
     syslog(LOG_CRIT, "FRU: %d DEASSERT: %s - %s\n", FRU_MB, cfg->description, cfg->shadow);
   } else {
-    char reason[32] = "";
-    strcat(cmd, " by ");
-    prochot_reason(reason);
-    strcat(cmd, reason);
-    syslog(LOG_CRIT, "FRU: %d ASSERT: %s - %s (reason: %s)\n",
-           FRU_MB, cfg->description, cfg->shadow, reason);
     strcat(cmd, " ASSERT");
+    syslog(LOG_CRIT, "FRU: %d ASSERT: %s - %s\n", FRU_MB, cfg->description, cfg->shadow);
   }
   pal_add_cri_sel(cmd);
 }
@@ -191,8 +198,9 @@ static void thermtrip_add_cri_sel(const char *shadow_name, gpio_value_t curr)
 static void cpu_thermtrip_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_value_t curr)
 {
   const struct gpiopoll_config *cfg = gpio_poll_get_config(desc);
-
-  if (g_server_power_status != GPIO_VALUE_HIGH)
+  uint8_t status = 0;
+  pal_get_server_power(FRU_MB, &status);
+  if (status == SERVER_POWER_OFF)
     return;
 
   thermtrip_add_cri_sel(cfg->shadow, curr);
@@ -201,8 +209,11 @@ static void cpu_thermtrip_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_
 
 static void cpu_event_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_value_t curr)
 {
-  if (g_server_power_status != GPIO_VALUE_HIGH)
+  uint8_t status = 0;
+  pal_get_server_power(FRU_MB, &status);
+  if (status == SERVER_POWER_OFF)
     return;
+
   log_gpio_change(desc, curr, 0);
 }
 
@@ -292,6 +303,54 @@ cpu_pwr_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_value_t curr) {
   reset_timer(&g_power_on_sec);
 }
 
+static void
+pwr_err_event_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_value_t curr) {
+  const struct gpiopoll_config *cfg = gpio_poll_get_config(desc);
+  char fn[32] = "/dev/i2c-7";
+  int fd, ret;
+  uint8_t tlen, rlen;
+  uint8_t addr = 0x46;
+  uint8_t tbuf[16] = {0};
+  uint8_t rbuf[16] = {0};
+  uint8_t cmds[1] = {0x27};
+
+  if (!sgpio_valid_check()) return;
+  fd = open(fn, O_RDWR);
+  if (fd < 0) {
+    syslog(LOG_ERR, "can not open i2c device\n");
+    return;
+  }
+
+  tlen = 1;
+  rlen = 3;
+
+  tbuf[0] = cmds[0];
+  if ((ret = i2c_rdwr_msg_transfer(fd, addr, tbuf, tlen, rbuf, rlen))) {
+    syslog(LOG_ERR, "i2c transfer fail\n");
+  }
+
+  if (fd > 0) {
+    close(fd);
+  }
+
+  if (curr) {
+    syslog(LOG_CRIT, "FRU: %d ASSERT: %s - %s power status:%02X%02X%02X\n", FRU_MB, cfg->description, cfg->shadow, rbuf[0], rbuf[1], rbuf[2]);
+  } else {
+    syslog(LOG_CRIT, "FRU: %d DEASSERT: %s - %s\n", FRU_MB, cfg->description, cfg->shadow);
+  }
+}
+
+static void
+device_prsnt_event_handler(gpiopoll_pin_t *desc, gpio_value_t last, gpio_value_t curr) {
+  const struct gpiopoll_config *cfg = gpio_poll_get_config(desc);
+
+  if (curr) {
+    syslog(LOG_CRIT, "FRU: %d %s LOST- %s\n", FRU_MB, cfg->description, cfg->shadow);
+  } else {
+    syslog(LOG_CRIT, "FRU: %d %s INSERT- %s\n", FRU_MB, cfg->description, cfg->shadow);
+  }
+}
+
 // Thread for gpio timer
 static void
 *gpio_timer() {
@@ -351,15 +410,27 @@ static struct gpiopoll_config g_gpios[] = {
   {IRQ_HSC_ALERT_N,         "SGPIO2",   GPIO_EDGE_BOTH,    sml1_pmbus_alert_handler,   NULL},
   {FM_CPU0_PROCHOT_N,       "SGPIO202", GPIO_EDGE_BOTH,    cpu_prochot_handler,        NULL},
   {FM_CPU1_PROCHOT_N,       "SGPIO186", GPIO_EDGE_BOTH,    cpu_prochot_handler,        NULL},
-  {FM_CPU0_THERMTRIP_N,     "SGPIO136", GPIO_EDGE_FALLING, cpu_thermtrip_handler,      NULL},
-  {FM_CPU1_THERMTRIP_N,     "SGPIO118", GPIO_EDGE_FALLING, cpu_thermtrip_handler,      NULL},
-  {FM_CPU_ERR0_N,           "SGPIO144", GPIO_EDGE_FALLING, cpu_event_handler,          NULL},
-  {FM_CPU_ERR1_N,           "SGPIO142", GPIO_EDGE_FALLING, cpu_event_handler,          NULL},
+  {FM_CPU0_THERMTRIP_N,     "SGPIO136", GPIO_EDGE_BOTH,    cpu_thermtrip_handler,      NULL},
+  {FM_CPU1_THERMTRIP_N,     "SGPIO118", GPIO_EDGE_BOTH,    cpu_thermtrip_handler,      NULL},
+  {FM_CPU_ERR0_N,           "SGPIO142", GPIO_EDGE_BOTH,    cpu_event_handler,          NULL},
+  {FM_CPU_ERR1_N,           "SGPIO144", GPIO_EDGE_BOTH,    cpu_event_handler,          NULL},
   {FM_SYS_THROTTLE,         "SGPIO198", GPIO_EDGE_BOTH,    gpio_event_pson_handler,    NULL},
   {RST_PLTRST_N,            "SGPIO200", GPIO_EDGE_BOTH,    platform_reset_handle,      platform_reset_init},
   {FM_LAST_PWRGD,           "SGPIO116", GPIO_EDGE_BOTH,    cpu_pwr_handler,            NULL},
   {FM_CPU0_SKTOCC,          "SGPIO112", GPIO_EDGE_BOTH,    gpio_event_handler,         cpu_skt_init},
   {FM_CPU1_SKTOCC,          "SGPIO114", GPIO_EDGE_BOTH,    gpio_event_handler,         cpu_skt_init},
+  {FM_CPU0_PWR_FAIL,        "SGPIO174", GPIO_EDGE_BOTH,    pwr_err_event_handler,      NULL},
+  {FM_CPU1_PWR_FAIL,        "SGPIO176", GPIO_EDGE_BOTH,    pwr_err_event_handler,      NULL},
+  {FM_UV_ADR_TRIGGER,       "SGPIO26",  GPIO_EDGE_BOTH,    gpio_event_handler,         NULL},
+  {FM_PVDDCR_CPU0_P0_PMALERT,  "SGPIO154",  GPIO_EDGE_BOTH,    gpio_event_handler,     NULL},
+  {FM_PVDDCR_CPU0_P1_PMALERT,  "SGPIO156",  GPIO_EDGE_BOTH,    gpio_event_handler,     NULL},
+  {FM_PVDDCR_CPU1_P0_SMB_ALERT,"SGPIO158",  GPIO_EDGE_BOTH,    gpio_event_handler,     NULL},
+  {FM_PVDDCR_CPU1_P1_SMB_ALERT,"SGPIO160",  GPIO_EDGE_BOTH,    gpio_event_handler,     NULL},
+  {FM_CPU0_PRSNT,           "CPU0",  GPIO_EDGE_BOTH,  device_prsnt_event_handler,     NULL},
+  {FM_CPU1_PRSNT,           "CPU1",  GPIO_EDGE_BOTH,  device_prsnt_event_handler,     NULL},
+  {FM_OCP0_PRSNT,           "NIC0",  GPIO_EDGE_BOTH,  device_prsnt_event_handler,     NULL},
+  {FM_OCP1_PRSNT,           "NIC1",  GPIO_EDGE_BOTH,  device_prsnt_event_handler,     NULL},
+  {FM_E1S0_PRSNT,           "E1.S",  GPIO_EDGE_BOTH,  device_prsnt_event_handler,     NULL},
 };
 
 int main(int argc, char **argv)

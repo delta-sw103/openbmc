@@ -7,7 +7,6 @@
 #include <openbmc/obmc-pal.h>
 #include <openbmc/libgpio.h>
 #include <openbmc/nm.h>
-#include "pal_gpio.h"
 #include "pal_def.h"
 #include "pal_common.h"
 #include "pal_power.h"
@@ -202,7 +201,7 @@ int set_me_entry_into_recovery(void) {
 int pal_sled_cycle(void) {
   uint8_t id;
 
-  if(get_comp_source(FRU_PDBV, VPDB_HSC_SOURCE, &id ))
+  if(get_comp_source(FRU_VPDB, VPDB_HSC_SOURCE, &id ))
     return -1;
 
   //Send Command to VPDB

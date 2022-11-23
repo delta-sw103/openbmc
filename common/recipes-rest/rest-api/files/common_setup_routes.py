@@ -39,6 +39,19 @@ except ImportError:
     from rest_utils import common_routes
 
 
+def setup_rackmon_routes(app: Application):
+    chandler = commonApp_Handler()
+    # TOR endpoints
+    app.router.add_get(common_routes[11], chandler.rest_modbus_get)
+    app.router.add_post(common_routes[12], chandler.rest_modbus_cmd_post)
+    app.router.add_get(common_routes[13], chandler.rest_modbus_registers_get)
+    app.router.add_get(common_routes[14], chandler.rest_modbus_register_values_get)
+    app.router.add_get(common_routes[15], chandler.rest_modbus_devices_get)
+    app.router.add_post(common_routes[16], chandler.rest_modbus_read_post)
+    app.router.add_post(common_routes[17], chandler.rest_modbus_write_post)
+    app.router.add_post(common_routes[18], chandler.rest_modbus_read_file_post)
+
+
 def setup_common_routes(app: Application, write_enabled: bool):
     if compute:
         server_logger.info("Adding compute base-routes")

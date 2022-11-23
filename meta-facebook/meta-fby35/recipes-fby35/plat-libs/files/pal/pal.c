@@ -1553,6 +1553,27 @@ pal_is_bmc_por(void) {
   return (por)?1:0;
 }
 
+/*
+ *  Transfer key ASCII code to character
+ *  e.g. 593335434c443039540000000000000000 -> Y35CLD09T
+ */
+void
+pal_sysfw_key_hex_to_char(char *str, uint8_t *ver) {
+  char *pstr, tstr[8] = {0};
+  int j = 0;
+
+  for (int blk = 0; blk < BLK_SYSFW_VER; blk++) {
+    pstr = str + blk * SIZE_SYSFW_VER*2;
+    for (int i = 0; i < SIZE_SYSFW_VER*2; i += 2) {
+      if (blk > 0 && i == 0) {
+        continue;
+      }
+      memcpy(tstr, &pstr[i], 2);
+      ver[j++] = strtoul(tstr, NULL, 16);
+    }
+  }
+}
+
 int
 pal_get_sysfw_ver_from_bic(uint8_t slot_id, uint8_t *ver) {
   int ret = 0;
@@ -1605,31 +1626,43 @@ pal_get_sysfw_ver_from_bic(uint8_t slot_id, uint8_t *ver) {
 
 int
 pal_get_sysfw_ver(uint8_t slot, uint8_t *ver) {
-  int blk, i, j = 0;
   char key[MAX_KEY_LEN];
   char str[MAX_VALUE_LEN] = {0};
-  char *pstr, tstr[8] = {0};
+
+  if (ver == NULL) {
+    syslog(LOG_ERR, "%s: failed to get system firmware version due to NULL pointer\n", __func__);
+    return -1;
+  }
 
   sprintf(key, "fru%u_sysfw_ver", slot);
-  if (kv_get(key, str, NULL, KV_FPERSIST)) {
+  if (kv_get(key, str, NULL, KV_FPERSIST) || (strcmp(str, "0") == 0)) {
+    if (pal_get_sysfw_ver_from_bic(slot, ver)) {
+      memset(ver, 0, SIZE_SYSFW_VER);
+    }
+    return PAL_EOK;
+  }
+
+  pal_sysfw_key_hex_to_char(str, ver);
+
+  return PAL_EOK;
+}
+
+int pal_get_delay_activate_sysfw_ver(uint8_t slot_id, uint8_t *ver) {
+  char key[MAX_KEY_LEN] = {0};
+  char str[MAX_VALUE_LEN] = {0};
+
+  if (ver == NULL) {
+    syslog(LOG_ERR, "%s: failed to get system firmware version due to NULL pointer\n", __func__);
+    return -1;
+  }
+
+  snprintf(key, sizeof(key), "fru%u_delay_activate_sysfw_ver", slot_id);
+  if (kv_get(key, str, NULL, KV_FPERSIST) || (strcmp(str, "0") == 0)) {
     memset(ver, 0, SIZE_SYSFW_VER);
     return -1;
   }
 
-  if (strcmp(str, "0") == 0) {
-    return pal_get_sysfw_ver_from_bic(slot, ver);
-  }
-
-  for (blk = 0; blk < BLK_SYSFW_VER; blk++) {
-    pstr = str + blk * SIZE_SYSFW_VER*2;
-    for (i = 0; i < SIZE_SYSFW_VER*2; i += 2) {
-      if (blk > 0 && i == 0) {
-        continue;
-      }
-      memcpy(tstr, &pstr[i], 2);
-      ver[j++] = strtoul(tstr, NULL, 16);
-    }
-  }
+  pal_sysfw_key_hex_to_char(str, ver);
 
   return PAL_EOK;
 }
@@ -4868,10 +4901,96 @@ pal_get_mrc_desc(uint8_t fru, mrc_desc_t **desc, size_t *desc_count)
   return 0;
 }
 
+static int
+i2c_device_binding_operation(uint8_t bus, uint8_t addr, char *driver_name, I2C_OPERATION operation) {
+  int ret = 0;
+  char cmd[MAX_PATH_LEN] = {0};
+  char path[MAX_PATH_LEN] = {0};
+  FILE *fp = NULL;
+
+  if (driver_name == NULL) {
+    syslog(LOG_ERR, "%s driver name is null", __func__);
+    return -1;
+  }
+
+  if (operation == BIND) {
+    snprintf(path, sizeof(path), "/sys/bus/i2c/drivers/%s/bind", driver_name);
+  } else {
+    snprintf(path, sizeof(path), "/sys/bus/i2c/drivers/%s/unbind", driver_name);
+  }
+  fp = fopen(path, "w");
+  if(fp == NULL) {
+    syslog(LOG_ERR, "%s Failed to open file: %s. %s", __func__, path, strerror(errno));
+    return -1;
+  }
+
+  snprintf(cmd, sizeof(cmd), "%d-00%02x", bus, addr);
+  if (fwrite(cmd, sizeof(char), strlen(cmd), fp) != strlen(cmd)) {
+    syslog(LOG_ERR, "%s Failed to write file: %s. %s", __func__, path, strerror(errno));
+    ret = -1;
+  }
+
+  fclose(fp);
+
+  return ret;
+}
+
+int
+pal_bind_i2c_device(uint8_t bus, uint8_t addr, char *driver_name, char *bind_dir) {
+  if (bind_dir != NULL && access(bind_dir, F_OK) != 0) {
+    return i2c_device_binding_operation(bus, addr, driver_name, BIND);
+  }
+  return 0;
+}
+
+int
+pal_unbind_i2c_device(uint8_t bus, uint8_t addr, char *driver_name, char *bind_dir) {
+  if (bind_dir != NULL && access(bind_dir, F_OK) == 0) {
+    return i2c_device_binding_operation(bus, addr, driver_name, UNBIND);
+  }
+  return 0;
+}
+
+int
+pal_reload_vf_exp_gpio(uint8_t fru) {
+  bool chip_exist = false;
+  char pca953x_driver_dir[MAX_PATH_LEN] = {0};
+  char shawdowname_dir[MAX_PATH_LEN] = {0};
+  const char *io_exp_gpio_path_table[] = {BIC_SRST_SHADOW_PATH, BIC_EXTRST_SHADOW_PATH};
+  const uint8_t chip_address_table[] = {PCA9537_ADDR, PCA9555_ADDR};
+  uint8_t bus = 0;
+
+  bus = fby35_common_get_bus_id(fru) + 4;
+  for (int i = 0; i < ARRAY_SIZE(chip_address_table); i++) {
+    snprintf(pca953x_driver_dir, sizeof(pca953x_driver_dir), PCA953X_BIND_DIR, bus, chip_address_table[i]);
+    pal_unbind_i2c_device(bus, chip_address_table[i], PCA953X_DRIVER_NAME, pca953x_driver_dir);
+    if ( i2c_detect_device(bus, chip_address_table[i]) == 0 ) { //Check if the pca addr exist
+      pal_bind_i2c_device(bus, chip_address_table[i], PCA953X_DRIVER_NAME, pca953x_driver_dir);
+      chip_exist = true;
+    }
+  }
+
+  if (chip_exist == false) {
+    return 0;
+  }
+
+  for (int i = 0; i < ARRAY_SIZE(io_exp_gpio_path_table); i++) {
+    snprintf(shawdowname_dir, sizeof(shawdowname_dir), io_exp_gpio_path_table[i], fru);
+    gpio_export_by_offset(GPIO_CHIP_I2C_IO_EXP, (fru-1), shawdowname_dir);
+  }
+
+  return 0;
+}
+
 bool
 pal_is_prot_card_prsnt(uint8_t fru)
 {
     return fby35_common_is_prot_card_prsnt(fru);
+}
+
+bool
+pal_is_prot_bypass(uint8_t fru) {
+  return bic_is_prot_bypass(fru);
 }
 
 int
@@ -4944,6 +5063,48 @@ pal_display_4byte_post_code(uint8_t slot, uint32_t postcode_dw) {
   return 0;
 }
 #endif
+
+int
+pal_read_bic_sensor(uint8_t fru, uint8_t sensor_num, ipmi_extend_sensor_reading_t *sensor, uint8_t bmc_location, const uint8_t config_status) {
+  static uint8_t board_type[MAX_NODES] = {UNKNOWN_BOARD, UNKNOWN_BOARD, UNKNOWN_BOARD, UNKNOWN_BOARD};
+  int ret = 0;
+
+  if(sensor == NULL) {
+    syslog(LOG_ERR, "%s: failed to read bic sensor due to NULL pointer\n", __func__);
+    return READING_NA;
+  }
+
+  if (((config_status & PRESENT_2OU) == PRESENT_2OU) && (board_type[fru-1] == UNKNOWN_BOARD)) {
+    ret = fby35_common_get_2ou_board_type(fru, &board_type[fru-1]);
+    if (ret < 0) {
+      syslog(LOG_ERR, "%s() Cannot get board_type", __func__);
+    }
+  }
+
+  //check snr number first. If it not holds, it will move on
+  if (sensor_num <= 0x48 || (((board_type[fru-1] & DPV2_X16_BOARD) == DPV2_X16_BOARD) && (board_type[fru-1] != UNKNOWN_BOARD) &&
+      (sensor_num >= BIC_DPV2_SENSOR_DPV2_2_12V_VIN && sensor_num <= BIC_DPV2_SENSOR_DPV2_2_EFUSE_PWR))) { //server board
+    ret = bic_get_sensor_reading(fru, sensor_num, sensor, NONE_INTF);
+  } else if ( (sensor_num >= 0x50 && sensor_num <= 0x7F) && (bmc_location != NIC_BMC) && //1OU
+       ((config_status & PRESENT_1OU) == PRESENT_1OU) ) {
+    ret = bic_get_sensor_reading(fru, sensor_num, sensor, FEXP_BIC_INTF);
+  } else if ( ((sensor_num >= 0x80 && sensor_num <= 0xCE) ||     //2OU
+               (sensor_num >= 0x49 && sensor_num <= 0x4D)) &&    //Many sensors are defined in GPv3.
+              ((config_status & PRESENT_2OU) == PRESENT_2OU) ) { //The range from 0x80 to 0xCE is not enough for adding new sensors.
+                                                                 //So, we take 0x49 ~ 0x4D here
+    ret = bic_get_sensor_reading(fru, sensor_num, sensor, REXP_BIC_INTF);
+  } else if ( (sensor_num >= 0xD1 && sensor_num <= 0xF1) ) { //BB
+    ret = bic_get_sensor_reading(fru, sensor_num, sensor, BB_BIC_INTF);
+  } else {
+    return READING_NA;
+  }
+
+  if ( ret < 0 ) {
+    syslog(LOG_WARNING, "%s() Failed to run bic_get_sensor_reading(). fru: %x, snr#0x%x", __func__, fru, sensor_num);
+  }
+
+  return ret;
+}
 
 int
 pal_oem_bios_extra_setup(uint8_t slot, uint8_t *req_data, uint8_t req_len, uint8_t *res_data, uint8_t *res_len) {

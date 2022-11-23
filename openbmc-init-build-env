@@ -22,9 +22,12 @@ PLAT_DISTRO_OVERRIDES=(
 # master / rolling-release platforms
   meta-bletchley:lf-master
   meta-evb-npcm845:lf-master
+  meta-fbttn2:lf-master
   meta-greatlakes:lf-master
   meta-halfdome:lf-master
-# kirkstone platforms (latest)
+  meta-qemux86:lf-master
+# langdale platforms (latest)
+# kirkstone platforms (pending upgrade)
   meta-churchillmono:lf-kirkstone
   meta-fby2-nd:lf-kirkstone
   meta-fby35:lf-kirkstone
@@ -46,7 +49,7 @@ PLAT_DISTRO_OVERRIDES=(
   meta-fuji:lf-dunfell
   meta-minipack:lf-dunfell
   meta-netlakemtp:lf-dunfell
-  meta-qemux86:lf-dunfell
+  meta-wedge100:lf-dunfell
   meta-wedge400:lf-dunfell
   meta-agc032a:lf-dunfell
   meta-ddt32c2s:lf-dunfell
@@ -59,7 +62,6 @@ PLAT_DISTRO_OVERRIDES=(
   meta-lightning:rocko
   meta-minilaketb:rocko
   meta-wedge:rocko
-  meta-wedge100:rocko
   meta-yamp:rocko
   meta-yosemite:rocko
 )

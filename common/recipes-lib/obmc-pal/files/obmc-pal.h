@@ -94,6 +94,11 @@ typedef struct {
   uint8_t minor_code;
 } DIMM_PATTERN;
 
+typedef struct {
+  uint8_t fan_id;
+  uint8_t pwm;
+} PWM_INFO;
+
 typedef enum {
   FRU_TYPE_SERVER   = 0,
   FRU_TYPE_NIC      = 1,
@@ -266,6 +271,9 @@ enum {
   MEMORY_UNCORRECTABLE_ERR   = 0x2,
   MEMORY_CORR_ERR_PTRL_SCR   = 0x3,
   MEMORY_UNCORR_ERR_PTRL_SCR = 0x4,
+  MEMORY_PARITY_ERR_PCC0 = 0x5,
+  MEMORY_PARITY_ERR_PCC1 = 0x6,
+  MEMORY_PMIC_ERR = 0x7,
 };
 
 enum {
@@ -464,6 +472,7 @@ int pal_get_sys_guid(uint8_t slot, char *guid);
 int pal_set_sys_guid(uint8_t fru, char *guid);
 int pal_get_sysfw_ver(uint8_t slot, uint8_t *ver);
 int pal_set_sysfw_ver(uint8_t slot, uint8_t *ver);
+int pal_set_delay_activate_sysfw_ver(uint8_t slot, uint8_t *ver);
 int pal_is_cmd_valid(uint8_t *data);
 int pal_sensor_discrete_check(uint8_t fru, uint8_t snr_num, char *snr_name, uint8_t o_val, uint8_t n_val);
 bool pal_is_fru_x86(uint8_t fru);
@@ -620,7 +629,9 @@ int pal_register_sensor_failure_tolerance_policy(uint8_t fru);
 bool pal_is_support_vr_delay_activate(void);
 int pal_get_mrc_desc(uint8_t fru, mrc_desc_t **desc, size_t *desc_count);
 bool pal_is_prot_card_prsnt(uint8_t fru);
+bool pal_is_prot_bypass(uint8_t fru);
 int pal_file_line_split(char **dst, char *src, char *delim, int maxsz);
+void *pal_set_fan_speed_thread(void *data);
 int pal_bitcount(unsigned int val);
 
 #ifdef __cplusplus

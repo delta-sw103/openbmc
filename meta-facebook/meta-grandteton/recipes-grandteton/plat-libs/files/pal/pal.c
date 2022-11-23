@@ -60,7 +60,7 @@
 #define NUM_BMC_FRU     1
 
 const char pal_fru_list[] = \
-"all, mb, nic0, nic1, swb, hmc, bmc, scm, vpdb, hpdb, bp0, bp1, fio, hsc, swb_hsc";
+"all, mb, nic0, nic1, swb, hmc, bmc, scm, vpdb, hpdb, fan_bp0, fan_bp1, fio, hsc, swb_hsc";
 
 const char pal_server_list[] = "mb";
 
@@ -117,10 +117,10 @@ struct fru_dev_info fru_dev_data[] = {
   {FRU_DBG,   "ocpdbg",  "Debug Board",   14, 0,    0,              FRU_PATH_NONE,   NULL},
   {FRU_BMC,   "bmc",     "BSM Board",     15, 0x56, BMC_CAPABILITY, FRU_PATH_EEPROM, fru_presence},
   {FRU_SCM,   "scm",     "SCM Board",     15, 0x50, SCM_CAPABILITY, FRU_PATH_EEPROM, fru_presence},
-  {FRU_PDBV,  "vpdb",    "VPDB Board",    36, 0x52, PDB_CAPABILITY, FRU_PATH_EEPROM, fru_presence},
-  {FRU_PDBH,  "hpdb",    "HPDB Board",    37, 0x51, PDB_CAPABILITY, FRU_PATH_EEPROM, fru_presence},
-  {FRU_BP0,   "bp0",     "BP0 Board",     40, 0x56, BP_CAPABILITY,  FRU_PATH_EEPROM, fru_presence},
-  {FRU_BP1,   "bp1",     "BP1 Board",     41, 0x56, BP_CAPABILITY,  FRU_PATH_EEPROM, fru_presence},
+  {FRU_VPDB,  "vpdb",    "VPDB Board",    36, 0x52, PDB_CAPABILITY, FRU_PATH_EEPROM, fru_presence},
+  {FRU_HPDB,  "hpdb",    "HPDB Board",    37, 0x51, PDB_CAPABILITY, FRU_PATH_EEPROM, fru_presence},
+  {FRU_FAN_BP0,   "fan_bp0",     "FAN_BP0 Board",     40, 0x56, BP_CAPABILITY,  FRU_PATH_EEPROM, fru_presence},
+  {FRU_FAN_BP1,   "fan_bp1",     "FAN_BP1 Board",     41, 0x56, BP_CAPABILITY,  FRU_PATH_EEPROM, fru_presence},
   {FRU_FIO,   "fio",     "FIO Board",     3,  0x20, FIO_CAPABILITY, FRU_PATH_PLDM,   swb_presence},
   {FRU_HSC,   "hsc",     "HSC Board",     2,  0x51, 0,              FRU_PATH_EEPROM, fru_presence},
   {FRU_SHSC,  "swb_hsc", "SWB HSC Board", 3,  0x20, 0,              FRU_PATH_PLDM,   swb_presence},
@@ -141,7 +141,7 @@ pal_get_num_slots(uint8_t *num) {
 int
 pal_is_fru_prsnt(uint8_t fru, uint8_t *status) {
 
-  if(fru_dev_data[fru].check_presence == NULL || fru >= FRU_CNT) {
+  if (fru >= FRU_CNT || fru_dev_data[fru].check_presence == NULL) {
     *status = 0;
   } else {
     *status = fru_dev_data[fru].check_presence();
@@ -334,40 +334,6 @@ pal_get_platform_id(uint8_t *id) {
   }
 
   *id = (uint8_t)atoi(value);
-  return 0;
-}
-
-int
-pal_set_sysfw_ver(uint8_t slot, uint8_t *ver) {
-  int i;
-  char str[MAX_VALUE_LEN] = {0};
-  char tstr[8] = {0};
-
-  for (i = 0; i < SIZE_SYSFW_VER; i++) {
-    sprintf(tstr, "%02x", ver[i]);
-    strcat(str, tstr);
-  }
-
-  return pal_set_key_value("sysfw_ver_server", str);
-}
-
-int
-pal_get_sysfw_ver(uint8_t slot, uint8_t *ver) {
-  int ret = -1;
-  int i, j;
-  char str[MAX_VALUE_LEN] = {0};
-  char tstr[8] = {0};
-
-  ret = pal_get_key_value("sysfw_ver_server", str);
-  if (ret) {
-    return ret;
-  }
-
-  for (i = 0, j = 0; i < 2*SIZE_SYSFW_VER; i += 2) {
-    sprintf(tstr, "%c%c", str[i], str[i+1]);
-    ver[j++] = strtol(tstr, NULL, 16);
-  }
-
   return 0;
 }
 

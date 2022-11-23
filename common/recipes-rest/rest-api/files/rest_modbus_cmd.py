@@ -99,6 +99,133 @@ async def post_modbus_cmd(request: aiohttp.web.Request) -> aiohttp.web.Response:
     )
 
 
+async def post_modbus_read(request: aiohttp.web.Request) -> aiohttp.web.Response:
+    if pyrmd is None:
+        return aiohttp.web.json_response(
+            {
+                "status": "Bad Request",
+                "details": "Unsupported on current configuration",
+            },
+            status=400,
+        )
+    try:
+        payload = await request.json()
+        jsonschema.validate(payload, READ_SCHEMA)
+
+    except ValueError as e:
+        return aiohttp.web.json_response(
+            {
+                "status": "Bad Request",
+                "details": "Invalid payload: " + str(e),
+            },
+            status=400,
+        )
+
+    responses = []
+    # Get soliton beam lock so we don't race with it or modbuscmd
+    async with SolitonBeamFlock():
+        for cmd in payload["req"]:
+            try:
+                response = await pyrmd.RackmonAsyncInterface.read(
+                    cmd["devAddress"],
+                    cmd["regAddress"],
+                    cmd["numRegisters"],
+                    cmd.get("timeout", 0),
+                )
+                responses.append({"status": "SUCCESS", "regValues": response})
+            except pyrmd.ModbusException as e:
+                responses.append({"status": str(e)})
+            except Exception:
+                responses.append({"status": "ERR_IO_FAILURE"})
+
+    return aiohttp.web.json_response(responses)
+
+
+async def post_modbus_write(request: aiohttp.web.Request) -> aiohttp.web.Response:
+    if pyrmd is None:
+        return aiohttp.web.json_response(
+            {
+                "status": "Bad Request",
+                "details": "Unsupported on current configuration",
+            },
+            status=400,
+        )
+    try:
+        payload = await request.json()
+        jsonschema.validate(payload, WRITE_SCHEMA)
+
+    except ValueError as e:
+        return aiohttp.web.json_response(
+            {
+                "status": "Bad Request",
+                "details": "Invalid payload: " + str(e),
+            },
+            status=400,
+        )
+
+    cmd = payload["req"]
+    responses = []
+    # Get soliton beam lock so we don't race with it or modbuscmd
+    async with SolitonBeamFlock():
+        for cmd in payload["req"]:
+            try:
+                await pyrmd.RackmonAsyncInterface.write(
+                    cmd["devAddress"],
+                    cmd["regAddress"],
+                    cmd["regValue"],
+                    cmd.get("timeout", 0),
+                )
+                responses.append("SUCCESS")
+            except pyrmd.ModbusException as e:
+                responses.append(str(e))
+            except Exception:
+                responses.append("ERR_IO_FAILURE")
+
+    return aiohttp.web.json_response({"status": responses})
+
+
+async def post_modbus_read_file(request: aiohttp.web.Request) -> aiohttp.web.Response:
+    if pyrmd is None:
+        return aiohttp.web.json_response(
+            {
+                "status": "Bad Request",
+                "details": "Unsupported on current configuration",
+            },
+            status=400,
+        )
+    try:
+        payload = await request.json()
+        jsonschema.validate(payload, READ_FILE_SCHEMA)
+
+    except ValueError as e:
+        return aiohttp.web.json_response(
+            {
+                "status": "Bad Request",
+                "details": "Invalid payload: " + str(e),
+            },
+            status=400,
+        )
+
+    response = {}
+    cmd = payload["req"]
+    # Get soliton beam lock so we don't race with it or modbuscmd
+    async with SolitonBeamFlock():
+        try:
+            data = await pyrmd.RackmonAsyncInterface.read_file(
+                cmd["devAddress"],
+                cmd["records"],
+                cmd.get("timeout", 0),
+            )
+            response["status"] = "SUCCESS"
+            response["data"] = data
+        except pyrmd.ModbusException as e:
+            response["status"] = str(e)
+        except Exception:
+            response["status"] = "ERR_IO_FAILURE"
+
+    return aiohttp.web.json_response(response)
+
+
 class SolitonBeamFlock:
     async def __aenter__(self):
         self.lock_file = self._open_lock_file()
@@ -141,5 +268,97 @@ MODBUS_CMD_PAYLOAD_SCHEMA = {
         "commands": {"type": "array", "minItems": 1, "items": COMMAND_SCHEMA},
         "expected_response_length": {"type": "integer", "minimum": 2, "maximum": 255},
         "custom_timeout": {"type": "integer", "minimum": 0},
+    },
+}
+
+READ_REQ_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "reqired": ["devAddress", "regAddress", "numRegisters"],
+    "properties": {
+        "devAddress": {"type": "integer", "minimum": 0, "maximum": 255},
+        "regAddress": {"type": "integer", "minimum": 0, "maximum": 65535},
+        "numRegisters": {"type": "integer", "minimum": 1, "maximum": 127},
+        "timeout": {"type": "integer", "minimum": 1},
+    },
+}
+
+READ_SCHEMA = {
+    "title": "Modbus Read request",
+    "description": "Schema to define the modbus read request",
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["req"],
+    "properties": {"req": {"type": "array", "minItems": 1, "items": READ_REQ_SCHEMA}},
+}
+
+WRITE_REQ_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "reqired": ["devAddress", "regAddress", "regValue"],
+    "properties": {
+        "devAddress": {"type": "integer", "minimum": 0, "maximum": 255},
+        "regAddress": {"type": "integer", "minimum": 0, "maximum": 65535},
+        "timeout": {"type": "integer", "minimum": 1},
+        "regValue": {
+            "type": ["integer", "array"],
+            "minimum": 0,
+            "maximum": 65535,
+            "minItems": 1,
+            "items": {"type": "integer", "minimum": 0, "maximum": 65535},
+        },
+    },
+}
+
+WRITE_SCHEMA = {
+    "title": "Modbus Read request",
+    "description": "Schema to define the modbus read request",
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["req"],
+    "properties": {"req": {"type": "array", "minItems": 1, "items": WRITE_REQ_SCHEMA}},
+}
+
+
+READ_FILE_SCHEMA = {
+    "title": "Read File record(s)",
+    "description": "JSON Schema for the request to /sys/modbus/read_file_record",
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["req"],
+    "properties": {
+        "req": {
+            "type": "object",
+            "required": ["devAddress", "records"],
+            "properties": {
+                "devAddress": {"type": "integer", "minimum": 0, "maximum": 255},
+                "timeout": {"type": "integer", "minimum": 1},
+                "records": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "required": ["fileNum", "recordNum", "dataSize"],
+                        "properties": {
+                            "fileNum": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 65535,
+                            },
+                            "recordNum": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 65535,
+                            },
+                            "dataSize": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 255,
+                            },
+                        },
+                    },
+                },
+            },
+        }
     },
 }

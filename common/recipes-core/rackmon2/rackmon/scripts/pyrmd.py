@@ -17,15 +17,23 @@ class ModbusException(Exception):
 
 
 class ModbusTimeout(ModbusException):
-    ...
+    def __init__(self):
+        super().__init__("ERR_TIMEOUT")
 
 
 class ModbusCRCError(ModbusException):
-    ...
+    def __init__(self):
+        super().__init__("ERR_BAD_CRC")
 
 
 class ModbusUnknownError(ModbusException):
-    ...
+    def __init__(self):
+        super().__init__("ERR_IO_FAILURE")
+
+
+class ModbusInvalidArgs(ModbusException):
+    def __init__(self):
+        super().__init__("ERR_INVALID_ARGS")
 
 
 modbuslog = None
@@ -54,14 +62,19 @@ def transcript():
 
 class RackmonInterface:
     @classmethod
+    def _setTimeout(cls, req, timeout):
+        if timeout > 0:
+            req["timeout"] = timeout
+
+    @classmethod
     def _check(cls, resp):
         status = resp["status"]
         if status == "SUCCESS":
             return
-        if status == "CRC_ERROR":
+        if status == "ERR_BAD_CRC":
             log("<- crc check failure")
             raise ModbusCRCError()
-        elif status == "TIMEOUT_ERROR":
+        elif status == "ERR_TIMEOUT":
             log("<- timeout")
             raise ModbusTimeout()
         else:
@@ -73,8 +86,8 @@ class RackmonInterface:
         cmd = {
             "devAddress": addr,
             "regAddress": register,
-            "timeout": timeout,
         }
+        cls._setTimeout(cmd, timeout)
         if isinstance(data, int):
             cmd["type"] = "writeSingleRegister"
         elif isinstance(data, list):
@@ -86,24 +99,27 @@ class RackmonInterface:
 
     @classmethod
     def _read(cls, addr, register, length, timeout):
-        return {
+        cmd = {
             "type": "readHoldingRegisters",
             "devAddress": addr,
             "regAddress": register,
             "numRegisters": length,
-            "timeout": timeout,
         }
+        cls._setTimeout(cmd, timeout)
+        return cmd
+
+    @classmethod
+    def _read_file(cls, addr, records, timeout):
+        cmd = {"type": "readFileRecord", "devAddress": addr, "records": records}
+        cls._setTimeout(cmd, timeout)
+        return cmd
 
     @classmethod
     def _raw(cls, raw_cmd, expected, timeout):
         # Convert to integer array.
         raw_cmd_ints = list(raw_cmd)
-        cmd = {
-            "type": "raw",
-            "cmd": raw_cmd_ints,
-            "response_length": expected,
-            "timeout": timeout,
-        }
+        cmd = {"type": "raw", "cmd": raw_cmd_ints, "response_length": expected}
+        cls._setTimeout(cmd, timeout)
         return cmd
 
     @classmethod
@@ -128,12 +144,14 @@ class RackmonInterface:
     def _list(cls):
         return {"type": "listModbusDevices"}
 
-    # TODO add filter support later.
     @classmethod
-    def _data(cls, raw):
+    def _data(cls, raw, dataFilter=None):
         if raw:
             return {"type": "getMonitorDataRaw"}
-        return {"type": "getMonitorData"}
+        req = {"type": "getMonitorData"}
+        if dataFilter is not None:
+            req = {**req, **dataFilter}
+        return req
 
     @classmethod
     def _execute(cls, cmd):
@@ -195,8 +213,8 @@ class RackmonInterface:
         return result["data"]
 
     @classmethod
-    def data(cls, raw=True):
-        result = cls._do(cls._data, raw)
+    def data(cls, raw=True, dataFilter=None):
+        result = cls._do(cls._data, raw, dataFilter)
         return result["data"]
 
     @classmethod
@@ -207,6 +225,11 @@ class RackmonInterface:
     @classmethod
     def write(cls, addr, reg, data, timeout=0):
         cls._do(cls._write, addr, reg, data, timeout)
+
+    @classmethod
+    def read_file(cls, addr, records, timeout=0):
+        result = cls._do(cls._read_file, addr, records, timeout)
+        return result["data"]
 
 
 class RackmonAsyncInterface(RackmonInterface):
@@ -270,8 +293,8 @@ class RackmonAsyncInterface(RackmonInterface):
         return result["data"]
 
     @classmethod
-    async def data(cls, raw=True):
-        result = await cls._do(cls._data, raw)
+    async def data(cls, raw=True, dataFilter=None):
+        result = await cls._do(cls._data, raw, dataFilter)
         return result["data"]
 
     @classmethod
@@ -282,3 +305,8 @@ class RackmonAsyncInterface(RackmonInterface):
     @classmethod
     async def write(cls, addr, reg, data, timeout=0):
         await cls._do(cls._write, addr, reg, data, timeout)
+
+    @classmethod
+    async def read_file(cls, addr, records, timeout=0):
+        result = await cls._do(cls._read_file, addr, records, timeout)
+        return result["data"]

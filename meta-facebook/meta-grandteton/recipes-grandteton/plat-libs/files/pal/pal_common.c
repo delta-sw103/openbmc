@@ -8,7 +8,6 @@
 #include <syslog.h>
 #include "pal_common.h"
 #include "pal_def.h"
-#include "pal_gpio.h"
 #include <libpldm/pldm.h>
 #include <libpldm/platform.h>
 #include <libpldm-oem/pldm.h>
@@ -30,12 +29,12 @@ char *hpdb_source_data[] = {
   "hpdb_hsc_source",
 };
 
-char *bp0_source_data[] = {
-  "bp0_fan_chip_source",
+char *fan_bp0_source_data[] = {
+  "fan_bp0_fan_chip_source",
 };
 
-char *bp1_source_data[] = {
-  "bp1_fan_chip_source",
+char *fan_bp1_source_data[] = {
+  "fan_bp1_fan_chip_source",
 };
 
 struct source_info {
@@ -54,10 +53,10 @@ struct source_info comp_source_data[] = {
   {FRU_DBG,   NULL},
   {FRU_BMC,   NULL},
   {FRU_SCM,   NULL},
-  {FRU_PDBV,  vpdb_source_data},
-  {FRU_PDBH,  hpdb_source_data},
-  {FRU_BP0,   bp0_source_data},
-  {FRU_BP1,   bp1_source_data},
+  {FRU_VPDB,  vpdb_source_data},
+  {FRU_HPDB,  hpdb_source_data},
+  {FRU_FAN_BP0,   fan_bp0_source_data},
+  {FRU_FAN_BP1,   fan_bp1_source_data},
   {FRU_FIO,   NULL},
   {FRU_HSC,   NULL},
   {FRU_SHSC,  NULL},
@@ -302,3 +301,15 @@ is_swb_hsc_module(void) {
   return val;
 }
 
+bool
+sgpio_valid_check(){
+  int bit1 = gpio_get_value_by_shadow("CPLD_SGPIO_READY_ID0");
+  int bit2 = gpio_get_value_by_shadow("CPLD_SGPIO_READY_ID1");
+  int bit3 = gpio_get_value_by_shadow("CPLD_SGPIO_READY_ID2");
+  int bit4 = gpio_get_value_by_shadow("CPLD_SGPIO_READY_ID3");
+  if ( bit1 == 0 && bit2 == 1 && bit3 == 0 && bit4 == 1) {
+    return true;
+  } else {
+    return false;
+  }
+}

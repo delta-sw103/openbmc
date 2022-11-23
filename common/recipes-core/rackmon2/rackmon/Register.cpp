@@ -93,7 +93,7 @@ void RegisterValue::makeFlags(
     uint16_t regIdx = reg.size() - (pos / 16) - 1;
     uint16_t regBit = pos % 16;
     bool bitVal = (reg[regIdx] & (1 << regBit)) != 0;
-    flagsValue.push_back(std::make_tuple(bitVal, name, pos));
+    flagsValue.push_back({bitVal, name, pos});
   }
 }
 
@@ -175,11 +175,11 @@ NLOHMANN_JSON_SERIALIZE_ENUM(
 NLOHMANN_JSON_SERIALIZE_ENUM(
     RegisterValueType,
     {
-        {RegisterValueType::HEX, "hex"},
-        {RegisterValueType::STRING, "string"},
-        {RegisterValueType::INTEGER, "integer"},
-        {RegisterValueType::FLOAT, "float"},
-        {RegisterValueType::FLAGS, "flags"},
+        {RegisterValueType::HEX, "RAW"},
+        {RegisterValueType::STRING, "STRING"},
+        {RegisterValueType::INTEGER, "INTEGER"},
+        {RegisterValueType::FLOAT, "FLOAT"},
+        {RegisterValueType::FLAGS, "FLAGS"},
     })
 
 void from_json(const json& j, RegisterDescriptor& i) {
@@ -217,10 +217,23 @@ void to_json(json& j, const RegisterDescriptor& i) {
   }
 }
 
+void to_json(json& j, const FlagType& m) {
+  j["name"] = m.name;
+  j["value"] = m.value;
+  j["bitOffset"] = m.bitOffset;
+}
+
 void to_json(json& j, const RegisterValue& m) {
+  static const std::unordered_map<RegisterValueType, std::string> keyMap = {
+      {RegisterValueType::INTEGER, "intValue"},
+      {RegisterValueType::STRING, "strValue"},
+      {RegisterValueType::FLOAT, "floatValue"},
+      {RegisterValueType::FLAGS, "flagsValue"},
+      {RegisterValueType::HEX, "rawValue"}};
   j["type"] = m.type;
-  j["time"] = m.timestamp;
-  std::visit([&j](auto&& v) { j["value"] = v; }, m.value);
+  j["timestamp"] = m.timestamp;
+  auto sub = keyMap.at(m.type);
+  std::visit([&j, &sub](auto&& v) { j["value"][sub] = v; }, m.value);
 }
 
 void to_json(json& j, const Register& m) {
@@ -235,7 +248,7 @@ void to_json(json& j, const Register& m) {
 void to_json(json& j, const RegisterStoreValue& m) {
   j["regAddress"] = m.regAddr;
   j["name"] = m.name;
-  j["readings"] = m.history;
+  j["history"] = m.history;
 }
 
 void to_json(json& j, const RegisterStore& m) {

@@ -3,6 +3,7 @@ branches=(
     lf-master
     lf-dunfell
     lf-kirkstone
+    lf-langdale
 )
 
 rocko_repos=(
@@ -12,11 +13,14 @@ rocko_repos=(
 )
 rocko_poky_patch="0001-rocko-backport-support-for-override.patch 0002-Remove-checks-on-python.patch"
 lf_master_repos=(
-    lf-openbmc:623fa3ff3
+    lf-openbmc:5088e1495
 )
 lf_dunfell_repos=(
     lf-openbmc:61a2d43a1
 )
 lf_kirkstone_repos=(
     lf-openbmc:ce7bef12b
+)
+lf_langdale_repos=(
+    lf-openbmc:f241bb577
 )

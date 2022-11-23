@@ -1,0 +1,37 @@
+#ifndef __HAL_PALDEF_COVER_H__
+#define __HAL_PALDEF_COVER_H__
+
+//GPIO EVENT Cover
+#define IRQ_UV_DETECT_N          "UV_ALERT_N"
+#define IRQ_OC_DETECT_N          "OC_ALERT_N"
+#define IRQ_HSC_FAULT_N          "IRQ_HSC_FAULT_R1_N"
+#define IRQ_HSC_ALERT_N          "IRQ_SML1_PMBUS_ALERT_N"
+#define FM_CPU0_PROCHOT_N        "FM_CPU0_PROCHOT_R_N"
+#define FM_CPU1_PROCHOT_N        "FM_CPU1_PROCHOT_R_N"
+#define FM_CPU0_THERMTRIP_N      "CPU0_THERMTRIP_R_N"
+#define FM_CPU1_THERMTRIP_N      "CPU1_THERMTRIP_R_N"
+#define FM_CPU_ERR0_N            "FM_CPU0_SMERR_N"
+#define FM_CPU_ERR1_N            "FM_CPU1_SMERR_N"
+#define FM_SYS_THROTTLE          "FM_SYS_THROTTLE_R_N"
+#define FM_CPU0_SKTOCC           "FM_PRSNT_CPU0_R_N"
+#define FM_CPU1_SKTOCC           "FM_PRSNT_CPU1_R_N"
+#define FM_BIOS_POST_CMPLT       "FM_BIOS_POST_CMPLT_BUF_R_N"
+#define FM_CPU0_PWR_FAIL         "P0_PWR_ERR"
+#define FM_CPU1_PWR_FAIL         "P1_PWR_ERR"
+#define FM_UV_ADR_TRIGGER        "FM_UV_ADR_TRIGGER_R_N"
+#define FM_PVDDCR_CPU0_P0_PMALERT   "PVDDCR_CPU0_P0_PMALERT"
+#define FM_PVDDCR_CPU0_P1_PMALERT   "PVDDCR_CPU0_P1_PMALERT"
+#define FM_PVDDCR_CPU1_P0_SMB_ALERT "PVDDCR_CPU1_P0_SMB_ALERT"
+#define FM_PVDDCR_CPU1_P1_SMB_ALERT "PVDDCR_CPU1_P1_SMB_ALERT"
+#define FM_CPU0_PRSNT            "FM_PRSNT_CPU0_R_N"
+#define FM_CPU1_PRSNT            "FM_PRSNT_CPU1_R_N"
+#define FM_OCP0_PRSNT            "PRSNT_OCP_SFF_N"
+#define FM_OCP1_PRSNT            "PRSNT_OCP_V3_2_N"
+#define FM_E1S0_PRSNT            "E1S_0_PRSNT_R_N"
+
+
+//GPIO Power Control Cover
+#define FM_LAST_PWRGD            "FM_PWRGD_CPU1_PWROK"
+#define RST_PLTRST_N             "FM_RST_CPU1_RESETL_N"
+
+#endif

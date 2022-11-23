@@ -36,6 +36,10 @@
 #include <openbmc/ipmb.h>
 #include <openbmc/snr-tolerance.h>
 #include <math.h>
+#include <pthread.h>
+#ifdef CRASHDUMP_AMD
+#include "crashdump-amd/pal_crashdump_amd.h"
+#endif
 
 #define GPIO_VAL "/sys/class/gpio/gpio%d/value"
 
@@ -483,7 +487,9 @@ pal_parse_oem_unified_sel_common(uint8_t fru, uint8_t *sel, char *error_log)
     "Memory uncorrectable error",
     "Memory correctable error (Patrol scrub)",
     "Memory uncorrectable error (Patrol scrub)",
-    "Memory Parity Error event",
+    "Memory Parity Error (PCC=0)",
+    "Memory Parity Error (PCC=1)",
+    "Memory PMIC Error",
     "Reserved"
   };
   char *upi_err[] = {
@@ -561,6 +567,7 @@ pal_parse_oem_unified_sel_common(uint8_t fru, uint8_t *sel, char *error_log)
       event_type = sel[12] & 0xF;
       switch (event_type) {
         case MEMORY_TRAINING_ERR:
+        case MEMORY_PMIC_ERR:
           if (plat == 0) { //Intel
             sprintf(error_log, "GeneralInfo: MEMORY_ECC_ERR(0x%02X), %s, DIMM Failure Event: %s, Major Code: 0x%02X, Minor Code: 0x%02X",
                     general_info, dimm_location_str,
@@ -759,7 +766,23 @@ pal_set_imc_version(uint8_t slot, uint8_t *req_data, uint8_t req_len, uint8_t *r
 uint8_t __attribute__((weak))
 pal_add_cper_log(uint8_t slot, uint8_t *req_data, uint8_t req_len, uint8_t *res_data, uint8_t *res_len)
 {
-  return PAL_EOK;
+  uint8_t completion_code = CC_UNSPECIFIED_ERROR;
+
+#ifdef CRASHDUMP_AMD
+  if (pal_is_slot_server(slot)) {
+    completion_code = pal_amdcrd_save_mca_to_file(
+        slot - 1, /* slot is 1 based */
+        req_data,
+        req_len - IPMI_MN_REQ_HDR_SIZE,
+        res_data,
+        res_len);
+    return completion_code;
+  } else {
+    return CC_PARAM_OUT_OF_RANGE;
+  }
+#endif
+
+  return completion_code;
 }
 
 uint8_t __attribute__((weak))
@@ -1147,6 +1170,26 @@ pal_set_sysfw_ver(uint8_t slot, uint8_t *ver)
 
   for (i = 0; i < SIZE_SYSFW_VER; i++) {
     sprintf(tstr, "%02x", ver[i]);
+    memcpy(&str[offs], tstr, 2);
+    offs += 2;
+  }
+
+  return kv_set(key, str, 0, KV_FPERSIST);
+}
+
+int __attribute__((weak))
+pal_set_delay_activate_sysfw_ver(uint8_t slot, uint8_t *ver)
+{
+  size_t offs = 0;
+  char key[MAX_KEY_LEN] = {0};
+  char str[MAX_VALUE_LEN] = {0};
+  char tstr[8] = {0};
+
+  snprintf(key, sizeof(key), "fru%u_delay_activate_sysfw_ver", slot);
+
+//  Transfer IPMI raw data to BIOS version key.
+  for (int i = 0; i < SIZE_SYSFW_VER; i++) {
+    snprintf(tstr, sizeof(tstr), "%02x", ver[i]);
     memcpy(&str[offs], tstr, 2);
     offs += 2;
   }
@@ -1665,7 +1708,7 @@ pal_parse_sel_helper(uint8_t fru, uint8_t *sel, char *error_log)
           strcat(error_log, "Unknown");
 
       }
-      sprintf(temp_log, "%s, FRU:%u", error_log, fru);
+      sprintf(temp_log, "%s,FRU:%u", error_log, fru);
       pal_add_cri_sel(temp_log);
       break;
 
@@ -3247,6 +3290,12 @@ pal_is_prot_card_prsnt(uint8_t fru)
     return false;
 }
 
+bool __attribute__((weak))
+pal_is_prot_bypass(uint8_t fru)
+{
+  return true;
+}
+
 int
 pal_file_line_split(char **dst, char *src, char *delim, int maxsz) {
   if ((dst == NULL) || (src == NULL) || (delim == NULL)) {
@@ -3266,6 +3315,26 @@ pal_file_line_split(char **dst, char *src, char *delim, int maxsz) {
   }
 
   return size;
+}
+
+void* __attribute__((weak))
+pal_set_fan_speed_thread(void *data)
+{
+  int ret = 0;
+  PWM_INFO *pwm_info = (PWM_INFO *)data;
+  if (data == NULL) {
+    syslog(LOG_ERR, "%s: invalid parameter pointer is NULL", __func__);
+    return NULL;
+  }
+  ret = pal_set_fan_speed(pwm_info->fan_id, pwm_info->pwm);
+  if (ret == PAL_ENOTREADY) {
+    printf("Blocked because host power is off\n");
+  } else if (!ret) {
+    printf("Setting Zone %d speed to %d\n", pwm_info->fan_id, pwm_info->pwm);
+  } else {
+    printf("Error while setting fan speed for Zone %d\n", pwm_info->fan_id);
+  }
+  return NULL;
 }
 
 int

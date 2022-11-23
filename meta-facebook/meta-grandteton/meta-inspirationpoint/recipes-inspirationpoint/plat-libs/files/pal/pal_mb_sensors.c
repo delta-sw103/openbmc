@@ -22,9 +22,11 @@
 #include <esmi_mailbox.h>
 #include "pal.h"
 #include "pal_common.h"
+#include <openbmc/kv.h>
 
 //#define DEBUG
 #define GPIO_P3V_BAT_SCALED_EN    "BATTERY_DETECT"
+#define GPIO_APML_MUX2_SEL        "FM_APML_MUX2_SEL_R"
 #define FRB3_MAX_READ_RETRY       (10)
 #define HSC_12V_BUS               (2)
 
@@ -63,6 +65,7 @@ static int read_e1s_power(uint8_t fru, uint8_t sensor_num, float *value);
 static int read_e1s_temp(uint8_t fru, uint8_t sensor_num, float *value);
 bool pal_bios_completed(uint8_t fru);
 static uint8_t postcodes_last[256] = {0};
+char g_has_mux[MAX_VALUE_LEN] = {0};
 
 const uint8_t mb_sensor_list[] = {
   MB_SNR_INLET_TEMP_R,
@@ -269,14 +272,14 @@ PAL_SENSOR_MAP mb_sensor_map[] = {
   {"VR_CPU0_VCORE0_TEMP", VR_ID0, read_vr_temp, false, {105.0, 0, 0, 10.0, 0, 0, 0, 0}, TEMP}, //0x31
   {"VR_CPU0_VCORE0_CURR", VR_ID0, read_vr_iout, false, {240, 0, 0, 0, 0, 0, 0, 0}, CURR}, //0X32
   {"VR_CPU0_VCORE0_PWR",  VR_ID0, read_vr_pout, false, {410, 0, 0, 0, 0, 0, 0, 0}, POWER}, //0x33
-  {"VR_CPU0_SOC_VOLT", VR_ID1, read_vr_vout, false, {1.71, 0, 0, 0.34, 0, 0, 0, 0}, VOLT}, //0x34
+  {"VR_CPU0_SOC_VOLT", VR_ID1, read_vr_vout, false, {1.36, 0, 0, 0.59, 0, 0, 0, 0}, VOLT}, //0x34
   {"VR_CPU0_SOC_TEMP", VR_ID1, read_vr_temp, false, {105.0, 0, 0, 10.0, 0, 0, 0, 0}, TEMP}, //0x35
-  {"VR_CPU0_SOC_CURR", VR_ID1, read_vr_iout, false, {240, 0, 0, 0, 0, 0, 0, 0}, CURR}, //0X36
-  {"VR_CPU0_SOC_PWR",  VR_ID1, read_vr_pout, false, {410, 0, 0, 0, 0, 0, 0, 0}, POWER}, //0x37
-  {"VR_CPU0_VCORE1_VOLT",  VR_ID2, read_vr_vout, false, {1.36, 0, 0, 0.59, 0, 0, 0, 0}, VOLT}, //0x38
+  {"VR_CPU0_SOC_CURR", VR_ID1, read_vr_iout, false, {140, 0, 0, 0, 0, 0, 0, 0}, CURR}, //0X36
+  {"VR_CPU0_SOC_PWR",  VR_ID1, read_vr_pout, false, {192, 0, 0, 0, 0, 0, 0, 0}, POWER}, //0x37
+  {"VR_CPU0_VCORE1_VOLT",  VR_ID2, read_vr_vout, false, {1.71, 0, 0, 0.34, 0, 0, 0, 0}, VOLT}, //0x38
   {"VR_CPU0_VCORE1_TEMP",  VR_ID2, read_vr_temp, false, {105.0, 0, 0, 10.0, 0, 0, 0, 0}, TEMP}, //0x39
-  {"VR_CPU0_VCORE1_CURR",  VR_ID2, read_vr_iout, false, {140, 0, 0, 0, 0, 0, 0, 0}, CURR}, //0X3A
-  {"VR_CPU0_VCORE1_PWR",   VR_ID2, read_vr_pout, false, {192.0, 0, 0, 0, 0, 0, 0, 0}, POWER}, //0x3B
+  {"VR_CPU0_VCORE1_CURR",  VR_ID2, read_vr_iout, false, {240, 0, 0, 0, 0, 0, 0, 0}, CURR}, //0X3A
+  {"VR_CPU0_VCORE1_PWR",   VR_ID2, read_vr_pout, false, {410.0, 0, 0, 0, 0, 0, 0, 0}, POWER}, //0x3B
   {"VR_CPU0_PVDDIO_VOLT", VR_ID3, read_vr_vout, false, {1.29, 0, 0, 0.81, 0, 0, 0, 0}, VOLT}, //0x3C
   {"VR_CPU0_PVDDIO_TEMP", VR_ID3, read_vr_temp, false, {105.0, 0, 0, 10.0, 0, 0, 0, 0}, TEMP}, //0x3D
   {"VR_CPU0_PVDDIO_CURR", VR_ID3, read_vr_iout, false, {150, 0, 0, 0, 0, 0, 0, 0}, CURR}, //0X3E
@@ -294,14 +297,14 @@ PAL_SENSOR_MAP mb_sensor_map[] = {
   {"VR_CPU1_VCORE0_TEMP", VR_ID5, read_vr_temp, false, {105.0, 0, 0, 10.0, 0, 0, 0, 0}, TEMP}, //0x49
   {"VR_CPU1_VCORE0_CURR", VR_ID5, read_vr_iout, false, {240, 0, 0, 0, 0, 0, 0, 0}, CURR}, //0X4A
   {"VR_CPU1_VCORE0_PWR", VR_ID5, read_vr_pout, false, {410, 0, 0, 0, 0, 0, 0, 0}, POWER}, //0x4B
-  {"VR_CPU1_SOC_VOLT", VR_ID6, read_vr_vout, false, {1.71, 0, 0, 0.34, 0, 0, 0, 0}, VOLT}, //0x4C
+  {"VR_CPU1_SOC_VOLT", VR_ID6, read_vr_vout, false, {1.36, 0, 0, 0.59, 0, 0, 0, 0}, VOLT}, //0x4C
   {"VR_CPU1_SOC_TEMP", VR_ID6, read_vr_temp, false, {105.0, 0, 0, 10.0, 0, 0, 0, 0}, TEMP}, //0x4D
-  {"VR_CPU1_SOC_CURR", VR_ID6, read_vr_iout, false, {240, 0, 0, 0, 0, 0, 0, 0}, CURR}, //0X4E
-  {"VR_CPU1_SOC_PWR", VR_ID6, read_vr_pout, false, {410, 0, 0, 0, 0, 0, 0, 0}, POWER}, //0x4F
-  {"VR_CPU1_VCORE1_VOLT", VR_ID7, read_vr_vout, false, {1.36, 0, 0, 0.59, 0, 0, 0, 0}, VOLT}, //0x50
+  {"VR_CPU1_SOC_CURR", VR_ID6, read_vr_iout, false, {140, 0, 0, 0, 0, 0, 0, 0}, CURR}, //0X4E
+  {"VR_CPU1_SOC_PWR", VR_ID6, read_vr_pout, false, {192, 0, 0, 0, 0, 0, 0, 0}, POWER}, //0x4F
+  {"VR_CPU1_VCORE1_VOLT", VR_ID7, read_vr_vout, false, {1.71, 0, 0, 0.34, 0, 0, 0, 0}, VOLT}, //0x50
   {"VR_CPU1_VCORE1_TEMP", VR_ID7, read_vr_temp, false, {105.0, 0, 0, 10.0, 0, 0, 0, 0}, TEMP}, //0x51
-  {"VR_CPU1_VCORE1_CURR", VR_ID7, read_vr_iout, false, {140, 0, 0, 0, 0, 0, 0, 0}, CURR}, //0X52
-  {"VR_CPU1_VCORE1_PWR", VR_ID7, read_vr_pout, false, {192, 0, 0, 0, 0, 0, 0, 0}, POWER}, //0x53
+  {"VR_CPU1_VCORE1_CURR", VR_ID7, read_vr_iout, false, {240, 0, 0, 0, 0, 0, 0, 0}, CURR}, //0X52
+  {"VR_CPU1_VCORE1_PWR", VR_ID7, read_vr_pout, false, {410, 0, 0, 0, 0, 0, 0, 0}, POWER}, //0x53
   {"VR_CPU1_PVDDIO_VOLT", VR_ID8, read_vr_vout, false, {1.29, 0, 0, 0.81, 0, 0, 0, 0}, VOLT}, //0x54
   {"VR_CPU1_PVDDIO_TEMP", VR_ID8, read_vr_temp, false, {105.0, 0, 0, 10.0, 0, 0, 0, 0}, TEMP}, //0x55
   {"VR_CPU1_PVDDIO_CURR", VR_ID8, read_vr_iout, false, {150, 0, 0, 0, 0, 0, 0, 0}, CURR}, //0X56
@@ -400,7 +403,7 @@ static bool is_max11617_chip(void) {
     if (pal_get_platform_id(&id))
       return false;
 
-    if (GETBIT(id, 1)) {
+    if (GETBIT(id, 2)) {
        adc_chips = max11617_devs;
        val = true;
     }
@@ -518,6 +521,29 @@ err_exit:
   return ret;
 }
 
+static int set_apml_channel(uint8_t cpu_id) {
+  int ret = 0;
+
+  if (gpio_get_value_by_shadow(GPIO_APML_MUX2_SEL) == GPIO_VALUE_HIGH && cpu_id == CPU_ID0) {
+    ret = gpio_set_value_by_shadow(GPIO_APML_MUX2_SEL, GPIO_VALUE_LOW);
+  }
+  else if (gpio_get_value_by_shadow(GPIO_APML_MUX2_SEL) == GPIO_VALUE_LOW && cpu_id == CPU_ID1) {
+    ret = gpio_set_value_by_shadow(GPIO_APML_MUX2_SEL, GPIO_VALUE_HIGH);
+  }
+  else {
+    //do nothing
+  }
+
+  if (ret) {
+    syslog(LOG_WARNING, "%s, set apml sgpio fail", __FUNCTION__);
+  }
+  else {
+    sleep(1);
+  }
+
+  return ret;
+}
+
 static int
 read_cpu_pkg_pwr(uint8_t fru, uint8_t sensor_num, float *value) {
   uint8_t cpu_id = sensor_map[fru].map[sensor_num].id;
@@ -533,6 +559,10 @@ read_cpu_pkg_pwr(uint8_t fru, uint8_t sensor_num, float *value) {
 
   if(pal_bios_completed(fru) != true) {
     return READING_NA;
+  }
+
+  if (!strcmp( g_has_mux, "0")) {
+    set_apml_channel(cpu_id);
   }
 
   ret = sensors_read(cpu_chips[cpu_id], sensor_map[fru].map[sensor_num].snr_name, value);
@@ -561,6 +591,10 @@ read_cpu_temp(uint8_t fru, uint8_t sensor_num, float *value) {
 
   if(!is_cpu_socket_occupy(cpu_id))
     return READING_NA;
+
+  if (!strcmp( g_has_mux, "0")) {
+    set_apml_channel(cpu_id);
+  }
 
   ret = sensors_read(cpu_chips[cpu_id], sensor_map[fru].map[sensor_num].snr_name, value);
   if (ret) {
@@ -629,6 +663,11 @@ read_cpu0_dimm_temp(uint8_t fru, uint8_t sensor_num, float *value) {
     return READING_NA;
   }
 
+  kv_get("apml_mux", g_has_mux, 0, 0);
+  if (!strcmp( g_has_mux, "0")) {
+    set_apml_channel(CPU_ID0);
+  }
+
   ret = read_dimm_temp(fru, sensor_num, value, dimm_id, CPU_ID0);
   if ( ret != 0 ) {
     retry[dimm_id]++;
@@ -655,6 +694,10 @@ read_cpu1_dimm_temp(uint8_t fru, uint8_t sensor_num, float *value) {
     return READING_NA;
   }
 
+  if (!strcmp( g_has_mux, "0")) {
+    set_apml_channel(CPU_ID1);
+  }
+
   ret = read_dimm_temp(fru, sensor_num, value, dimm_id, CPU_ID1);
   if ( ret != 0 ) {
     retry[dimm_id]++;
@@ -676,6 +719,7 @@ read_dimm_power(uint8_t fru, uint8_t sensor_num, float *value,
 
   uint8_t addr = (dimm_id/CHANNEL_OF_DIMM_NUM << 4) + (dimm_id%CHANNEL_OF_DIMM_NUM);
   ret = read_dimm_power_consumption(cpu_id, addr, &d_power);
+
   if(ret)
     return -1;
 
@@ -695,6 +739,10 @@ read_cpu0_dimm_power(uint8_t fru, uint8_t sensor_num, float *value) {
 
   if(pal_bios_completed(fru) != true) {
     return READING_NA;
+  }
+
+  if (!strcmp( g_has_mux, "0")) {
+    set_apml_channel(CPU_ID0);
   }
 
   ret = read_dimm_power(fru, sensor_num, value, dimm_id, CPU_ID0, cached);
@@ -719,6 +767,10 @@ read_cpu1_dimm_power(uint8_t fru, uint8_t sensor_num, float *value) {
 
   if(pal_bios_completed(fru) != true) {
     return READING_NA;
+  }
+
+  if (!strcmp( g_has_mux, "0")) {
+    set_apml_channel(CPU_ID1);
   }
 
   ret = read_dimm_power(fru, sensor_num, value, dimm_id, CPU_ID1, cached);

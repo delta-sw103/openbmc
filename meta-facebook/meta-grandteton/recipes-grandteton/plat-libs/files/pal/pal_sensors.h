@@ -28,6 +28,8 @@ enum {
   VOLT,
   FAN,
   POWER,
+  ENRGY,
+  PRESS,
   STATE,
 };
 
@@ -112,6 +114,7 @@ enum {
   DPM_2,
   DPM_3,
   DPM_4,
+  DPM_NUM_CNT,
 };
 
 enum {

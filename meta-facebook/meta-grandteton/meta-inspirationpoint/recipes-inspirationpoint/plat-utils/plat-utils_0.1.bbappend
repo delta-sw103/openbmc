@@ -17,15 +17,19 @@
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 LOCAL_URI += " \
-    file://setup-sgpio.sh \
+    file://setup-gpio-cover.sh \
     file://setup-cover-dev.sh \
     file://setup-pwon-snr.sh \
     file://sync_date.sh \
+    file://setup-reboot-init.sh \
     "
 
 do_install:append() {
 # setup-pwon-snr.sh
   install -m 755 setup-pwon-snr.sh  ${D}${sysconfdir}/init.d/setup-pwon-snr.sh
   update-rc.d -r ${D} setup-pwon-snr.sh start 68 5 .
+# setup-reboot-init.sh
+  install -m 755 setup-reboot-init.sh ${D}${sysconfdir}/init.d/setup-reboot-init.sh
+  update-rc.d -r ${D} setup-reboot-init.sh stop 01 6 .
 }
 
