@@ -170,9 +170,9 @@ static int delta_sysfpga_i2c_smbus_xfer(struct i2c_adapter *adap, u16 addr, unsi
                                         char read_write, u8 command, int size, union i2c_smbus_data *data)
 {
 	int status;
-    struct device *dev = adap->dev.parent;
     struct fpga_i2c_bus_s *adap_data = i2c_get_adapdata(adap);
     int offset = adap_data->offset;
+    struct device *dev = &adap_data->client->dev;
 
     mutex_lock(&fpga_lock);
 
@@ -293,18 +293,24 @@ int delta_sysfpga_i2c_adapter_init(struct i2c_client *client, struct fpga_i2c_bu
 {
     int current_bus = 0;
     int error = -1;
+    struct i2c_adapter *parent = client->adapter;
 
     mutex_init(&fpga_lock);
 
     memset(fpga_data, 0, sizeof(*fpga_data));
     fpga_data->adap = kzalloc(sizeof(struct i2c_adapter), GFP_KERNEL);
+    //fpga_data->client = kzalloc(sizeof(struct i2c_adapter), GFP_KERNEL);
 
     /* Create i2c adapter */
+    fpga_data->client             = client;
     snprintf(fpga_data->adap->name, sizeof(fpga_data->adap->name), sysfpga_i2c_info[current_bus].name, current_bus);
     fpga_data->adap->owner        = THIS_MODULE;
-    fpga_data->adap->class        = I2C_CLASS_SPD;
+    fpga_data->adap->class        = parent->class;
     fpga_data->adap->algo         = &delta_sysfpga_i2c_algorithm;
-    fpga_data->adap->dev.parent   = &client->dev;
+    fpga_data->adap->retries      = parent->retries;
+    fpga_data->adap->timeout      = parent->timeout;
+    fpga_data->adap->quirks       = parent->quirks;
+    fpga_data->adap->dev.parent   = &parent->dev;
     fpga_data->offset             = sysfpga_i2c_info[current_bus].offset;
     i2c_set_adapdata(fpga_data->adap, fpga_data);
     

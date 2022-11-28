@@ -11,6 +11,7 @@
 #define WRITE_CTRL_SEL	0x00000001
 
 struct fpga_i2c_bus_s {
+    struct i2c_client *client;
     struct i2c_adapter *adap;
     int offset;
 };

@@ -105,11 +105,10 @@ static int portpld_remove(struct i2c_client* client)
 }
 
 static struct i2c_driver portpld_driver = {
-    .class = I2C_CLASS_SPD,
+    .class = I2C_CLASS_HWMON,
     .driver =
         {
             .name = "portpld",
-            .owner = THIS_MODULE,
         },
     .probe = portpld_probe,
     .remove = portpld_remove,

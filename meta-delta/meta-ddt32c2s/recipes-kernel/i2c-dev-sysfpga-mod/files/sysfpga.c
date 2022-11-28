@@ -400,7 +400,6 @@ static struct i2c_driver sysfpga_driver = {
     .driver =
         {
             .name = "sysfpga",
-            .owner = THIS_MODULE,
         },
     .probe = sysfpga_probe,
     .remove = sysfpga_remove,
