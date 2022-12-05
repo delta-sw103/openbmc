@@ -1,4 +1,4 @@
-# Copyright 2020-present Facebook. All Rights Reserved.
+# Copyright 2022-present Facebook. All Rights Reserved.
 #
 # This program file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -15,7 +15,16 @@
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
-FILESEXTRAPATHS:prepend := "${THISDIR}/kconfig_5.x:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
+LOCAL_URI += " \
+    file://spi-devices.rules \
+    "
 
-SRC_URI += "file://minipack.cfg \
-           "
+do_install:append() {
+    dst=${D}${sysconfdir}/udev/
+    install -d ${dst}/rules.d
+
+    install -m 0644 spi-devices.rules ${dst}/rules.d/99-spi-devices.rules
+}
+
+FILES:${PN} += "${sysconfdir}"

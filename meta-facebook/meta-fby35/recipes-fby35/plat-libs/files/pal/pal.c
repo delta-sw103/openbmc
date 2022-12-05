@@ -63,7 +63,7 @@ const char pal_fru_list_sensor_history[] = "all, slot1, slot2, slot3, slot4, bmc
 const char pal_fru_list[] = "all, slot1, slot2, slot3, slot4, bmc, nic";
 const char pal_guid_fru_list[] = "slot1, slot2, slot3, slot4, bmc";
 const char pal_server_list[] = "slot1, slot2, slot3, slot4";
-const char pal_dev_fru_list[] = "all, 1U, 2U, 1U-dev0, 1U-dev1, 1U-dev2, 1U-dev3, 2U-dev0, 2U-dev1, 2U-dev2, 2U-dev3, 2U-dev4, 2U-dev5, " \
+const char pal_dev_fru_list[] = "all, 1U, 2U, 3U, 4U, 1U-dev0, 1U-dev1, 1U-dev2, 1U-dev3, 2U-dev0, 2U-dev1, 2U-dev2, 2U-dev3, 2U-dev4, 2U-dev5, " \
                             "2U-dev6, 2U-dev7, 2U-dev8, 2U-dev9, 2U-dev10, 2U-dev11, 2U-dev12, 2U-dev13, 2U-X8, 2U-X16";
 const char pal_dev_pwr_list[] = "all, 1U-dev0, 1U-dev1, 1U-dev2, 1U-dev3, 2U-dev0, 2U-dev1, 2U-dev2, 2U-dev3, 2U-dev4, 2U-dev5, " \
                             "2U-dev6, 2U-dev7, 2U-dev8, 2U-dev9, 2U-dev10, 2U-dev11, 2U-dev12, 2U-dev13";
@@ -1527,6 +1527,10 @@ pal_dev_fruid_write(uint8_t fru, uint8_t dev_id, char *path) {
       return bic_write_fruid(fru, 0, path, REXP_BIC_INTF);
     } else if ( dev_id >= DEV_ID0_2OU && dev_id <= DEV_ID11_2OU ) {
       return bic_write_fruid(fru, dev_id - DEV_ID0_2OU + 1, path, REXP_BIC_INTF);
+    } else if ( dev_id == BOARD_3OU ) {
+      return bic_write_fruid(fru, 0, path, EXP3_BIC_INTF);
+    } else if ( dev_id == BOARD_4OU ) {
+      return bic_write_fruid(fru, 0, path, EXP4_BIC_INTF);
     } else {
       printf("Dev%d is not supported on 2OU!\n", dev_id);
     }
@@ -3921,7 +3925,7 @@ pal_parse_oem_sel(uint8_t fru, uint8_t *sel, char *error_log)
 }
 
 int
-pal_check_sled_managment_cable_id(uint8_t slot_id, uint8_t *cbl_val, uint8_t bmc_location) {
+pal_check_sled_managment_cable_id(uint8_t slot_id, bool log, uint8_t *cbl_val, uint8_t bmc_location) {
   enum {
     SLOT1_CABLE = 0x03,
     SLOT2_CABLE = 0x02,
@@ -3966,7 +3970,9 @@ pal_check_sled_managment_cable_id(uint8_t slot_id, uint8_t *cbl_val, uint8_t bmc
           break;
         }
       }
-      syslog(LOG_CRIT, "Abnormal - slot%d instead of slot%d", slot_id_tmp, (i+1));
+      if (log) {
+        syslog(LOG_CRIT, "Abnormal - slot%d instead of slot%d", slot_id_tmp, (i+1));
+      }
     }
 
     if ( cbl_val != NULL ) {
@@ -4906,91 +4912,10 @@ pal_get_mrc_desc(uint8_t fru, mrc_desc_t **desc, size_t *desc_count)
   return 0;
 }
 
-static int
-i2c_device_binding_operation(uint8_t bus, uint8_t addr, char *driver_name, I2C_OPERATION operation) {
-  int ret = 0;
-  char cmd[MAX_PATH_LEN] = {0};
-  char path[MAX_PATH_LEN] = {0};
-  FILE *fp = NULL;
-
-  if (driver_name == NULL) {
-    syslog(LOG_ERR, "%s driver name is null", __func__);
-    return -1;
-  }
-
-  if (operation == BIND) {
-    snprintf(path, sizeof(path), "/sys/bus/i2c/drivers/%s/bind", driver_name);
-  } else {
-    snprintf(path, sizeof(path), "/sys/bus/i2c/drivers/%s/unbind", driver_name);
-  }
-  fp = fopen(path, "w");
-  if(fp == NULL) {
-    syslog(LOG_ERR, "%s Failed to open file: %s. %s", __func__, path, strerror(errno));
-    return -1;
-  }
-
-  snprintf(cmd, sizeof(cmd), "%d-00%02x", bus, addr);
-  if (fwrite(cmd, sizeof(char), strlen(cmd), fp) != strlen(cmd)) {
-    syslog(LOG_ERR, "%s Failed to write file: %s. %s", __func__, path, strerror(errno));
-    ret = -1;
-  }
-
-  fclose(fp);
-
-  return ret;
-}
-
-int
-pal_bind_i2c_device(uint8_t bus, uint8_t addr, char *driver_name, char *bind_dir) {
-  if (bind_dir != NULL && access(bind_dir, F_OK) != 0) {
-    return i2c_device_binding_operation(bus, addr, driver_name, BIND);
-  }
-  return 0;
-}
-
-int
-pal_unbind_i2c_device(uint8_t bus, uint8_t addr, char *driver_name, char *bind_dir) {
-  if (bind_dir != NULL && access(bind_dir, F_OK) == 0) {
-    return i2c_device_binding_operation(bus, addr, driver_name, UNBIND);
-  }
-  return 0;
-}
-
-int
-pal_reload_vf_exp_gpio(uint8_t fru) {
-  bool chip_exist = false;
-  char pca953x_driver_dir[MAX_PATH_LEN] = {0};
-  char shawdowname_dir[MAX_PATH_LEN] = {0};
-  const char *io_exp_gpio_path_table[] = {BIC_SRST_SHADOW_PATH, BIC_EXTRST_SHADOW_PATH};
-  const uint8_t chip_address_table[] = {PCA9537_ADDR, PCA9555_ADDR};
-  uint8_t bus = 0;
-
-  bus = fby35_common_get_bus_id(fru) + 4;
-  for (int i = 0; i < ARRAY_SIZE(chip_address_table); i++) {
-    snprintf(pca953x_driver_dir, sizeof(pca953x_driver_dir), PCA953X_BIND_DIR, bus, chip_address_table[i]);
-    pal_unbind_i2c_device(bus, chip_address_table[i], PCA953X_DRIVER_NAME, pca953x_driver_dir);
-    if ( i2c_detect_device(bus, chip_address_table[i]) == 0 ) { //Check if the pca addr exist
-      pal_bind_i2c_device(bus, chip_address_table[i], PCA953X_DRIVER_NAME, pca953x_driver_dir);
-      chip_exist = true;
-    }
-  }
-
-  if (chip_exist == false) {
-    return 0;
-  }
-
-  for (int i = 0; i < ARRAY_SIZE(io_exp_gpio_path_table); i++) {
-    snprintf(shawdowname_dir, sizeof(shawdowname_dir), io_exp_gpio_path_table[i], fru);
-    gpio_export_by_offset(GPIO_CHIP_I2C_IO_EXP, (fru-1), shawdowname_dir);
-  }
-
-  return 0;
-}
-
 bool
 pal_is_prot_card_prsnt(uint8_t fru)
 {
-    return fby35_common_is_prot_card_prsnt(fru);
+  return fby35_common_is_prot_card_prsnt(fru);
 }
 
 bool

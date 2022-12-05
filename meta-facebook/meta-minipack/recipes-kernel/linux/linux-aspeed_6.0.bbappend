@@ -1,4 +1,4 @@
-# Copyright 2015-present Facebook. All Rights Reserved.
+#Copyright 2022-present Facebook. All Rights Reserved.
 #
 # This program file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -15,14 +15,17 @@
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
-all: gpiod
+FILESEXTRAPATHS:prepend := "${THISDIR}/patches:"
 
-CFLAGS += -Wall -Werror
-
-gpiod: gpiod.c
-	$(CC) $(CFLAGS) -lgpio-ctrl -o $@ $^ $(LDFLAGS)
-
-.PHONY: clean
-
-clean:
-	rm -rf *.o gpiod
+#
+# Include patch files from meta-aspeed layer
+#
+SRC_URI += "file://patches/0501-i2c-add-a-slave-backend-to-receive-and-q.patch \
+            file://patches/0502-add-i2c-slave-inactive-timeout-support.patch \
+           "
+#
+# Include minipack-specific patches
+#
+SRC_URI += "file://1001-ARM-dts-aspeed-minipack-set-i2c0-slave-inactive-time.patch \
+            file://1002-ARM-dts-minipack-aspeed-kernel-6.0-add-the-spi-flash.patch \
+           "

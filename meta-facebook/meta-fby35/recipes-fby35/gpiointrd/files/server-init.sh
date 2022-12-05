@@ -60,8 +60,8 @@ prot_bus=$((slot_num+3))
 if [ "$(is_server_prsnt "$slot_num")" = "0" ]; then
   disable_server_12V_power "$slot_num"
   gpio_set_value "FM_BMC_SLOT${slot_num}_ISOLATED_EN_R" 0
-  rm -f "/tmp/*fruid_slot${slot_num}*"
-  rm -f "/tmp/*sdr_slot${slot_num}*"
+  rm -f "/tmp/"*"fruid_slot${slot_num}"*
+  rm -f "/tmp/"*"sdr_slot${slot_num}"*
   kv del "slot${slot_num}_vr_c0h_crc"
   kv del "slot${slot_num}_vr_c4h_crc"
   kv del "slot${slot_num}_vr_ech_crc"
@@ -73,12 +73,14 @@ if [ "$(is_server_prsnt "$slot_num")" = "0" ]; then
   kv del "fru${slot_num}_2ou_board_type"
   kv del "fru${slot_num}_sb_type"
   kv del "fru${slot_num}_sb_rev_id"
+  kv del "fru${slot_num}_is_prot_prsnt"
   i2c_device_delete "${prot_bus}" 0x50 > /dev/null 2>&1
   set_nic_power
 else
   /usr/bin/sv start ipmbd_${bus} > /dev/null 2>&1
   /usr/local/bin/power-util "slot${slot_num}" 12V-on
   i2c_device_add "${prot_bus}" 0x50 24c32 > /dev/null 2>&1
+  set_vf_gpio "$slot_num"
   /usr/local/bin/bic-cached -s "slot${slot_num}"
   /usr/local/bin/bic-cached -f "slot${slot_num}"
   /usr/bin/fw-util "slot${slot_num}" --version > /dev/null
@@ -86,8 +88,6 @@ fi
 
 # reload fscd
 /etc/init.d/setup-fan.sh reload
-
-set_vf_gpio
 
 # start the services again
 sv start gpiod
