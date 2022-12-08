@@ -18,7 +18,7 @@
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
-from board_gpio_table_v1 import board_gpio_table_v1_delta
+from board_gpio_table_v1 import board_gpio_table_v1
 from soc_gpio_table import soc_gpio_table
 from openbmc_gpio_table import setup_board_gpio
 from soc_gpio import soc_get_register
@@ -42,10 +42,10 @@ def set_register():
     In order to fix the error
     set the specific bit in the register so the framework can handle it.
     """
-    l_reg = soc_get_register(0x84)
-    l_reg.clear_bit(30, write_through=True)
-    l_reg = soc_get_register(0x84)
-    l_reg.clear_bit(31, write_through=True)
+    # l_reg = soc_get_register(0x84)
+    # l_reg.clear_bit(30, write_through=True)
+    # l_reg = soc_get_register(0x84)
+    # l_reg.clear_bit(31, write_through=True)
 
     """
     # ERROR:root:Pin "A12" has no function set up. All possibile functions are SD1CMD:SCU90[[0]]==0x1, SDA10:SCU90[[23]]==0x1.
@@ -78,7 +78,7 @@ def main():
     set_register()
 
     print("Using Delta GPIO table.\n", end="")
-    setup_board_gpio(soc_gpio_table, board_gpio_table_v1_delta)
+    setup_board_gpio(soc_gpio_table, board_gpio_table_v1)
     print("Done")
     sys.stdout.flush()
     return 0

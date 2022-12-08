@@ -50,6 +50,7 @@ class DDT32C2SGPIO(object):
     def __init__(self, data):
         self.data = data
         self.gpios = {}
+        self.values = {}
         self.names = set()
 
     def parse(self):
@@ -73,14 +74,21 @@ class DDT32C2SGPIO(object):
                 logging.error('Cannot find GPIO file from "%s". Skip!' % line)
                 continue
 
+            value = line[2] # input, high, low
+            if value == 'Out':
+                value = 'low'
+            elif value == 'In':
+                value = 'input'
+
             name = line[3]
             assert gpio not in self.gpios and name not in self.names
             self.gpios[gpio] = name
+            self.values[gpio]= value
             self.names.add(name)
 
     def print11(self, out):
         for gpio in sorted(self.gpios):
-            out.write("    %s('%s', '%s'),\n" % (GPIO_SYMBOL, gpio, self.gpios[gpio]))
+            out.write("    %s('%s', '%s', '%s'),\n" % (GPIO_SYMBOL, gpio, self.gpios[gpio], self.values[gpio]))
 
 
 def main():
