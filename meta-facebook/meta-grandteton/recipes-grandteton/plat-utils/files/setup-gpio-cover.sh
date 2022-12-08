@@ -161,9 +161,6 @@ gpio_set FM_PECI_SEL_R_N 1
 
 #sgpio_export FM_PWR_BTN 19
 
-sgpio_export BMC_READY_N 23
-gpio_set BMC_READY_N 1
-
 sgpio_export TEST_SGPIO_EVENT_LOG 25
 gpio_set TEST_SGPIO_EVENT_LOG 0
 
@@ -191,7 +188,7 @@ sgpio_export IRQ_SML0_ALERT_R_N 49
 gpio_set IRQ_SML0_ALERT_R_N 1
 
 sgpio_export FM_PFR_DSW_PWROK_N 53
-pio_set FM_PFR_DSW_PWROK_N 1
+gpio_set FM_PFR_DSW_PWROK_N 1
 
 sgpio_export FM_PFR_OVR_RTC_R 55
 gpio_set FM_PFR_OVR_RTC_R 0

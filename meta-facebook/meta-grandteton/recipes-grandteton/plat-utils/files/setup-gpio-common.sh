@@ -74,11 +74,6 @@ gpio_export FM_BIC_DEBUG_SW_N GPIOD2
 gpio_set FM_BIC_DEBUG_SW_N 0
 
 # ==GPIOE==
-#FM_FLASH_LATCH_N_R1
-gpio_export FM_FLASH_LATCH_N_R1 GPIOE0
-
-#FLASH_WP_STATUS_R1
-gpio_export FLASH_WP_STATUS_R1 GPIOE1
 
 # ==GPIOF==
 
@@ -87,12 +82,8 @@ gpio_export FLASH_WP_STATUS_R1 GPIOE1
 # ==GPIOH==
 
 # ==GPIOI==
-# JTAG_1_BMC_TRST_R
-gpio_export JTAG_1_BMC_TRST_R GPIOI0
-
-# PD_BIOS_MUX_EN_N
-gpio_export PD_BIOS_MUX_EN_N GPIOI5
-gpio_set PD_BIOS_MUX_EN_N 0
+#FLASH_WP_STATUS_R1
+gpio_export FLASH_WP_STATUS_R1 GPIOI5
 
 # ==GPIOJ==
 
@@ -224,6 +215,9 @@ gpio_export IRQ_SMI_ACTIVE_BMC_N GPIOX2
 # ==GPIOY==
 gpio_export RST_WDTRST_PLD_R1_N GPIOY1
 
+#FM_FLASH_LATCH_N_R1
+gpio_export FM_FLASH_LATCH_N_R1 GPIOY2
+
 #FM BMC_EMMC_RST_R_N
 gpio_export BMC_EMMC_RST_R_N GPIOY3
 
@@ -309,6 +303,9 @@ gpio_set FM_SPD_REMOTE_EN_R 0
 
 sgpio_export RST_BMC_RSTBTN_OUT_R_N 21
 gpio_set RST_BMC_RSTBTN_OUT_R_N 1
+
+sgpio_export BMC_READY_N 23
+gpio_set BMC_READY_N 1
 
 sgpio_export GPU_NVS_PWR_BRAKE_R_N 43
 gpio_set GPU_NVS_PWR_BRAKE_R_N 1

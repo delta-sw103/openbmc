@@ -1443,6 +1443,23 @@ pal_parse_sel_helper(uint8_t fru, uint8_t *sel, char *error_log)
                                       [9] = "Upper Critical",
                                       [11] = "Upper Non-recoverable"};
 
+  /*Used by decodeing System Firmware Error */
+  char *post_error_type[] = {
+    "Unspecified",
+    "No system memory is physically installed in the system",
+    "No usable system memory, all installed memory has experienced an unrecoverable failure",
+    "Unrecoverable hard-disk/ATAPI/IDE device failure",
+    "Unrecoverable system-board failure",
+    "Unrecoverable diskette subsystem failure",
+    "Unrecoverable hard-disk controller failure",
+    "Unrecoverable PS/2 or USB keyboard failure",
+    "Removable boot media not found",
+    "Unrecoverable video controller failure",
+    "No video device detected",
+    "Firmware (BIOS) ROM corruption detected",
+    "CPU voltage mismatch",
+    "CPU speed matching failure"
+  };
 
   strcpy(error_log, "");
 
@@ -1521,8 +1538,8 @@ pal_parse_sel_helper(uint8_t fru, uint8_t *sel, char *error_log)
       else
         strcat(error_log, "Unknown");
       if (((ed[0] >> 6) & 0x03) == 0x3) {
-        // TODO: Need to implement IPMI spec based Post Code
-        strcat(error_log, ", IPMI Post Code");
+        snprintf(temp_log, sizeof(temp_log), ", %s", post_error_type[ed[1]]);
+        strcat(error_log, temp_log);
       } else if (((ed[0] >> 6) & 0x03) == 0x2) {
         sprintf(temp_log, ", OEM Post Code 0x%02X%02X", ed[2], ed[1]);
         strcat(error_log, temp_log);
@@ -3309,6 +3326,11 @@ pal_register_sensor_failure_tolerance_policy(uint8_t fru) {
 bool __attribute__((weak))
 pal_is_support_vr_delay_activate(void){
   return false;
+}
+
+int __attribute__((weak))
+pal_load_tps_remaining_wr(uint8_t fru_id, uint8_t addr, uint16_t *remain, char *checksum, uint16_t *crc, bool is_update){
+  return -1;
 }
 
 int __attribute__((weak))
