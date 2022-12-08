@@ -52,8 +52,3 @@ gpiocli export -c 5-0027 -o 6 --shadow FAN7_PRESENT
 
 # Setup eth0 ip address
 ifconfig eth0 192.168.1.110
-
-# Output GPIOR5=1 to SYSFPGA (BMC_DETECT pin)
-devmem 0x1e6e2430 32 $(printf '0x%08X' "$(($(devmem 0x1e6e2430) & 0xFFFFDFFF))")
-devmem 0x1e780084 32 0x00002000
-devmem 0x1e780080 32 $(printf '0x%08X' "$(($(devmem 0x1e780080) | 0x00002000))")
