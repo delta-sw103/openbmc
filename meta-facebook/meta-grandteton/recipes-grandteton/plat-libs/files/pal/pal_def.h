@@ -3,6 +3,9 @@
 #include <openbmc/misc-utils.h>
 #include "pal_def_cover.h"
 
+#define MAX_TXBUF_SIZE         (255)
+#define MAX_RXBUF_SIZE         (255)
+
 //GPIO EVENT Common
 #define FM_UARTSW_LSB_N          "FM_UARTSW_LSB_N"
 #define FM_UARTSW_MSB_N          "FM_UARTSW_MSB_N"
@@ -90,6 +93,19 @@
 
 #define MAX_CPU_CNT    (2)
 
+/* Artemis */
+// ACB Device Info
+#define ACB_BIC_BUS 3
+#define ACB_BIC_ADDR 0x20
+#define ACB_BIC_EID 0x0A
+
+// MEB Device Info
+#define MEB_BIC_BUS 0
+#define MEB_BIC_ADDR 0x20
+
+#define GPION_COMMON_SOURCE_OFFSET   (0xE0)
+#define AST_GPIO_BASE                (0x1e780000)
+
 enum {
   DIMM_ID0 = 0,
   DIMM_ID1,
@@ -176,7 +192,7 @@ enum {
   FRU_HMC,
   FRU_NIC0,
   FRU_NIC1,
-  FRU_DBG,
+  FRU_OCPDBG,
   FRU_BMC,
   FRU_SCM,
   FRU_VPDB,
@@ -186,6 +202,21 @@ enum {
   FRU_FIO,
   FRU_HSC,
   FRU_SHSC,
+  // Artemis FRU ID
+  FRU_ACB,
+  FRU_MEB,
+  FRU_ACB_ACCL1,
+  FRU_ACB_ACCL2,
+  FRU_ACB_ACCL3,
+  FRU_ACB_ACCL4,
+  FRU_ACB_ACCL5,
+  FRU_ACB_ACCL6,
+  FRU_ACB_ACCL7,
+  FRU_ACB_ACCL8,
+  FRU_ACB_ACCL9,
+  FRU_ACB_ACCL10,
+  FRU_ACB_ACCL11,
+  FRU_ACB_ACCL12,
   FRU_CNT,
 };
 
@@ -311,6 +342,42 @@ enum {
   CC_OEM_DEVICE_SEND_SLAVE_RESTORE_POWER_POLICY_FAIL =0x33,
   CC_OEM_GET_SELF_ADDRESS_ERR = 0x34,
   CC_OEM_ONLY_SUPPORT_MASTER = 0x35,
+};
+
+enum PLDM_FRU_ID {
+  PLDM_FRU_NOT_SUPPORT = -1,
+  PLDM_FRU_SWB,
+  PLDM_FRU_FIO,
+  PLDM_FRU_SHSC,
+  // PLDM Artemis FRU ID to BIC
+  PLDM_FRU_ACB,
+  PLDM_FRU_ACB_ACCL1,
+  PLDM_FRU_ACB_ACCL2,
+  PLDM_FRU_ACB_ACCL3,
+  PLDM_FRU_ACB_ACCL4,
+  PLDM_FRU_ACB_ACCL5,
+  PLDM_FRU_ACB_ACCL6,
+  PLDM_FRU_ACB_ACCL7,
+  PLDM_FRU_ACB_ACCL8,
+  PLDM_FRU_ACB_ACCL9,
+  PLDM_FRU_ACB_ACCL10,
+  PLDM_FRU_ACB_ACCL11,
+  PLDM_FRU_ACB_ACCL12,
+};
+
+enum FRU_PRESENT {
+  FRU_NOT_PRSNT,
+  FRU_PRSNT,
+};
+
+enum ARTEMIS_OEM_COMMAND {
+  OEM_GET_ASIC_CARD_STATUS = 0x76,
+};
+
+enum FRU_PATH_TYPE {
+  FRU_PATH_NONE,
+  FRU_PATH_EEPROM,
+  FRU_PATH_PLDM,
 };
 
 #endif

@@ -21,10 +21,15 @@ declare -a PLAT_DISTRO_OVERRIDES
 PLAT_DISTRO_OVERRIDES=(
 # master / rolling-release platforms
   meta-bletchley:lf-master
+  meta-clearcreek:lf-master
   meta-evb-npcm845:lf-master
+  meta-fbal:lf-master
+  meta-fbep:lf-master
   meta-fbttn2:lf-master
   meta-fby2-nd:lf-master
   meta-fby35:lf-master
+  meta-fby3:lf-master
+  meta-grandcanyon:lf-master
   meta-greatlakes:lf-master
   meta-halfdome:lf-master
   meta-qemux86:lf-master
@@ -32,20 +37,16 @@ PLAT_DISTRO_OVERRIDES=(
 # langdale platforms (latest)
 # kirkstone platforms (pending upgrade)
   meta-churchillmono:lf-kirkstone
-  meta-grandcanyon:lf-kirkstone
   meta-grandteton:lf-kirkstone
+  meta-gtartemis:lf-kirkstone
   meta-inspirationpoint:lf-kirkstone
   meta-sandia:lf-kirkstone
 # dunfell platforms (pending upgrade)
-  meta-clearcreek:lf-dunfell
   meta-cloudripper:lf-dunfell
   meta-cmm:lf-dunfell
   meta-elbert:lf-dunfell
-  meta-fbal:lf-dunfell
   meta-fbdarwin:lf-dunfell
-  meta-fbep:lf-dunfell
   meta-fbsp:lf-dunfell
-  meta-fby3:lf-dunfell
   meta-fuji:lf-dunfell
   meta-minipack:lf-dunfell
   meta-netlakemtp:lf-dunfell

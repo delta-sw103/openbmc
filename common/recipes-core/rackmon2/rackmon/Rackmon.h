@@ -57,9 +57,7 @@ class Rackmon {
   time_t lastMonitorTime_;
 
   // Probe an interface for the presence of the address.
-  bool probe(Modbus& interface, uint8_t addr);
-  // Probe all interfaces for the presence of the address.
-  bool probe(uint8_t addr);
+  bool probe(Modbus& interface, Parity parity, uint8_t addr);
 
   // --------- Private Methods --------
 
@@ -73,6 +71,8 @@ class Rackmon {
   }
 
   bool isDeviceKnown(uint8_t);
+
+  ModbusDevice& getModbusDevice(uint8_t addr);
 
   // Monitor loop. Blocks forever as long as req_stop is true.
   void monitor();

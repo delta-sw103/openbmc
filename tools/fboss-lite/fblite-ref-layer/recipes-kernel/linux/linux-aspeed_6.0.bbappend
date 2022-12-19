@@ -1,6 +1,4 @@
-#! /bin/sh
-#
-# Copyright 2015-present Facebook. All Rights Reserved.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This program file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -16,29 +14,8 @@
 # Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
-#
 
-### BEGIN INIT INFO
-# Provides:          ipmbd
-# Required-Start:
-# Required-Stop:
-# Default-Start:     S
-# Default-Stop:      0 6
-# Short-Description: Provides ipmb message tx/rx service
-#
-### END INIT INFO
+FILESEXTRAPATHS:prepend := "${THISDIR}/patches:"
 
-# shellcheck disable=SC1091,SC2039
-. /usr/local/fbpackages/utils/ast-functions
-
-echo -n "Starting IPMB Rx/Tx Daemon.."
-
-echo slave-mqueue 0x1010 > /sys/bus/i2c/devices/i2c-6/new_device   #ME
-echo slave-mqueue 0x1010 > /sys/bus/i2c/devices/i2c-14/new_device  #USB DBG
-
-ulimit -q 1024000
-runsv /etc/sv/ipmbd_6 > /dev/null 2>&1 &
-runsv /etc/sv/ipmbd_14 > /dev/null 2>&1 &
-
-echo "done."
-
+SRC_URI += "file://1001-ARM-dts-aspeed-Add-Facebook-@FBMODEL@-BMC.patch \
+           "

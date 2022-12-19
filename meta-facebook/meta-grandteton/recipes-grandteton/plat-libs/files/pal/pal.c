@@ -46,8 +46,8 @@
 #include "pal_common.h"
 
 
-#if !defined(PLATFORM_NAME)
-  #define PLATFORM_NAME "grandteton"
+#ifndef PLATFORM_NAME
+#define PLATFORM_NAME "grandteton"
 #endif
 
 #define GUID_SIZE 16
@@ -60,7 +60,10 @@
 #define NUM_BMC_FRU     1
 
 const char pal_fru_list[] = \
-"all, mb, nic0, nic1, swb, hmc, bmc, scm, vpdb, hpdb, fan_bp0, fan_bp1, fio, hsc, swb_hsc";
+"all, mb, nic0, nic1, swb, hmc, bmc, scm, vpdb, hpdb, fan_bp0, fan_bp1, fio, hsc, swb_hsc, " \
+// Artemis fru list
+"acb, meb, acb_accl1, acb_accl2, acb_accl3, acb_accl4, acb_accl5, acb_accl6, acb_accl7, acb_accl8, " \
+"acb_accl9, acb_accl10, acb_accl11, acb_accl12";
 
 const char pal_server_list[] = "mb";
 
@@ -89,6 +92,10 @@ const char pal_server_list[] = "mb";
 
 #define HSC_CAPABILITY  FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_ALL
 
+// Artemis fru capability
+#define ACB_CAPABILITY  FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_ALL
+#define MEB_CAPABILITY  FRU_CAPABILITY_FRUID_ALL | FRU_CAPABILITY_SENSOR_ALL
+#define ACB_ACCL_CAPABILITY FRU_CAPABILITY_FRUID_ALL
 
 struct fru_dev_info {
   uint8_t fru_id;
@@ -98,7 +105,8 @@ struct fru_dev_info {
   uint8_t addr;
   uint32_t cap;
   uint8_t path;
-  bool (*check_presence) (void);
+  bool (*check_presence) (uint8_t fru_id);
+  int8_t pldm_fru_id;
 };
 
 typedef struct {
@@ -123,30 +131,58 @@ typedef struct {
   uint8_t ncsi_cmd;
 } bypass_ncsi_header;
 
-enum {
-  FRU_PATH_NONE,
-  FRU_PATH_EEPROM,
-  FRU_PATH_PLDM,
+struct fru_dev_info fru_dev_data[] = {
+  {FRU_ALL,   "all",     NULL,            0,  0,    ALL_CAPABILITY, FRU_PATH_NONE,   NULL, PLDM_FRU_NOT_SUPPORT},
+  {FRU_MB,    "mb",      "Mother Board",  33, 0x51, MB_CAPABILITY,  FRU_PATH_EEPROM, fru_presence, PLDM_FRU_NOT_SUPPORT},
+  {FRU_SWB,   "swb",     "Switch Board",  3,  0x20, SWB_CAPABILITY, FRU_PATH_PLDM,   fru_presence,  PLDM_FRU_SWB},
+  {FRU_HMC,   "hmc",     "HMC Board"  ,   9,  0x53,  HMC_CAPABILITY, FRU_PATH_EEPROM,fru_presence, PLDM_FRU_NOT_SUPPORT},
+  {FRU_NIC0,  "nic0",    "Mezz Card 0",   13, 0x50, NIC_CAPABILITY, FRU_PATH_EEPROM, fru_presence, PLDM_FRU_NOT_SUPPORT},
+  {FRU_NIC1,  "nic1",    "Mezz Card 1",   4,  0x52, NIC_CAPABILITY, FRU_PATH_EEPROM, fru_presence, PLDM_FRU_NOT_SUPPORT},
+  {FRU_OCPDBG,   "ocpdbg",  "Debug Board",   14, 0,    0,              FRU_PATH_NONE,   NULL,         PLDM_FRU_NOT_SUPPORT},
+  {FRU_BMC,   "bmc",     "BSM Board",     15, 0x56, BMC_CAPABILITY, FRU_PATH_EEPROM, fru_presence, PLDM_FRU_NOT_SUPPORT},
+  {FRU_SCM,   "scm",     "SCM Board",     15, 0x50, SCM_CAPABILITY, FRU_PATH_EEPROM, fru_presence, PLDM_FRU_NOT_SUPPORT},
+  {FRU_VPDB,  "vpdb",    "VPDB Board",    36, 0x52, PDB_CAPABILITY, FRU_PATH_EEPROM, fru_presence, PLDM_FRU_NOT_SUPPORT},
+  {FRU_HPDB,  "hpdb",    "HPDB Board",    37, 0x51, PDB_CAPABILITY, FRU_PATH_EEPROM, fru_presence, PLDM_FRU_NOT_SUPPORT},
+  {FRU_FAN_BP0,   "fan_bp0",     "FAN_BP0 Board",     40, 0x56, BP_CAPABILITY,  FRU_PATH_EEPROM, fru_presence, PLDM_FRU_NOT_SUPPORT},
+  {FRU_FAN_BP1,   "fan_bp1",     "FAN_BP1 Board",     41, 0x56, BP_CAPABILITY,  FRU_PATH_EEPROM, fru_presence, PLDM_FRU_NOT_SUPPORT},
+  {FRU_FIO,   "fio",     "FIO Board",     3,  0x20, FIO_CAPABILITY, FRU_PATH_PLDM,   fru_presence, PLDM_FRU_FIO},
+  {FRU_HSC,   "hsc",     "HSC Board",     2,  0x51, 0,              FRU_PATH_EEPROM, fru_presence, PLDM_FRU_NOT_SUPPORT},
+  {FRU_SHSC,  "swb_hsc", "SWB HSC Board", 3,  0x20, 0,              FRU_PATH_PLDM,   fru_presence, PLDM_FRU_SHSC},
+  // Artemis FRU dev data
+  {FRU_ACB,        "acb",        "Carrier Board",     ACB_BIC_BUS,   ACB_BIC_ADDR,   ACB_CAPABILITY,      FRU_PATH_PLDM,   fru_presence,  PLDM_FRU_ACB},
+  {FRU_MEB,        "meb",        "Memory Exp Board",  MEB_BIC_BUS,   MEB_BIC_ADDR,   MEB_CAPABILITY,      FRU_PATH_PLDM,   fru_presence,  PLDM_FRU_NOT_SUPPORT},
+  {FRU_ACB_ACCL1,  "acb_accl1",  "ACB ACCL1 Card",    ACB_BIC_BUS,   ACB_BIC_ADDR,   ACB_ACCL_CAPABILITY, FRU_PATH_PLDM,   pldm_fru_prsnt,  PLDM_FRU_ACB_ACCL1},
+  {FRU_ACB_ACCL2,  "acb_accl2",  "ACB ACCL2 Card",    ACB_BIC_BUS,   ACB_BIC_ADDR,   ACB_ACCL_CAPABILITY, FRU_PATH_PLDM,   pldm_fru_prsnt,  PLDM_FRU_ACB_ACCL2},
+  {FRU_ACB_ACCL3,  "acb_accl3",  "ACB ACCL3 Card",    ACB_BIC_BUS,   ACB_BIC_ADDR,   ACB_ACCL_CAPABILITY, FRU_PATH_PLDM,   pldm_fru_prsnt,  PLDM_FRU_ACB_ACCL3},
+  {FRU_ACB_ACCL4,  "acb_accl4",  "ACB ACCL4 Card",    ACB_BIC_BUS,   ACB_BIC_ADDR,   ACB_ACCL_CAPABILITY, FRU_PATH_PLDM,   pldm_fru_prsnt,  PLDM_FRU_ACB_ACCL4},
+  {FRU_ACB_ACCL5,  "acb_accl5",  "ACB ACCL5 Card",    ACB_BIC_BUS,   ACB_BIC_ADDR,   ACB_ACCL_CAPABILITY, FRU_PATH_PLDM,   pldm_fru_prsnt,  PLDM_FRU_ACB_ACCL5},
+  {FRU_ACB_ACCL6,  "acb_accl6",  "ACB ACCL6 Card",    ACB_BIC_BUS,   ACB_BIC_ADDR,   ACB_ACCL_CAPABILITY, FRU_PATH_PLDM,   pldm_fru_prsnt,  PLDM_FRU_ACB_ACCL6},
+  {FRU_ACB_ACCL7,  "acb_accl7",  "ACB ACCL7 Card",    ACB_BIC_BUS,   ACB_BIC_ADDR,   ACB_ACCL_CAPABILITY, FRU_PATH_PLDM,   pldm_fru_prsnt,  PLDM_FRU_ACB_ACCL7},
+  {FRU_ACB_ACCL8,  "acb_accl8",  "ACB ACCL8 Card",    ACB_BIC_BUS,   ACB_BIC_ADDR,   ACB_ACCL_CAPABILITY, FRU_PATH_PLDM,   pldm_fru_prsnt,  PLDM_FRU_ACB_ACCL8},
+  {FRU_ACB_ACCL9,  "acb_accl9",  "ACB ACCL9 Card",    ACB_BIC_BUS,   ACB_BIC_ADDR,   ACB_ACCL_CAPABILITY, FRU_PATH_PLDM,   pldm_fru_prsnt,  PLDM_FRU_ACB_ACCL9},
+  {FRU_ACB_ACCL10, "acb_accl10", "ACB ACCL10 Card",   ACB_BIC_BUS,   ACB_BIC_ADDR,   ACB_ACCL_CAPABILITY, FRU_PATH_PLDM,   pldm_fru_prsnt,  PLDM_FRU_ACB_ACCL10},
+  {FRU_ACB_ACCL11, "acb_accl11", "ACB ACCL11 Card",   ACB_BIC_BUS,   ACB_BIC_ADDR,   ACB_ACCL_CAPABILITY, FRU_PATH_PLDM,   pldm_fru_prsnt,  PLDM_FRU_ACB_ACCL11},
+  {FRU_ACB_ACCL12, "acb_accl12", "ACB ACCL12 Card",   ACB_BIC_BUS,   ACB_BIC_ADDR,   ACB_ACCL_CAPABILITY, FRU_PATH_PLDM,   pldm_fru_prsnt,  PLDM_FRU_ACB_ACCL12},
 };
 
-struct fru_dev_info fru_dev_data[] = {
-  {FRU_ALL,   "all",     NULL,            0,  0,    ALL_CAPABILITY, FRU_PATH_NONE,   NULL },
-  {FRU_MB,    "mb",      "Mother Board",  33, 0x51, MB_CAPABILITY,  FRU_PATH_EEPROM, fru_presence},
-  {FRU_SWB,   "swb",     "Switch Board",  3,  0x20, SWB_CAPABILITY, FRU_PATH_PLDM,   swb_presence},
-  {FRU_HMC,   "hmc",     "HMC Board"  ,   9,  0x53,  HMC_CAPABILITY, FRU_PATH_EEPROM,   hgx_presence},
-  {FRU_NIC0,  "nic0",    "Mezz Card 0",   13, 0x50, NIC_CAPABILITY, FRU_PATH_EEPROM, fru_presence},
-  {FRU_NIC1,  "nic1",    "Mezz Card 1",   4,  0x52, NIC_CAPABILITY, FRU_PATH_EEPROM, fru_presence},
-  {FRU_DBG,   "ocpdbg",  "Debug Board",   14, 0,    0,              FRU_PATH_NONE,   NULL},
-  {FRU_BMC,   "bmc",     "BSM Board",     15, 0x56, BMC_CAPABILITY, FRU_PATH_EEPROM, fru_presence},
-  {FRU_SCM,   "scm",     "SCM Board",     15, 0x50, SCM_CAPABILITY, FRU_PATH_EEPROM, fru_presence},
-  {FRU_VPDB,  "vpdb",    "VPDB Board",    36, 0x52, PDB_CAPABILITY, FRU_PATH_EEPROM, fru_presence},
-  {FRU_HPDB,  "hpdb",    "HPDB Board",    37, 0x51, PDB_CAPABILITY, FRU_PATH_EEPROM, fru_presence},
-  {FRU_FAN_BP0,   "fan_bp0",     "FAN_BP0 Board",     40, 0x56, BP_CAPABILITY,  FRU_PATH_EEPROM, fru_presence},
-  {FRU_FAN_BP1,   "fan_bp1",     "FAN_BP1 Board",     41, 0x56, BP_CAPABILITY,  FRU_PATH_EEPROM, fru_presence},
-  {FRU_FIO,   "fio",     "FIO Board",     3,  0x20, FIO_CAPABILITY, FRU_PATH_PLDM,   swb_presence},
-  {FRU_HSC,   "hsc",     "HSC Board",     2,  0x51, 0,              FRU_PATH_EEPROM, fru_presence},
-  {FRU_SHSC,  "swb_hsc", "SWB HSC Board", 3,  0x20, 0,              FRU_PATH_PLDM,   swb_presence},
-};
+uint8_t
+pal_get_pldm_fru_id(uint8_t fru) {
+  return fru_dev_data[fru].pldm_fru_id;
+}
+
+uint8_t
+pal_get_fru_path_type(uint8_t fru) {
+  return fru_dev_data[fru].path;
+}
+
+bool
+pal_is_artemis() { // TODO: Use MB CPLD Offest to check the platform
+#ifdef CONFIG_ARTEMIS
+  return true;
+#else
+  return false;
+#endif
+}
 
 int
 pal_get_platform_name(char *name) {
@@ -162,11 +198,23 @@ pal_get_num_slots(uint8_t *num) {
 
 int
 pal_is_fru_prsnt(uint8_t fru, uint8_t *status) {
+  if (!status) {
+    syslog(LOG_WARNING, "%s() Status pointer is NULL.", __func__);
+    return -1;
+  }
 
   if (fru >= FRU_CNT || fru_dev_data[fru].check_presence == NULL) {
-    *status = 0;
+    *status = FRU_NOT_PRSNT;
   } else {
-    *status = fru_dev_data[fru].check_presence();
+    if (pal_is_artemis() && ((fru >= FRU_ACB_ACCL1 && fru <= FRU_ACB_ACCL12) || fru == FRU_FIO)) {
+      if (fru == FRU_FIO) {
+        *status = pldm_fru_prsnt(fru_dev_data[fru].pldm_fru_id);
+      } else {
+        *status = fru_dev_data[fru].check_presence(fru_dev_data[fru].pldm_fru_id);
+      }
+    } else {
+      *status = fru_dev_data[fru].check_presence(fru);
+    }
   }
   return 0;
 }
@@ -180,6 +228,10 @@ pal_is_slot_server(uint8_t fru) {
 
 int
 pal_get_fru_id(char *str, uint8_t *fru) {
+  if (!str || !fru) {
+    syslog(LOG_WARNING, "%s() Input pointer is NULL.", __func__);
+    return -1;
+  }
 
   for(int i=0; i < FRU_CNT; i++) {
     if (!strcmp(str, fru_dev_data[i].name)) {
@@ -193,8 +245,15 @@ pal_get_fru_id(char *str, uint8_t *fru) {
 
 int
 pal_get_fru_name(uint8_t fru, char *name) {
-  if (fru > MAX_NUM_FRUS)
+  if (!name) {
+    syslog(LOG_WARNING, "%s() Name pointer is NULL.", __func__);
     return -1;
+  }
+
+  if (fru >= FRU_CNT) {
+    syslog(LOG_WARNING, "%s(): Input fruid %d is invalid.", __func__, fru);
+    return -1;
+  }
 
   strcpy(name, fru_dev_data[fru].name);
 
@@ -245,19 +304,21 @@ pal_get_fruid_name(uint8_t fru, char *name) {
 
 int
 pal_fruid_write(uint8_t fru, char *path) {
+  uint8_t status = 0;
+  unsigned int caps = 0;
 
-  switch (fru) {
-    case FRU_SWB:
-     return hal_write_pldm_fruid(0, path);
+  if (!path) {
+    syslog(LOG_WARNING, "%s() path pointer is NULL.", __func__);
+    return -1;
+  }
 
-    case FRU_FIO:
-     return hal_write_pldm_fruid(1, path);
-
-    case FRU_SHSC:
-     return hal_write_pldm_fruid(2, path);
-
-    default:
-    break;
+  if (pal_get_fru_capability(fru, &caps) == 0 && (caps & FRU_CAPABILITY_FRUID_WRITE) && pal_is_fru_prsnt(fru, &status) == 0) {
+    if (status == FRU_PRSNT) {
+      return hal_write_pldm_fruid(fru_dev_data[fru].pldm_fru_id, path);
+    } else {
+      syslog(LOG_WARNING, "%s: FRU:%d Not Present", __func__, fru);
+      return -1;
+    }
   }
 
   return -1;
@@ -615,9 +676,31 @@ pal_handle_dcmi(uint8_t fru, uint8_t *request, uint8_t req_len, uint8_t *respons
   return lib_dcmi_wrapper(&info, request, req_len, response, rlen);
 }
 
+static void
+update_bios_version_active()
+{
+  uint8_t tmp[64] = {0};
+  uint8_t ver[64] = {0};
+  uint8_t fruId;
+  char *fru_name = "mb";
+  int end;
+
+  pal_get_fru_id(fru_name, &fruId);
+  if (!pal_get_sysfw_ver(fruId, tmp)) {
+    if ((end = 3+tmp[2]) > (int)sizeof(tmp)) {
+      end = sizeof(tmp);
+    }
+    memcpy(ver, tmp+3, end-3);
+    kv_set("cur_mb_bios_ver", (char *)ver, 0, KV_FPERSIST);
+  }
+}
+
 void
 pal_set_post_end(uint8_t slot, uint8_t *req_data, uint8_t *res_data, uint8_t *res_len)
 {
+  // update bios version active
+  update_bios_version_active();
+
   // log the post end event
   syslog (LOG_INFO, "POST End Event for Payload#%d\n", slot);
 
@@ -641,15 +724,64 @@ pal_get_sensor_util_timeout(uint8_t fru) {
 
 int pal_get_fru_capability(uint8_t fru, unsigned int *caps)
 {
-  if (fru > MAX_NUM_FRUS)
+  if (!caps) {
+    syslog(LOG_WARNING, "%s() Capability pointer is NULL.", __func__);
     return -1;
+  }
 
-  if(fru == FRU_SHSC && is_swb_hsc_module()) {
-    *caps = HSC_CAPABILITY;
-  } else if(fru == FRU_HSC && is_mb_hsc_module()) {
-    *caps = HSC_CAPABILITY;
+  if (fru >= FRU_CNT) {
+    return -1;
+  }
+
+  if (pal_is_artemis()) {
+    switch (fru) {
+      case FRU_SWB:
+      case FRU_HMC:
+      case FRU_OCPDBG:
+      case FRU_HSC:
+      case FRU_SHSC:
+        *caps = 0; // Not in Artemis
+        break;
+      default:
+        *caps = fru_dev_data[fru].cap;
+        break;
+    }
   } else {
-    *caps = fru_dev_data[fru].cap;
+    switch (fru) {
+      case FRU_ACB:
+      case FRU_MEB:
+      case FRU_ACB_ACCL1:
+      case FRU_ACB_ACCL2:
+      case FRU_ACB_ACCL3:
+      case FRU_ACB_ACCL4:
+      case FRU_ACB_ACCL5:
+      case FRU_ACB_ACCL6:
+      case FRU_ACB_ACCL7:
+      case FRU_ACB_ACCL8:
+      case FRU_ACB_ACCL9:
+      case FRU_ACB_ACCL10:
+      case FRU_ACB_ACCL11:
+      case FRU_ACB_ACCL12:
+        *caps = 0;
+        break;
+      case FRU_SHSC:
+        if (is_swb_hsc_module()) {
+          *caps = HSC_CAPABILITY;
+        } else {
+          *caps = 0;
+        }
+        break;
+      case FRU_HSC:
+        if (is_mb_hsc_module()) {
+          *caps = HSC_CAPABILITY;
+        } else {
+          *caps = 0;
+        }
+        break;
+      default:
+        *caps = fru_dev_data[fru].cap;
+        break;
+    }
   }
   return 0;
 }
@@ -813,4 +945,77 @@ pal_bypass_cmd(uint8_t slot, uint8_t *req_data, uint8_t req_len, uint8_t *res_da
   }
 
   return completion_code;
+}
+
+int
+pal_postcode_select(int option) {
+  int mmap_fd;
+  uint32_t ctrl;
+  void *reg_base;
+  void *reg_offset;
+
+  mmap_fd = open("/dev/mem", O_RDWR | O_SYNC);
+  if (mmap_fd < 0) {
+    return -1;
+  }
+
+  reg_base = mmap(NULL, PAGE_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, mmap_fd, AST_GPIO_BASE);
+  reg_offset = (uint8_t *)reg_base + GPION_COMMON_SOURCE_OFFSET;
+  ctrl = *(volatile uint32_t *)reg_offset;
+
+  switch(option) {
+    case POSTCODE_BY_BMC:   // POST code LED controlled by BMC
+      ctrl &= ~0x00000100;
+      break;
+    case POSTCODE_BY_HOST:  // POST code LED controlled by LPC
+      ctrl |= 0x00000100;
+      break;
+    default:
+      syslog(LOG_WARNING, "pal_mmap: unknown option");
+      break;
+  }
+  *(volatile uint32_t *)reg_offset = ctrl;
+
+  munmap(reg_base, PAGE_SIZE);
+  close(mmap_fd);
+
+  return 0;
+}
+
+int
+pal_uart_select_led_set(void) {
+  static uint32_t pre_channel = 0xFF;
+  uint32_t channel;
+  uint32_t vals;
+  const char *uartsw_pins[] = {
+    "FM_UARTSW_MSB_N",
+    "FM_UARTSW_LSB_N",
+  };
+  const char *postcode_pins[] = {
+    "LED_POSTCODE_0",
+    "LED_POSTCODE_1",
+    "LED_POSTCODE_2",
+    "LED_POSTCODE_3",
+    "LED_POSTCODE_4",
+    "LED_POSTCODE_5",
+    "LED_POSTCODE_6",
+    "LED_POSTCODE_7"
+  };
+
+  pal_postcode_select(POSTCODE_BY_BMC);
+
+  if (gpio_get_value_by_shadow_list(uartsw_pins, ARRAY_SIZE(uartsw_pins), &vals)) {
+    return -1;
+  }
+  channel = ~vals & 0x3;  // the GPIOs are active-low, so invert it
+
+  if (channel != pre_channel) {
+    // show channel on 7-segment display
+    if (gpio_set_value_by_shadow_list(postcode_pins, ARRAY_SIZE(postcode_pins), channel)) {
+      return -1;
+    }
+    pre_channel = channel;
+  }
+
+  return 0;
 }
