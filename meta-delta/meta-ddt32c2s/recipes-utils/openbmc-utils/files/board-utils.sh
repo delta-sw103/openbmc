@@ -22,14 +22,10 @@
 . /usr/local/bin/i2c-utils.sh
 
 SYSFPGA_SYSFS_DIR=$(i2c_device_sysfs_abspath 3-0036)
+PORTPLD_A_SYSFS_DIR=$(i2c_device_sysfs_abspath 24-0041)
+PORTPLD_B_SYSFS_DIR=$(i2c_device_sysfs_abspath 24-0045)
 
-# RESET
-# VR_3V3_RST_SYSFS="${SWPLD1_SYSFS_DIR}/vr_3v3_rst"
-
-
-# CPLD version
-# SWPLD1_BOARD_ID=$(head -n 1 "$SWPLD1_SYSFS_DIR/board_id" 2> /dev/null)
-# SWPLD1_BOARD_VER=$(head -n 1 "$SWPLD1_SYSFS_DIR/board_ver" 2> /dev/null)
+# FPGA version
 SYSFPGA_VER=$(head -n 1 "$SYSFPGA_SYSFS_DIR/fpga_ver" 2> /dev/null)
 
 # PSU
@@ -40,10 +36,13 @@ PSU2_ENABLE=$(head -n 1 "$SYSFPGA_SYSFS_DIR/psu2_enable" 2> /dev/null)
 PSU1_PWR_OK=$(head -n 1 "$SYSFPGA_SYSFS_DIR/psu1_pwr_ok" 2> /dev/null)
 PSU2_PWR_OK=$(head -n 1 "$SYSFPGA_SYSFS_DIR/psu2_pwr_ok" 2> /dev/null)
 
+# POWER
+MB_PWR_STATUS_SYS="$SYSFPGA_SYSFS_DIR/mb_pwr_status"
 
 # Called by power-on.sh, wedge_power.sh
-wedge_is_us_on() {
-    return 0
+wedge_is_us_on(){
+    MB_PWR_STATUS=$(head -n 1 "$MB_PWR_STATUS_SYS" 2> /dev/null)
+    echo "$((MB_PWR_STATUS))"
 }
 
 # Called by setup_i2c.sh
@@ -52,11 +51,11 @@ wedge_board_type_rev(){
 }
 
 # Called by setup_default_gpio.sh
-delta_board_rev() {
-    echo "$SWPLD1_BOARD_VER"
+delta_board_rev(){
+    echo "$SYSFPGA_VER"
 }
 
-delta_prepare_cpld_update() {
+delta_prepare_cpld_update(){
     echo "Stop fscd service."
     sv stop fscd
 

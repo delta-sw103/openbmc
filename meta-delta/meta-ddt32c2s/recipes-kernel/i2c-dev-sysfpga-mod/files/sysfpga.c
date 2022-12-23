@@ -267,8 +267,7 @@ static const i2c_dev_attr_st sysfpga_attr_table[] = {
         "psu1_enable",
         "0: Disable\n"
         "1: Enable(Default)\n",
-        fpga_read,
-        fpga_write,
+        fpga_read, fpga_write,
         0x1C, 0, 1,
     },
     {
@@ -319,9 +318,23 @@ static const i2c_dev_attr_st sysfpga_attr_table[] = {
         0x20, 21, 1,
     },
     {
+        "stb_pwr_status",
+        "0: Power Off\n"
+        "1: Power On\n",
+        fpga_read, NULL,
+        0x20, 24, 1,
+    },
+    {
+        "mb_pwr_status",
+        "0: Power Off\n"
+        "1: Power On\n",
+        fpga_read, NULL,
+        0x20, 25, 1,
+    },
+    {
         "system_pwr",
-        "0: System off\n"
-        "1: System on\n",
+        "0: System hold off\n"
+        "1: System on - Normal operation\n",
         fpga_read, fpga_protect_write,
         0x30, 8, 1,
     },
