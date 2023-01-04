@@ -17,8 +17,17 @@
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
-
 LOCAL_URI += " \
     file://me.cpp \
     file://plat_cover.cpp \
+    file://swb_cover.cpp \
+    file://retimer.cpp \
     "
+
+
+DEPENDS += " \
+    libretimer \
+    "
+
+RDEPENDS:${PN} += "libretimer"
+

@@ -39,9 +39,11 @@ LOCAL_URI += " \
     file://nic_ext.cpp \
     file://vr_fw.h \
     file://vr_fw.cpp \
-    file://swb_bic.cpp \
+    file://swb_common.cpp \
+    file://swb_cover.cpp \
     file://hgx.cpp \
     file://signed_info.hpp \
+    file://retimer.cpp \
     "
 
 DEPENDS += " \
@@ -58,6 +60,7 @@ DEPENDS += " \
     libpldm-oem \
     libpldm-oem \
     libvr \
+    libpal \
     "
 
 RDEPENDS:${PN} += "libmcu libpal libfpga libvr libncsi libnl-wrapper libkv libobmc-i2c libnm libbic libpldm-oem libobmc-mctp libipmi libpldm-oem libgpio-ctrl libhgx"

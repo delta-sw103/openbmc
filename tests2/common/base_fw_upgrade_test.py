@@ -45,16 +45,16 @@ try:
     sys.path.insert(0, DEV_SERVER_RESOURCE_PATH)
     import fw_json as fw_up
     from constants import (
-        UFW_NAME,
-        UFW_VERSION,
-        UFW_HASH,
-        UFW_HASH_VALUE,
         HashType,
-        UFW_GET_VERSION,
         UFW_CMD,
         UFW_CONDITION,
         UFW_ENTITY_INSTANCE,
+        UFW_GET_VERSION,
+        UFW_HASH,
+        UFW_HASH_VALUE,
+        UFW_NAME,
         UFW_PRIORITY,
+        UFW_VERSION,
     )
     from entity_upgrader import FwEntityUpgrader, FwUpgrader
 except Exception:
@@ -399,6 +399,7 @@ class BaseFwUpgradeTest(object):
         tmp_json_data = {}
         clone_origin_json = copy.deepcopy(self.json)
         is_sub_entity_exist = False
+        is_entity_instance_list_exist = False
         for fw_entity in clone_origin_json:
             entity_obj = clone_origin_json.get(fw_entity, None)
             if UFW_ENTITY_INSTANCE in entity_obj:
@@ -413,6 +414,11 @@ class BaseFwUpgradeTest(object):
                     cmd_to_execute = entity_obj.get(UFW_CONDITION, "").format(
                         entity=instance
                     )
+                    # we can have several different type of pims in a switch
+                    # so we set this variable to true meaning that the pim
+                    # entity retrieve does have a  list of pims [1,2, ..., 8]
+                    # for upgrading purpose.
+                    is_entity_instance_list_exist = True
 
                     if (
                         self.check_entity_condition(condition_cmd=cmd_to_execute)
@@ -442,6 +448,19 @@ class BaseFwUpgradeTest(object):
             if is_sub_entity_exist:
                 self.json.pop(fw_entity)
                 is_sub_entity_exist = False
+
+        # some entities contains subentities of various types
+        # for example minipack can have both pim16q and pim16o
+        # inserted in the same chassis. Since there will always
+        # be pim in a units, if a subentities is not supported (aka
+        # the pim type is not detected in fpga_ver output) then
+        # we should skip that test. Testing for output of fpga_ver
+        # is covered in openbmc_cit test to ensure all pims are present
+        # In order words, the 2 lines of codes below means that we
+        # have a pim list [1, 2, .. , 8], but we didn't detect any
+        # pims that match that specific type.
+        if not tmp_json_data and is_entity_instance_list_exist:
+            self.skipTest("This entity type is not supported... skipping this test")
 
         self.json.update(tmp_json_data)
 

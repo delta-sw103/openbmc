@@ -6,10 +6,11 @@ pal_headers += [
     'pal_sensors.h',
     'pal_mb_sensors.h',
     'pal_swb_sensors.h',
-    'pal_hmc_sensors.h',
+    'pal_hgx_sensors.h',
     'pal_bb_sensors.h',
     'pal_def.h',
-    'pal_def_cover.h'
+    'pal_def_cover.h',
+    'pal_acb_sensors.h'
     ]
 
 pal_sources += [
@@ -21,8 +22,9 @@ pal_sources += [
     'pal_mb_sensors.c',
     'pal_swb_sensors.c',
     'pal_bb_sensors.c',
-    'pal_hmc_sensors.c',
-    'pal_cover.c'
+    'pal_hgx_sensors.c',
+    'pal_cover.c',
+    'pal_acb_sensors.c'
     ]
 
 pal_deps += [
@@ -42,4 +44,5 @@ pal_deps += [
     dependency('libobmc-pmbus'),
     dependency('libobmc-sensors'),
     dependency('libpldm-oem'),
+    dependency('libretimer'),
     ]
