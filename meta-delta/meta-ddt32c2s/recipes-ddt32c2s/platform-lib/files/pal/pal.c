@@ -3987,3 +3987,11 @@ pal_get_fru_capability(uint8_t fru, unsigned int *caps)
   *caps = ( FRU_CAPABILITY_ALL & (~FRU_CAPABILITY_HAS_DEVICE) & (~FRU_CAPABILITY_SENSOR_SLAVE));
   return 0;
 }
+
+int
+pal_is_slot_server(uint8_t fru) {
+  if (fru == FRU_SMB) {
+    return 1;
+  }
+  return 0;
+}
