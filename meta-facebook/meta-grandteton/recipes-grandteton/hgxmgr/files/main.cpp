@@ -50,6 +50,15 @@ static void do_post(const std::string& subpath, std::string& args) {
   std::cout << out << std::endl;
 }
 
+static void do_patch(const std::string& url, std::string& args) {
+  std::string out = hgx::redfishPatch(url, std::move(args));
+  std::cout << out << std::endl;
+}
+
+static void do_get_snr_metric() {
+  hgx::getMetricReports();
+}
+
 int main(int argc, char* argv[]) {
   CLI::App app("HGX Helper Utility");
   app.failure_message(CLI::FailureMessage::help);
@@ -73,11 +82,6 @@ int main(int argc, char* argv[]) {
       "--async", async, "Do not block, return immediately printing the task ID");
   update->callback([&]() { do_update(image, async, json_fmt); });
 
-  std::string taskID{};
-  auto taskid = app.add_subcommand("get-task", "Get Task Status");
-  taskid->add_option("id", taskID, "Task ID")->required();
-  taskid->callback([&]() { do_task_status(taskID, json_fmt); });
-
   std::string fru{};
   std::string sensorName{};
   auto sensor = app.add_subcommand("sensor", "Get sensor value");
@@ -90,12 +94,25 @@ int main(int argc, char* argv[]) {
   get->add_option("SUBPATH", subpath, "Subpath after /redfish/v1")->required();
   get->callback([&]() { do_get(subpath); });
 
+  std::string taskID{};
+  auto taskid = app.add_subcommand("get-task", "Get Task Status");
+  taskid->add_option("id", taskID, "Task ID")->required();
+  taskid->callback([&]() { do_task_status(taskID, json_fmt); });
+
+  auto snr_metrics = app.add_subcommand("get-snr-metrics", "Get sensor metrics from Telemetry service");
+  snr_metrics->callback([&]() { do_get_snr_metric(); });
+
   std::string args{};
   auto post =
       app.add_subcommand("post", "Perform a POST on the redfish subpath");
   post->add_option("SUBPATH", subpath, "Subpath after /redfish/v1")->required();
   post->add_option("args", args, "JSON arguments for post")->required();
   post->callback([&]() { do_post(subpath, args); });
+
+  auto patch = app.add_subcommand("patch", "Perform a Patch on the redfish subpath");
+  patch->add_option("SUBPATH", subpath, "Subpath after /redfish/v1")->required();
+  patch->add_option("args", args, "JSON arguments for patch")->required();
+  patch->callback([&]() { do_patch(subpath, args); });
 
   app.require_subcommand(/* min */ 1, /* max */ 1);
 

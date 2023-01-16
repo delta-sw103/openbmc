@@ -291,6 +291,7 @@ enum {
 enum {
   SERVER_TYPE_CL = 0x0,
   SERVER_TYPE_HD = 0x2,
+  SERVER_TYPE_GL = 0x4,
   SERVER_TYPE_NONE = 0xFF,
 };
 
@@ -436,7 +437,7 @@ enum {
 };
 
 enum {
-  // BB HSC
+  // BB HSC / Halfdome HSC
   HSC_ADM1278 = 0,
   HSC_LTC4286,
   HSC_MP5990,

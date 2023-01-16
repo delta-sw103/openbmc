@@ -69,7 +69,7 @@ const char pal_dev_fru_list[] = "all, 1U, 2U, 3U, 4U, 1U-dev0, 1U-dev1, 1U-dev2,
 const char pal_dev_pwr_list[] = "all, 1U-dev0, 1U-dev1, 1U-dev2, 1U-dev3, 2U-dev0, 2U-dev1, 2U-dev2, 2U-dev3, 2U-dev4, 2U-dev5, " \
                             "2U-dev6, 2U-dev7, 2U-dev8, 2U-dev9, 2U-dev10, 2U-dev11, 2U-dev12, 2U-dev13";
 const char pal_dev_pwr_option_list[] = "status, off, on, cycle";
-const char *pal_vr_addr_list[] = {"c0h", "c4h", "ech", "c2h", "c6h", "c8h", "cch", "d0h", "96h", "9ch", "9eh"};
+const char *pal_vr_addr_list[] = {"c0h", "c4h", "ech", "c2h", "c6h", "c8h", "cch", "d0h", "96h", "9ch", "9eh", "8ah", "8ch", "8eh"};
 const char *pal_vr_1ou_addr_list[] = {"b0h", "b4h", "c8h"};
 const char *pal_server_fru_list[NUM_SERVER_FRU] = {"slot1", "slot2", "slot3", "slot4"};
 const char *pal_nic_fru_list[NUM_NIC_FRU] = {"nic"};
@@ -1967,7 +1967,7 @@ pal_is_slot_server(uint8_t fru)
 {
   int ret = fby35_common_get_slot_type(fru);
 
-  if ((ret == SERVER_TYPE_CL) || (ret == SERVER_TYPE_HD)) {
+  if ((ret == SERVER_TYPE_CL) || (ret == SERVER_TYPE_HD) || (ret == SERVER_TYPE_GL)) {
     return 1;
   }
   return 0;
@@ -3176,40 +3176,6 @@ pal_clear_vr_crc(uint8_t fru) {
 
     snprintf(ver_key, sizeof(ver_key), VR_1OU_CRC_STR, fru, pal_vr_1ou_addr_list[j]);
     kv_del(ver_key, 0);
-  }
-  return 0;
-}
-
-static void
-pal_move_kv(char* key, uint8_t action) {
-  int ret = 0;
-  char value[MAX_VALUE_LEN] = {0};
-  unsigned int src,dst;
-
-  src = (action == PERSIST_TO_TEMP) ? KV_FPERSIST : 0;
-  dst = (action == PERSIST_TO_TEMP) ? 0 : KV_FPERSIST;
-
-  if (kv_get(key, value, NULL, src) == 0) {
-    ret = kv_set(key, value, 0, dst);
-    if (ret < 0) {
-      syslog(LOG_WARNING, "%s() Fail to set the key \"%s\"", __func__, key);
-    }
-    kv_del(key, src);
-  }
-}
-
-int
-pal_move_vr_new_crc(uint8_t fru, uint8_t action) {
-  char ver_key[MAX_KEY_LEN] = {0};
-
-  for (int j = 0; j < ARRAY_SIZE(pal_vr_addr_list); j++) {
-    snprintf(ver_key, sizeof(ver_key), VR_NEW_CRC_STR, fru, pal_vr_addr_list[j]);
-    pal_move_kv(ver_key, action);
-  }
-
-  for (int j = 0; j < ARRAY_SIZE(pal_vr_1ou_addr_list); j++) {
-    snprintf(ver_key, sizeof(ver_key), VR_1OU_NEW_CRC_STR, fru, pal_vr_1ou_addr_list[j]);
-    pal_move_kv(ver_key, action);
   }
   return 0;
 }

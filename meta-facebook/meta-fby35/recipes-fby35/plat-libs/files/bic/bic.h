@@ -98,10 +98,20 @@ enum {
   VDDCR_CPU1_MPS_ADDR = 0x9C,
   VDD11S3_MPS_ADDR = 0x96,
 
+  /*----halfdome TI VR ADDR-----*/
+  VDDCR_CPU0_TI_ADDR = 0x8A,
+  VDDCR_CPU1_TI_ADDR = 0x8C,
+  VDD11S3_TI_ADDR = 0x8E,
+
   /*----Rainbow Falls VR ADDR-----*/
   VR_1OU_V9_ASICA_ADDR = 0xC8,
   VR_1OU_VDDQAB_ADDR = 0xB0,
   VR_1OU_VDDQCD_ADDR = 0xB4,
+
+  /*----greatlake VR ADDR-----*/
+  GL_VCCIN_ADDR = 0xDC,
+  GL_VCCD_ADDR = 0xD4,
+  GL_VCCINFAON_ADDR = 0xC0
 };
 
 // M2 info

@@ -30,6 +30,9 @@ std::string redfishGet(const std::string& subpath);
 // Example, get on 192.168.31.1/redfish/v1/blah, the subpath = blah
 std::string redfishPost(const std::string& subpath, std::string&& args);
 
+// Patch a subpath after /redfish/v1
+std::string redfishPatch(const std::string& subpath, std::string&& args);
+
 // Return the version of the component
 std::string version(const std::string& comp, bool returnJson = false);
 
@@ -38,9 +41,16 @@ std::string version(const std::string& comp, bool returnJson = false);
 // status.
 std::string updateNonBlocking(const std::string& path, bool returnJson = false);
 
+// Patch EroT and HMC before updating FW
+int patch_bf_update();
+
 // Initiate an update and wait till the task
 // completes.
-void update(const std::string& path);
+int update(const std::string& path);
+
+// Get HGX's sensors from Telemetry Service
+// status.
+void getMetricReports();
 
 // Get task status (JSON output)
 TaskStatus getTaskStatus(const std::string& id);
@@ -56,6 +66,7 @@ std::string sensorRaw(const std::string& component, const std::string& name);
 extern "C" {
 #endif
 
+int hgx_get_metric_reports(void);
 int get_hgx_sensor(const char* component, const char* snr_name, float* value);
 int get_hgx_ver(const char* component, char *version);
 

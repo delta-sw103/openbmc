@@ -20,6 +20,7 @@
 #define HD_VR_RENESAS 0x0
 #define HD_VR_INFINEON 0x1
 #define HD_VR_MPS 0x2
+#define HD_VR_TI 0x3
 
 static uint8_t slot_id = 0;
 static char fru_name[64] = {0};  // prefix of vr version cache (kv)
@@ -101,6 +102,16 @@ plat_xdpe12284c_fw_update(struct vr_info *info, void *args) {
   return ret;
 }
 
+int
+sb_vr_polling_ctrl(bool enable) {
+  return bic_set_vr_monitor_enable(slot_id, enable, NONE_INTF);
+}
+
+int
+exp_1ou_vr_polling_ctrl(bool enable) {
+  return bic_set_vr_monitor_enable(slot_id, enable, FEXP_BIC_INTF);
+}
+
 struct vr_ops rns_ops = {
   .get_fw_ver = get_raa_ver,
   .parse_file = raa_parse_file,
@@ -173,6 +184,7 @@ struct vr_info fby35_vr_list[] = {
     .ops = &rns_ops,
     .private_data = fru_name,
     .xfer = &fby35_vr_rdwr,
+    .sensor_polling_ctrl = sb_vr_polling_ctrl,
   },
   {
     .bus = SB_VR_BUS,
@@ -181,6 +193,7 @@ struct vr_info fby35_vr_list[] = {
     .ops = &rns_ops,
     .private_data = fru_name,
     .xfer = &fby35_vr_rdwr,
+    .sensor_polling_ctrl = sb_vr_polling_ctrl,
   },
   {
     .bus = SB_VR_BUS,
@@ -189,6 +202,7 @@ struct vr_info fby35_vr_list[] = {
     .ops = &rns_ops,
     .private_data = fru_name,
     .xfer = &fby35_vr_rdwr,
+    .sensor_polling_ctrl = sb_vr_polling_ctrl,
   },
   {
     .bus = RBF_BIC_VR_BUS,
@@ -197,6 +211,7 @@ struct vr_info fby35_vr_list[] = {
     .ops = &rns_ops,
     .private_data = fru_exp_name,
     .xfer = &rbf_vr_rdwr,
+    .sensor_polling_ctrl = exp_1ou_vr_polling_ctrl,
   },
   {
     .bus = RBF_BIC_VR_BUS,
@@ -205,6 +220,7 @@ struct vr_info fby35_vr_list[] = {
     .ops = &rns_ops,
     .private_data = fru_exp_name,
     .xfer = &rbf_vr_rdwr,
+    .sensor_polling_ctrl = exp_1ou_vr_polling_ctrl,
   },
   {
     .bus = RBF_BIC_VR_BUS,
@@ -213,6 +229,7 @@ struct vr_info fby35_vr_list[] = {
     .ops = &rns_ops,
     .private_data = fru_exp_name,
     .xfer = &rbf_vr_rdwr,
+    .sensor_polling_ctrl = exp_1ou_vr_polling_ctrl,
   }
 };
 
@@ -255,26 +272,23 @@ void fby35_vr_device_check(void){
 void halfdome_vr_device_check(void){
   uint8_t board_rev = 0;
   int ret = 0;
+  struct vr_ops* hd_vr_ops_list[] = {&rns_ops, &ifx_ops, &mps_ops, &ti_ops};
+  int hd_vr_addr_table[][3] = {
+    {VDDCR_CPU0_ADDR,     VDDCR_CPU1_ADDR,     VDD11S3_ADDR},
+    {VDDCR_CPU0_IFX_ADDR, VDDCR_CPU1_IFX_ADDR, VDD11S3_IFX_ADDR},
+    {VDDCR_CPU0_MPS_ADDR, VDDCR_CPU1_MPS_ADDR, VDD11S3_MPS_ADDR},
+    {VDDCR_CPU0_TI_ADDR,  VDDCR_CPU1_TI_ADDR,  VDD11S3_TI_ADDR}
+  };
 
   ret = get_board_rev(slot_id, BOARD_ID_SB, &board_rev);
   if (ret < 0) {
       printf("Failed to get board revision ID, slot=%d\n", slot_id);
   }
   board_rev = (board_rev & HD_VR_REVID_MASK) >> 4;
-  if(board_rev == HD_VR_INFINEON) {
-    fby35_vr_list[VR_HD_VDDCR_CPU0].addr = VDDCR_CPU0_IFX_ADDR;
-    fby35_vr_list[VR_HD_VDDCR_CPU0].ops = &ifx_ops;
-    fby35_vr_list[VR_HD_VDDCR_CPU1].addr = VDDCR_CPU1_IFX_ADDR;
-    fby35_vr_list[VR_HD_VDDCR_CPU1].ops = &ifx_ops;
-    fby35_vr_list[VR_HD_VDD11S3].addr = VDD11S3_IFX_ADDR;
-    fby35_vr_list[VR_HD_VDD11S3].ops = &ifx_ops;
-  } else if (board_rev == HD_VR_MPS) {
-    fby35_vr_list[VR_HD_VDDCR_CPU0].addr = VDDCR_CPU0_MPS_ADDR;
-    fby35_vr_list[VR_HD_VDDCR_CPU0].ops = &mps_ops;
-    fby35_vr_list[VR_HD_VDDCR_CPU1].addr = VDDCR_CPU1_MPS_ADDR;
-    fby35_vr_list[VR_HD_VDDCR_CPU1].ops = &mps_ops;
-    fby35_vr_list[VR_HD_VDD11S3].addr = VDD11S3_MPS_ADDR;
-    fby35_vr_list[VR_HD_VDD11S3].ops = &mps_ops;
+
+  for (int i = VR_HD_VDDCR_CPU0; i <= VR_HD_VDD11S3; i++) {
+    fby35_vr_list[i].addr = hd_vr_addr_table[board_rev][i - VR_HD_VDDCR_CPU0] ;
+    fby35_vr_list[i].ops = hd_vr_ops_list[board_rev];
   }
 }
 
@@ -299,13 +313,27 @@ void rbf_vr_device_check(void){
   }
 }
 
+void greatlakes_vr_device_check(void){
+  fby35_vr_list[VR_CL_VCCIN].addr = GL_VCCIN_ADDR;
+  fby35_vr_list[VR_CL_VCCD].addr = GL_VCCD_ADDR;
+  fby35_vr_list[VR_CL_VCCINFAON].addr = GL_VCCINFAON_ADDR;
+}
+
 int plat_vr_init(void) {
   int config_status = 0;
   int vr_cnt = sizeof(fby35_vr_list)/sizeof(fby35_vr_list[0]);
   uint8_t type_1ou = TYPE_1OU_UNKNOWN;
+  int server_type = SERVER_TYPE_NONE;
 
-  if (fby35_common_get_slot_type(slot_id) == SERVER_TYPE_HD) {
+  server_type = fby35_common_get_slot_type(slot_id);
+  if (server_type < 0) {
+    syslog(LOG_WARNING, "%s() Error while getting slot%d type: %d", __func__, slot_id, server_type);
+  }
+
+  if (server_type == SERVER_TYPE_HD) {
     halfdome_vr_device_check();
+  } else if (server_type == SERVER_TYPE_GL) {
+    greatlakes_vr_device_check();
   } else {
     fby35_vr_device_check();
   }
