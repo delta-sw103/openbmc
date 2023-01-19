@@ -11,7 +11,7 @@ RULES_REGEXP = {
     },
     r"^/redfish/v1/Systems/.*": {
         "GET": [],
-        "POST": [],
+        "POST": ["root"],
         "DELETE": [],
         "PATCH": [],
         "PUT": [],
