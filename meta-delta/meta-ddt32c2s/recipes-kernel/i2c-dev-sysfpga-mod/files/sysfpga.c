@@ -339,6 +339,15 @@ static const i2c_dev_attr_st sysfpga_attr_table[] = {
         0x30, 8, 1,
     },
     {
+        "uart_mux_ctrl",
+        "0: Scenario 1\n"
+        "1: Scenario 2(SOL)\n"
+        "2: Scenario 3\n"
+        "3: RD Test Mode(default)\n",
+        fpga_read, fpga_write,
+        0x40, 0, 2,
+    },
+    {
         "test_reg",
         "Test register for BMC, read/Write in MSB.\n",
         fpga_read, fpga_write,
