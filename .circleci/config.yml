@@ -198,7 +198,9 @@ workflows:
                             wedge400,
                             yamp,
                             yosemite,
+                            # Delta machine
                             agc032a,
+                            ddt32c2s,
                             ]
             - unit-test:
                 requires:
@@ -222,5 +224,7 @@ workflows:
                             yamp,
                             fbttn,
                             fbtp,
+                            # Delta machine
                             agc032a,
+                            ddt32c2s,
                             ]

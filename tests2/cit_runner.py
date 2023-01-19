@@ -210,7 +210,9 @@ def arg_parser():
             "churchillmono",
             "sandia",
             "grandteton",
+            # Delta machine
             "agc032a",
+            "ddt32c2s",
         ],
     )
     parser.add_argument(
